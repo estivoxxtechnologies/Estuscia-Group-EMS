@@ -1,0 +1,41 @@
+@import "tailwindcss";
+
+@layer base {
+  :root {
+    --brand-primary: #5C3FE0;
+    --brand-primary-hover: #7152FF;
+    --brand-bg: #040312;
+    --brand-card: #0d0b26;
+    --brand-border: #231e54;
+  }
+}
+
+/* Custom slick dark scrollbar */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: #040312;
+}
+::-webkit-scrollbar-thumb {
+  background: #282161;
+  border-radius: 9999px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #5C3FE0;
+}
+
+@keyframes pulseGlow {
+  0%, 100% {
+    box-shadow: 0 0 15px rgba(92, 63, 224, 0.25);
+  }
+  50% {
+    box-shadow: 0 0 25px rgba(92, 63, 224, 0.45);
+  }
+}
+
+.glow-brand {
+  animation: pulseGlow 4s ease-in-out infinite;
+}
+

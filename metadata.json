@@ -1,0 +1,6 @@
+{
+  "name": "Estuscia EMS",
+  "description": "Enterprise Employee Management System (EMS) with role-based module control, attendance Excel batch uploads, daily work & call logs, developer narrations, investment slabs, customer deposit receipts, and CEO knowledge hub.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
