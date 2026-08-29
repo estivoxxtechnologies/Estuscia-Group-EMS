@@ -1,6 +1,4 @@
 import React, { useState } from 'react';
-import { useApp } from '../context/AppContext';
-import { Role } from '../types';
 import { EstusciaLogo } from './EstusciaLogo';
 import {
   ShieldCheck,
@@ -20,13 +18,15 @@ import {
   Eye,
   EyeOff,
 } from 'lucide-react';
+import { loginUser } from '../api/auth';
 
 export const AuthView: React.FC = () => {
-  const { login, signup, users, tenants } = useApp();
+  const [loginError, setLoginError] = useState('');
+  const [isLoggingIn, setIsLoggingIn] = useState(false);
   const [authMode, setAuthMode] = useState<'login' | 'signup'>('login');
-  const [email, setEmail] = useState('sarah.chen@estusciagroup.com');
-  const [password, setPassword] = useState('••••••••••••');
   const [showPassword, setShowPassword] = useState(false);
+  const [password, setPassword] = useState('');
+  const [email, setEmail] = useState('');
 
   // Signup form state
   const [signupType, setSignupType] = useState<'employee' | 'company'>('employee');
@@ -40,113 +40,143 @@ export const AuthView: React.FC = () => {
   const [plan, setPlan] = useState<'Growth' | 'Enterprise Pro'>('Enterprise Pro');
   const [currency, setCurrency] = useState('USD ($)');
 
-  const handleLoginSubmit = (e: React.FormEvent) => {
+  const handleLoginSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    login(email, password);
-  };
 
-  const handleQuickLogin = (targetRole: Role, userEmail: string) => {
-    setEmail(userEmail);
-    login(userEmail, 'demo123', targetRole);
-  };
+    setLoginError('');
+    setIsLoggingIn(true);
 
-  const handleSignupSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (signupType === 'company') {
-      signup(
-        {
-          name: name || 'Company Admin',
-          email: signupEmail || 'admin@clientcorp.com',
-          role: 'company_admin',
-          designation: 'Managing Director & Platform Owner',
-          department: 'Executive Leadership',
-        },
-        {
-          name: companyName || 'Apex Capital Partners',
-          domain: companyDomain || 'apexcapital.com',
-          plan,
-          currency,
-          branches: ['Headquarters', 'Branch 1'],
-          departments: ['Investment Advisory', 'Operations & HR', 'Technology', 'Risk'],
-        }
+    try {
+      const response = await loginUser(email, password);
+
+      localStorage.setItem(
+        'accessToken',
+        response.accessToken
       );
-    } else {
-      signup({
-        name: name || 'New Team Member',
-        email: signupEmail || 'member@estusciagroup.com',
-        role: designation.toLowerCase().includes('developer')
-          ? 'developer'
-          : designation.toLowerCase().includes('hr')
-          ? 'hr_ops'
-          : 'staff',
-        designation,
-        department,
-      });
+
+      localStorage.setItem(
+        'refreshToken',
+        response.refreshToken
+      );
+
+      localStorage.setItem(
+        'user',
+        JSON.stringify(response.user)
+      );
+
+      console.log('Logged in user:', response.user);
+
+      // Temporary:
+      // After we connect your routing/dashboard,
+      // redirect will happen here.
+      window.location.href = '/dashboard';
+
+    } catch (error) {
+      setLoginError(
+        error instanceof Error
+          ? error.message
+          : 'Login failed.'
+      );
+    } finally {
+      setIsLoggingIn(false);
     }
   };
 
-  const demoRoles = [
-    {
-      role: 'super_admin' as Role,
-      label: 'Super Admin / Executive',
-      name: 'Alexander Sterling',
-      email: 'alexander.sterling@estusciagroup.com',
-      badge: 'Full Executive Access',
-      desc: 'Company progression, financial slabs, client onboarding & global controls',
-      icon: <ShieldCheck className="w-5 h-5 text-amber-400" />,
-      color: 'border-amber-500/30 hover:border-amber-500/60 bg-amber-500/5',
-    },
-    {
-      role: 'company_admin' as Role,
-      label: 'Company Admin / COO',
-      name: 'Elena Rostova',
-      email: 'elena.rostova@estusciagroup.com',
-      badge: 'Admin & Ops',
-      desc: 'Operations oversight, designation permissions & attendance management',
-      icon: <Building2 className="w-5 h-5 text-indigo-400" />,
-      color: 'border-indigo-500/30 hover:border-indigo-500/60 bg-indigo-500/5',
-    },
-    {
-      role: 'hr_ops' as Role,
-      label: 'HR & Payroll Head',
-      name: 'Priya Narang',
-      email: 'priya.narang@estusciagroup.com',
-      badge: 'HR / Biometric Upload',
-      desc: 'Biometric Excel upload, payroll generation, employee onboarding',
-      icon: <Users className="w-5 h-5 text-emerald-400" />,
-      color: 'border-emerald-500/30 hover:border-emerald-500/60 bg-emerald-500/5',
-    },
-    {
-      role: 'manager' as Role,
-      label: 'Branch / Sales Manager',
-      name: 'Marcus Vance',
-      email: 'marcus.vance@estusciagroup.com',
-      badge: 'Team Lead',
-      desc: 'Review daily call logs, approve incentive deals & branch performance',
-      icon: <Briefcase className="w-5 h-5 text-cyan-400" />,
-      color: 'border-cyan-500/30 hover:border-cyan-500/60 bg-cyan-500/5',
-    },
-    {
-      role: 'staff' as Role,
-      label: 'Sales Advisor / Staff',
-      name: 'Sarah Chen',
-      email: 'sarah.chen@estusciagroup.com',
-      badge: 'Frontline Sales',
-      desc: 'Daily call logger, customer deposit slips, targets & incentives (No company stats)',
-      icon: <TrendingUp className="w-5 h-5 text-purple-400" />,
-      color: 'border-[#5C3FE0]/40 hover:border-[#5C3FE0]/80 bg-[#5C3FE0]/10',
-    },
-    {
-      role: 'developer' as Role,
-      label: 'Software Developer',
-      name: 'Rohan Mehta',
-      email: 'rohan.mehta@estusciagroup.com',
-      badge: 'Engineering',
-      desc: 'Daily task narrations, PR submissions, personal attendance & payslips',
-      icon: <Code className="w-5 h-5 text-blue-400" />,
-      color: 'border-blue-500/30 hover:border-blue-500/60 bg-blue-500/5',
-    },
-  ];
+  // const handleSignupSubmit = (e: React.FormEvent) => {
+  //   e.preventDefault();
+  //   if (signupType === 'company') {
+  //     signup(
+  //       {
+  //         name: name || 'Company Admin',
+  //         email: signupEmail || 'admin@clientcorp.com',
+  //         role: 'company_admin',
+  //         designation: 'Managing Director & Platform Owner',
+  //         department: 'Executive Leadership',
+  //       },
+  //       {
+  //         name: companyName || 'Apex Capital Partners',
+  //         domain: companyDomain || 'apexcapital.com',
+  //         plan,
+  //         currency,
+  //         branches: ['Headquarters', 'Branch 1'],
+  //         departments: ['Investment Advisory', 'Operations & HR', 'Technology', 'Risk'],
+  //       }
+  //     );
+  //   } else {
+  //     signup({
+  //       name: name || 'New Team Member',
+  //       email: signupEmail || 'member@estusciagroup.com',
+  //       role: designation.toLowerCase().includes('developer')
+  //         ? 'developer'
+  //         : designation.toLowerCase().includes('hr')
+  //           ? 'hr_ops'
+  //           : 'staff',
+  //       designation,
+  //       department,
+  //     });
+  //   }
+  // };
+  //   {
+  //     role: 'super_admin' as Role,
+  //     label: 'Super Admin / Executive',
+  //     name: 'Alexander Sterling',
+  //     email: 'alexander.sterling@estusciagroup.com',
+  //     badge: 'Full Executive Access',
+  //     desc: 'Company progression, financial slabs, client onboarding & global controls',
+  //     icon: <ShieldCheck className="w-5 h-5 text-amber-400" />,
+  //     color: 'border-amber-500/30 hover:border-amber-500/60 bg-amber-500/5',
+  //   },
+  //   {
+  //     role: 'company_admin' as Role,
+  //     label: 'Company Admin / COO',
+  //     name: 'Elena Rostova',
+  //     email: 'elena.rostova@estusciagroup.com',
+  //     badge: 'Admin & Ops',
+  //     desc: 'Operations oversight, designation permissions & attendance management',
+  //     icon: <Building2 className="w-5 h-5 text-indigo-400" />,
+  //     color: 'border-indigo-500/30 hover:border-indigo-500/60 bg-indigo-500/5',
+  //   },
+  //   {
+  //     role: 'hr_ops' as Role,
+  //     label: 'HR & Payroll Head',
+  //     name: 'Priya Narang',
+  //     email: 'priya.narang@estusciagroup.com',
+  //     badge: 'HR / Biometric Upload',
+  //     desc: 'Biometric Excel upload, payroll generation, employee onboarding',
+  //     icon: <Users className="w-5 h-5 text-emerald-400" />,
+  //     color: 'border-emerald-500/30 hover:border-emerald-500/60 bg-emerald-500/5',
+  //   },
+  //   {
+  //     role: 'manager' as Role,
+  //     label: 'Branch / Sales Manager',
+  //     name: 'Marcus Vance',
+  //     email: 'marcus.vance@estusciagroup.com',
+  //     badge: 'Team Lead',
+  //     desc: 'Review daily call logs, approve incentive deals & branch performance',
+  //     icon: <Briefcase className="w-5 h-5 text-cyan-400" />,
+  //     color: 'border-cyan-500/30 hover:border-cyan-500/60 bg-cyan-500/5',
+  //   },
+  //   {
+  //     role: 'staff' as Role,
+  //     label: 'Sales Advisor / Staff',
+  //     name: 'Sarah Chen',
+  //     email: 'sarah.chen@estusciagroup.com',
+  //     badge: 'Frontline Sales',
+  //     desc: 'Daily call logger, customer deposit slips, targets & incentives (No company stats)',
+  //     icon: <TrendingUp className="w-5 h-5 text-purple-400" />,
+  //     color: 'border-[#5C3FE0]/40 hover:border-[#5C3FE0]/80 bg-[#5C3FE0]/10',
+  //   },
+  //   {
+  //     role: 'developer' as Role,
+  //     label: 'Software Developer',
+  //     name: 'Rohan Mehta',
+  //     email: 'rohan.mehta@estusciagroup.com',
+  //     badge: 'Engineering',
+  //     desc: 'Daily task narrations, PR submissions, personal attendance & payslips',
+  //     icon: <Code className="w-5 h-5 text-blue-400" />,
+  //     color: 'border-blue-500/30 hover:border-blue-500/60 bg-blue-500/5',
+  //   },
+  // ];
 
   return (
     <div className="min-h-screen w-full bg-[#040312] text-slate-100 flex flex-col justify-between relative overflow-hidden font-sans">
@@ -180,7 +210,7 @@ export const AuthView: React.FC = () => {
       {/* Main Content Body */}
       <main className="flex-1 relative z-10 max-w-7xl mx-auto w-full px-4 sm:px-6 lg:px-8 py-8 flex items-center justify-center">
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 w-full items-start">
-          
+
           {/* Left Column: Quick Role Switcher / Showcase */}
           <div className="lg:col-span-7 space-y-6">
             <div className="space-y-2">
@@ -197,44 +227,44 @@ export const AuthView: React.FC = () => {
             </div>
 
             {/* Interactive 1-Click Role Switcher Grid */}
-            <div className="space-y-3">
-              <div className="flex items-center justify-between text-xs text-gray-400 font-medium px-1">
-                <span>1-Click Instant Demo Login:</span>
-                <span className="text-[#5C3FE0]">Click any role below to test their portal</span>
-              </div>
+            {/* <div className="space-y-3">
+                <div className="flex items-center justify-between text-xs text-gray-400 font-medium px-1">
+                  <span>1-Click Instant Demo Login:</span>
+                  <span className="text-[#5C3FE0]">Click any role below to test their portal</span>
+                </div>
 
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                {demoRoles.map((demo) => (
-                  <button
-                    key={demo.role}
-                    onClick={() => handleQuickLogin(demo.role, demo.email)}
-                    className={`p-3.5 rounded-xl border text-left transition-all duration-200 group relative overflow-hidden ${demo.color}`}
-                  >
-                    <div className="flex items-start justify-between gap-2 mb-2">
-                      <div className="flex items-center gap-2.5">
-                        <div className="p-2 rounded-lg bg-black/40 border border-white/10 group-hover:scale-105 transition-transform">
-                          {demo.icon}
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  {demoRoles.map((demo) => (
+                    <button
+                      key={demo.role}
+                      onClick={() => handleQuickLogin(demo.role, demo.email)}
+                      className={`p-3.5 rounded-xl border text-left transition-all duration-200 group relative overflow-hidden ${demo.color}`}
+                    >
+                      <div className="flex items-start justify-between gap-2 mb-2">
+                        <div className="flex items-center gap-2.5">
+                          <div className="p-2 rounded-lg bg-black/40 border border-white/10 group-hover:scale-105 transition-transform">
+                            {demo.icon}
+                          </div>
+                          <div>
+                            <p className="text-xs font-bold text-white group-hover:text-purple-300 transition-colors">
+                              {demo.label}
+                            </p>
+                            <p className="text-[11px] text-gray-400">{demo.name}</p>
+                          </div>
                         </div>
-                        <div>
-                          <p className="text-xs font-bold text-white group-hover:text-purple-300 transition-colors">
-                            {demo.label}
-                          </p>
-                          <p className="text-[11px] text-gray-400">{demo.name}</p>
-                        </div>
+                        <span className="text-[10px] font-semibold px-2 py-0.5 rounded bg-white/10 text-gray-300 border border-white/10">
+                          {demo.badge}
+                        </span>
                       </div>
-                      <span className="text-[10px] font-semibold px-2 py-0.5 rounded bg-white/10 text-gray-300 border border-white/10">
-                        {demo.badge}
-                      </span>
-                    </div>
-                    <p className="text-[11px] text-gray-400 leading-relaxed">{demo.desc}</p>
-                    <div className="mt-2.5 pt-2 border-t border-white/5 flex items-center justify-between text-[10px] text-gray-500 font-medium">
-                      <span>Click to log in as {demo.name.split(' ')[0]}</span>
-                      <ArrowRight className="w-3 h-3 text-[#5C3FE0] group-hover:translate-x-1 transition-transform" />
-                    </div>
-                  </button>
-                ))}
-              </div>
-            </div>
+                      <p className="text-[11px] text-gray-400 leading-relaxed">{demo.desc}</p>
+                      <div className="mt-2.5 pt-2 border-t border-white/5 flex items-center justify-between text-[10px] text-gray-500 font-medium">
+                        <span>Click to log in as {demo.name.split(' ')[0]}</span>
+                        <ArrowRight className="w-3 h-3 text-[#5C3FE0] group-hover:translate-x-1 transition-transform" />
+                      </div>
+                    </button>
+                  ))}
+                </div>
+              </div> */}
 
             {/* Feature Highlights */}
             <div className="grid grid-cols-3 gap-3 pt-2 text-xs">
@@ -267,28 +297,26 @@ export const AuthView: React.FC = () => {
           {/* Right Column: Standard Auth Box */}
           <div className="lg:col-span-5">
             <div className="p-6 sm:p-7 rounded-2xl bg-[#09081E] border border-white/10 shadow-2xl shadow-purple-950/20 backdrop-blur-xl relative">
-              
+
               {/* Tab Switcher: Login / Signup */}
               <div className="flex p-1 rounded-xl bg-black/40 border border-white/10 mb-6">
                 <button
                   type="button"
                   onClick={() => setAuthMode('login')}
-                  className={`flex-1 py-2 rounded-lg text-xs font-bold transition-all ${
-                    authMode === 'login'
-                      ? 'bg-[#5C3FE0] text-white shadow-lg shadow-[#5C3FE0]/25'
-                      : 'text-gray-400 hover:text-white'
-                  }`}
+                  className={`flex-1 py-2 rounded-lg text-xs font-bold transition-all ${authMode === 'login'
+                    ? 'bg-[#5C3FE0] text-white shadow-lg shadow-[#5C3FE0]/25'
+                    : 'text-gray-400 hover:text-white'
+                    }`}
                 >
                   Account Sign In
                 </button>
                 <button
                   type="button"
                   onClick={() => setAuthMode('signup')}
-                  className={`flex-1 py-2 rounded-lg text-xs font-bold transition-all ${
-                    authMode === 'signup'
-                      ? 'bg-[#5C3FE0] text-white shadow-lg shadow-[#5C3FE0]/25'
-                      : 'text-gray-400 hover:text-white'
-                  }`}
+                  className={`flex-1 py-2 rounded-lg text-xs font-bold transition-all ${authMode === 'signup'
+                    ? 'bg-[#5C3FE0] text-white shadow-lg shadow-[#5C3FE0]/25'
+                    : 'text-gray-400 hover:text-white'
+                    }`}
                 >
                   Register / Onboard
                 </button>
@@ -349,45 +377,53 @@ export const AuthView: React.FC = () => {
                     </div>
                   </div>
 
+                  {/* Login error message */}
+                  {loginError && (
+                    <div className="rounded-lg border border-red-500/20 bg-red-500/10 px-3 py-2 text-xs text-red-400">
+                      {loginError}
+                    </div>
+                  )}
+
+                  {/*Submit Button*/}
                   <div className="pt-2">
                     <button
                       type="submit"
-                      className="w-full py-3 rounded-xl bg-gradient-to-r from-[#5C3FE0] to-[#7C3AED] hover:from-[#6A4DF4] hover:to-[#8B5CF6] text-white font-bold text-xs tracking-wide shadow-lg shadow-[#5C3FE0]/30 transition-all flex items-center justify-center gap-2 group"
+                      disabled={isLoggingIn}
+                      className="w-full py-3 rounded-xl bg-gradient-to-r from-[#5C3FE0] to-[#7C3AED] hover:from-[#6A4DF4] hover:to-[#8B5CF6] disabled:opacity-50 disabled:cursor-not-allowed text-white font-bold text-xs tracking-wide shadow-lg shadow-[#5C3FE0]/30 transition-all flex items-center justify-center gap-2 group"
                     >
                       <UserCheck className="w-4 h-4" />
-                      <span>Access Sovereign Workspace</span>
-                      <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
-                    </button>
-                  </div>
 
-                  <div className="pt-3 border-t border-white/5 text-center text-xs text-gray-400">
-                    <span>Selected Organization: </span>
-                    <strong className="text-white">{tenants[0].name}</strong>
+                      <span>
+                        {isLoggingIn ? 'Signing In...' : 'Access Sovereign Workspace'}
+                      </span>
+
+                      {!isLoggingIn && (
+                        <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
+                      )}
+                    </button>
                   </div>
                 </form>
               ) : (
                 /* Signup / Onboard Form */
-                <form onSubmit={handleSignupSubmit} className="space-y-3.5">
+                <form onSubmit={() => { }} className="space-y-3.5">
                   <div className="flex gap-2 p-1 rounded-lg bg-black/40 border border-white/10 mb-2">
                     <button
                       type="button"
                       onClick={() => setSignupType('employee')}
-                      className={`flex-1 py-1.5 rounded-md text-[11px] font-bold ${
-                        signupType === 'employee'
-                          ? 'bg-white/15 text-white'
-                          : 'text-gray-400 hover:text-white'
-                      }`}
+                      className={`flex-1 py-1.5 rounded-md text-[11px] font-bold ${signupType === 'employee'
+                        ? 'bg-white/15 text-white'
+                        : 'text-gray-400 hover:text-white'
+                        }`}
                     >
                       Join as Employee
                     </button>
                     <button
                       type="button"
                       onClick={() => setSignupType('company')}
-                      className={`flex-1 py-1.5 rounded-md text-[11px] font-bold ${
-                        signupType === 'company'
-                          ? 'bg-[#5C3FE0] text-white'
-                          : 'text-gray-400 hover:text-white'
-                      }`}
+                      className={`flex-1 py-1.5 rounded-md text-[11px] font-bold ${signupType === 'company'
+                        ? 'bg-[#5C3FE0] text-white'
+                        : 'text-gray-400 hover:text-white'
+                        }`}
                     >
                       Onboard New Client Company
                     </button>
