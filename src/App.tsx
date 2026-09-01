@@ -27,14 +27,12 @@ import {
   Receipt,
   Video,
 } from 'lucide-react';
+import { Navigate, Route, Routes } from 'react-router-dom';
+import ProtectedRoute from './ProtectedRoute';
+import PublicRoute from './PublicRoute';
 
 const AppContent: React.FC = () => {
-  const { isAuthenticated, activeTab, setActiveTab } = useApp();
-
-  // If not authenticated, render Auth screen (Login/Signup)
-  if (!isAuthenticated) {
-    return <AuthView />;
-  }
+  const { activeTab, setActiveTab } = useApp();
 
   const renderActiveView = () => {
     switch (activeTab) {
@@ -84,45 +82,40 @@ const AppContent: React.FC = () => {
         <div className="lg:hidden fixed bottom-0 left-0 right-0 h-16 bg-[#09081E]/95 backdrop-blur-md border-t border-white/10 flex items-center justify-around px-2 z-30">
           <button
             onClick={() => setActiveTab('dashboard')}
-            className={`flex flex-col items-center justify-center py-1 px-2.5 rounded-lg transition-colors cursor-pointer ${
-              activeTab === 'dashboard' ? 'text-[#5C3FE0]' : 'text-gray-400 hover:text-gray-200'
-            }`}
+            className={`flex flex-col items-center justify-center py-1 px-2.5 rounded-lg transition-colors cursor-pointer ${activeTab === 'dashboard' ? 'text-[#5C3FE0]' : 'text-gray-400 hover:text-gray-200'
+              }`}
           >
             <LayoutDashboard className="w-4 h-4" />
             <span className="text-[10px] mt-0.5 font-medium">Overview</span>
           </button>
           <button
             onClick={() => setActiveTab('daily_work')}
-            className={`flex flex-col items-center justify-center py-1 px-2.5 rounded-lg transition-colors cursor-pointer ${
-              activeTab === 'daily_work' ? 'text-[#5C3FE0]' : 'text-gray-400 hover:text-gray-200'
-            }`}
+            className={`flex flex-col items-center justify-center py-1 px-2.5 rounded-lg transition-colors cursor-pointer ${activeTab === 'daily_work' ? 'text-[#5C3FE0]' : 'text-gray-400 hover:text-gray-200'
+              }`}
           >
             <PhoneCall className="w-4 h-4" />
             <span className="text-[10px] mt-0.5 font-medium">Work</span>
           </button>
           <button
             onClick={() => setActiveTab('attendance')}
-            className={`flex flex-col items-center justify-center py-1 px-2.5 rounded-lg transition-colors cursor-pointer ${
-              activeTab === 'attendance' ? 'text-[#5C3FE0]' : 'text-gray-400 hover:text-gray-200'
-            }`}
+            className={`flex flex-col items-center justify-center py-1 px-2.5 rounded-lg transition-colors cursor-pointer ${activeTab === 'attendance' ? 'text-[#5C3FE0]' : 'text-gray-400 hover:text-gray-200'
+              }`}
           >
             <CalendarCheck className="w-4 h-4" />
             <span className="text-[10px] mt-0.5 font-medium">Attendance</span>
           </button>
           <button
             onClick={() => setActiveTab('receipts_slabs')}
-            className={`flex flex-col items-center justify-center py-1 px-2.5 rounded-lg transition-colors cursor-pointer ${
-              activeTab === 'receipts_slabs' || activeTab === 'slabs' ? 'text-[#5C3FE0]' : 'text-gray-400 hover:text-gray-200'
-            }`}
+            className={`flex flex-col items-center justify-center py-1 px-2.5 rounded-lg transition-colors cursor-pointer ${activeTab === 'receipts_slabs' || activeTab === 'slabs' ? 'text-[#5C3FE0]' : 'text-gray-400 hover:text-gray-200'
+              }`}
           >
             <Receipt className="w-4 h-4" />
             <span className="text-[10px] mt-0.5 font-medium">Slips</span>
           </button>
           <button
             onClick={() => setActiveTab('knowledge_hub')}
-            className={`flex flex-col items-center justify-center py-1 px-2.5 rounded-lg transition-colors cursor-pointer ${
-              activeTab === 'knowledge_hub' || activeTab === 'lms_academy' ? 'text-[#5C3FE0]' : 'text-gray-400 hover:text-gray-200'
-            }`}
+            className={`flex flex-col items-center justify-center py-1 px-2.5 rounded-lg transition-colors cursor-pointer ${activeTab === 'knowledge_hub' || activeTab === 'lms_academy' ? 'text-[#5C3FE0]' : 'text-gray-400 hover:text-gray-200'
+              }`}
           >
             <Video className="w-4 h-4" />
             <span className="text-[10px] mt-0.5 font-medium">Academy</span>
@@ -145,9 +138,32 @@ const AppContent: React.FC = () => {
 
 export default function App() {
   return (
-    <AppProvider>
-      <AppContent />
-    </AppProvider>
+    <Routes>
+      <Route
+        path="/login"
+        element={
+          <PublicRoute>
+            <AuthView />
+          </PublicRoute>
+        }
+      />
+
+      <Route
+        path="/"
+        element={
+          <ProtectedRoute>
+            <AppContent />
+          </ProtectedRoute>
+        }
+      />
+
+      {/* Any unknown URL goes back to the main route */}
+      <Route
+        path="*"
+        element={<Navigate to="/" replace />}
+      />
+    </Routes>
   );
 }
+
 

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { X, UserPlus, Building2, Briefcase, DollarSign, Shield, CheckCircle2 } from 'lucide-react';
 import { useApp } from '../context/AppContext';
 import { Role, User } from '../types';
@@ -8,15 +8,33 @@ export const AddEmployeeModal: React.FC = () => {
 
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
-  const [employeeCode, setEmployeeCode] = useState(`EST-ADV-0${users.length + 10}`);
-  const [department, setDepartment] = useState(currentTenant.departments[0] || 'Private Client Advisory');
-  const [branch, setBranch] = useState(currentTenant.branches[0] || 'Dubai Financial Centre (HQ)');
+  const [employeeCode, setEmployeeCode] = useState('');
+  const [department, setDepartment] = useState('');
+  const [branch, setBranch] = useState('');
   const [designation, setDesignation] = useState('Investment Advisor');
   const [role, setRole] = useState<Role>('staff');
   const [salaryBase, setSalaryBase] = useState(6000);
   const [salaryHra, setSalaryHra] = useState(1800);
   const [salaryAllowances, setSalaryAllowances] = useState(1000);
   const [assignedTarget, setAssignedTarget] = useState(600000);
+
+  useEffect(() => {
+    if (!currentTenant) {
+      return;
+    }
+
+    setEmployeeCode((current) =>
+      current || `EST-ADV-0${users.length + 10}`
+    );
+
+    setDepartment((current) =>
+      current || currentTenant.departments[0] || 'Private Client Advisory'
+    );
+
+    setBranch((current) =>
+      current || currentTenant.branches[0] || 'Dubai Financial Centre (HQ)'
+    );
+  }, [currentTenant, users.length]);
 
   if (!isAddEmployeeOpen) return null;
 

@@ -33,6 +33,10 @@ export const Sidebar: React.FC = () => {
     setIsMobileMenuOpen,
   } = useApp();
 
+  if (!currentUser) {
+    return null;
+  }
+
   const pendingLeavesCount = leaveRequests.filter((l) => l.status === 'Pending').length;
   const pendingDealsCount = incentiveTransactions.filter(
     (t) => t.status === 'Pending_Manager' || t.status === 'Verified_Manager'
@@ -48,71 +52,71 @@ export const Sidebar: React.FC = () => {
     badgeColor?: string;
     section: 'daily_ops' | 'finance_slabs' | 'leadership_gov';
   }[] = [
-    {
-      id: 'dashboard',
-      label: 'Portal Overview',
-      icon: <LayoutDashboard className="w-4 h-4" />,
-      section: 'daily_ops',
-    },
-    {
-      id: 'daily_work',
-      label: currentUser.role === 'developer' ? 'Daily Code & Tasks' : 'Daily Work & Calls',
-      icon: currentUser.role === 'developer' ? <Code2 className="w-4 h-4" /> : <PhoneCall className="w-4 h-4" />,
-      badge: todayLogsCount > 0 ? `${todayLogsCount} Logged` : 'Action Req',
-      badgeColor: todayLogsCount > 0 ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30' : 'bg-purple-500/20 text-purple-300 border border-purple-500/30',
-      section: 'daily_ops',
-    },
-    {
-      id: 'attendance',
-      label: 'Biometric & Attendance',
-      icon: <CalendarCheck className="w-4 h-4" />,
-      badge: pendingLeavesCount > 0 ? `${pendingLeavesCount} Leaves` : undefined,
-      badgeColor: 'bg-amber-500/20 text-amber-300 border border-amber-500/30',
-      section: 'daily_ops',
-    },
-    {
-      id: 'targets_incentives',
-      label: 'Targets & Incentives',
-      icon: <Target className="w-4 h-4" />,
-      badge: pendingDealsCount > 0 ? `${pendingDealsCount} Deals` : undefined,
-      badgeColor: 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30',
-      section: 'finance_slabs',
-    },
-    {
-      id: 'receipts_slabs',
-      label: 'Customer Receipts & Slabs',
-      icon: <Receipt className="w-4 h-4" />,
-      badge: 'Official Slips',
-      badgeColor: 'bg-teal-500/20 text-teal-300 border border-teal-500/30',
-      section: 'finance_slabs',
-    },
-    {
-      id: 'payroll',
-      label: 'Salary & Payslips',
-      icon: <CreditCard className="w-4 h-4" />,
-      section: 'finance_slabs',
-    },
-    {
-      id: 'staff',
-      label: 'Staff & Team Directory',
-      icon: <Users className="w-4 h-4" />,
-      section: 'finance_slabs',
-    },
-    {
-      id: 'knowledge_hub',
-      label: 'CEO Knowledge Hub',
-      icon: <Video className="w-4 h-4" />,
-      badge: 'Videos',
-      badgeColor: 'bg-[#5C3FE0]/20 text-[#5C3FE0] border border-[#5C3FE0]/30',
-      section: 'leadership_gov',
-    },
-    {
-      id: 'audit_settings',
-      label: 'Access Matrix & Tenants',
-      icon: <ShieldCheck className="w-4 h-4" />,
-      section: 'leadership_gov',
-    },
-  ];
+      {
+        id: 'dashboard',
+        label: 'Portal Overview',
+        icon: <LayoutDashboard className="w-4 h-4" />,
+        section: 'daily_ops',
+      },
+      {
+        id: 'daily_work',
+        label: currentUser.role === 'developer' ? 'Daily Code & Tasks' : 'Daily Work & Calls',
+        icon: currentUser.role === 'developer' ? <Code2 className="w-4 h-4" /> : <PhoneCall className="w-4 h-4" />,
+        badge: todayLogsCount > 0 ? `${todayLogsCount} Logged` : 'Action Req',
+        badgeColor: todayLogsCount > 0 ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30' : 'bg-purple-500/20 text-purple-300 border border-purple-500/30',
+        section: 'daily_ops',
+      },
+      {
+        id: 'attendance',
+        label: 'Biometric & Attendance',
+        icon: <CalendarCheck className="w-4 h-4" />,
+        badge: pendingLeavesCount > 0 ? `${pendingLeavesCount} Leaves` : undefined,
+        badgeColor: 'bg-amber-500/20 text-amber-300 border border-amber-500/30',
+        section: 'daily_ops',
+      },
+      {
+        id: 'targets_incentives',
+        label: 'Targets & Incentives',
+        icon: <Target className="w-4 h-4" />,
+        badge: pendingDealsCount > 0 ? `${pendingDealsCount} Deals` : undefined,
+        badgeColor: 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30',
+        section: 'finance_slabs',
+      },
+      {
+        id: 'receipts_slabs',
+        label: 'Customer Receipts & Slabs',
+        icon: <Receipt className="w-4 h-4" />,
+        badge: 'Official Slips',
+        badgeColor: 'bg-teal-500/20 text-teal-300 border border-teal-500/30',
+        section: 'finance_slabs',
+      },
+      {
+        id: 'payroll',
+        label: 'Salary & Payslips',
+        icon: <CreditCard className="w-4 h-4" />,
+        section: 'finance_slabs',
+      },
+      {
+        id: 'staff',
+        label: 'Staff & Team Directory',
+        icon: <Users className="w-4 h-4" />,
+        section: 'finance_slabs',
+      },
+      {
+        id: 'knowledge_hub',
+        label: 'CEO Knowledge Hub',
+        icon: <Video className="w-4 h-4" />,
+        badge: 'Videos',
+        badgeColor: 'bg-[#5C3FE0]/20 text-[#5C3FE0] border border-[#5C3FE0]/30',
+        section: 'leadership_gov',
+      },
+      {
+        id: 'audit_settings',
+        label: 'Access Matrix & Tenants',
+        icon: <ShieldCheck className="w-4 h-4" />,
+        section: 'leadership_gov',
+      },
+    ];
 
   // Filter items based on designation & role permission
   const allowedNavItems = allNavItems.filter((item) => isTabAllowed(item.id));
@@ -140,11 +144,10 @@ export const Sidebar: React.FC = () => {
               key={item.id}
               onClick={() => handleTabClick(item.id)}
               id={`nav-tab-${item.id}`}
-              className={`flex items-center justify-between px-3 py-2.5 text-xs font-semibold transition-all cursor-pointer rounded-xl ${
-                isActive
-                  ? 'bg-[#5C3FE0] text-white shadow-lg shadow-[#5C3FE0]/25'
-                  : 'text-gray-400 hover:text-white hover:bg-white/5'
-              }`}
+              className={`flex items-center justify-between px-3 py-2.5 text-xs font-semibold transition-all cursor-pointer rounded-xl ${isActive
+                ? 'bg-[#5C3FE0] text-white shadow-lg shadow-[#5C3FE0]/25'
+                : 'text-gray-400 hover:text-white hover:bg-white/5'
+                }`}
             >
               <div className="flex items-center gap-2.5 min-w-0">
                 <span className={isActive ? 'text-white' : 'text-gray-400'}>
@@ -155,9 +158,8 @@ export const Sidebar: React.FC = () => {
 
               {item.badge && (
                 <span
-                  className={`text-[9px] font-mono px-1.5 py-0.5 rounded font-bold uppercase shrink-0 ${
-                    isActive ? 'bg-white/20 text-white' : item.badgeColor || 'bg-white/10 text-gray-300'
-                  }`}
+                  className={`text-[9px] font-mono px-1.5 py-0.5 rounded font-bold uppercase shrink-0 ${isActive ? 'bg-white/20 text-white' : item.badgeColor || 'bg-white/10 text-gray-300'
+                    }`}
                 >
                   {item.badge}
                 </span>
@@ -179,11 +181,11 @@ export const Sidebar: React.FC = () => {
             <div className="flex flex-col min-w-0">
               <div className="flex items-center gap-1.5">
                 <span className="text-sm font-bold tracking-tight text-white truncate">
-                  {currentTenant.name.split(' ')[0]} EMS
+                  {currentTenant?.name?.split(' ')[0] ?? 'Estuscia'} EMS
                 </span>
               </div>
               <span className="text-[10px] text-[#5C3FE0] font-semibold uppercase tracking-wider truncate">
-                {currentTenant.plan} • {currentTenant.currency.split(' ')[0]}
+                {currentTenant?.plan ?? 'Enterprise'} • {currentTenant?.currency?.split(' ')[0] ?? 'USD'}
               </span>
             </div>
           </div>
@@ -209,11 +211,17 @@ export const Sidebar: React.FC = () => {
       {/* User Session and Logout Box */}
       <div className="p-4 bg-[#09081E] border-t border-white/10 space-y-3">
         <div className="flex items-center gap-2.5">
-          <img
-            src={currentUser.avatar}
-            alt={currentUser.name}
-            className="w-9 h-9 rounded-full object-cover border border-white/15 shrink-0"
-          />
+          {currentUser.avatar ? (
+            <img
+              src={currentUser.avatar}
+              alt={currentUser.name}
+              className="w-9 h-9 rounded-full object-cover border border-white/15 shrink-0"
+            />
+          ) : (
+            <div className="w-9 h-9 rounded-full bg-[#5C3FE0] flex items-center justify-center text-white text-xs font-bold border border-white/15 shrink-0">
+              {currentUser.name?.charAt(0)?.toUpperCase() || 'U'}
+            </div>
+          )}
           <div className="overflow-hidden min-w-0 flex-1">
             <p className="text-xs font-bold text-white truncate">{currentUser.name}</p>
             <p className="text-[10px] text-gray-400 truncate">

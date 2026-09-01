@@ -51,10 +51,22 @@ export const DashboardView: React.FC = () => {
   const isAdmin = currentUser.role === 'super_admin' || currentUser.role === 'company_admin';
 
   // Metrics
-  const staffTarget = staffTargets.find((st) => st.userId === currentUser.id) || staffTargets[0];
-  const targetPercent = Math.min(100, Math.round((staffTarget.achievedAmount / staffTarget.targetAmount) * 100));
+  const staffTarget =
+    staffTargets.find((st) => st.userId === currentUser.id) ??
+    staffTargets[0] ??
+    null;
 
-  const userTodayAttendance = attendanceRecords.find((r) => r.userId === currentUser.id) || attendanceRecords[0];
+  const targetPercent = staffTarget
+    ? Math.min(
+      100,
+      Math.round(
+        (staffTarget.achievedAmount / staffTarget.targetAmount) * 100
+      )
+    )
+    : 0;
+
+  const userTodayAttendance =
+    attendanceRecords.find((r) => r.userId === currentUser.id) ?? null;
   const todayUserLog = dailyWorkLogs.find((d) => d.userId === currentUser.id && d.date === new Date().toISOString().substring(0, 10));
 
   const pendingLeaves = leaveRequests.filter((l) => l.status === 'Pending');
@@ -66,7 +78,7 @@ export const DashboardView: React.FC = () => {
 
   return (
     <div className="space-y-6 pb-12">
-      
+
       {/* Top Banner */}
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 pb-2 border-b border-white/5">
         <div>
@@ -147,7 +159,11 @@ export const DashboardView: React.FC = () => {
             </div>
             <h3 className="text-2xl font-bold text-white mt-1">{targetPercent}%</h3>
             <span className="text-[10px] text-gray-400 font-medium">
-              ${(staffTarget.achievedAmount / 1000).toFixed(0)}k of ${(staffTarget.targetAmount / 1000).toFixed(0)}k
+              {staffTarget
+                ? `$${(staffTarget.achievedAmount / 1000).toFixed(0)}k of $${(
+                  staffTarget.targetAmount / 1000
+                ).toFixed(0)}k`
+                : 'No target assigned'}
             </span>
           </div>
 
@@ -171,7 +187,9 @@ export const DashboardView: React.FC = () => {
             </div>
             <h3 className="text-lg font-bold text-white mt-1">Checked In</h3>
             <span className="text-[10px] text-cyan-300 font-medium">
-              In: {userTodayAttendance.inTime} (Biometric Validated)
+              {userTodayAttendance
+                ? `In: ${userTodayAttendance.inTime} (Biometric Validated)`
+                : 'No attendance record for today'}
             </span>
           </div>
         </div>
@@ -332,7 +350,7 @@ export const DashboardView: React.FC = () => {
 
       {/* Main Content Columns */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
-        
+
         {/* Left 7 Columns: Daily Activity Feed / Call Summaries */}
         <div className="lg:col-span-7 space-y-4">
           <div className="p-5 rounded-2xl bg-[#09081E] border border-white/10 space-y-4">
@@ -402,7 +420,7 @@ export const DashboardView: React.FC = () => {
 
         {/* Right 5 Columns: Customer Slips & CEO Knowledge Hub */}
         <div className="lg:col-span-5 space-y-4">
-          
+
           {/* Customer Slips Widget */}
           <div className="p-5 rounded-2xl bg-[#09081E] border border-white/10 space-y-3">
             <div className="flex items-center justify-between pb-2 border-b border-white/5">

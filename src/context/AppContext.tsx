@@ -1,4 +1,10 @@
-import React, { createContext, useContext, useState } from 'react';
+import React, {
+  createContext,
+  useContext,
+  useState,
+  useEffect,
+} from 'react';
+import { loginUser } from '../api/auth';
 import {
   Tenant,
   User,
@@ -22,26 +28,12 @@ import {
   DesignationPermission,
 } from '../types';
 import {
-  mockTenants,
-  mockUsers,
-  mockSlabVersions,
-  mockAttendanceRecords,
-  mockAttendanceBatches,
-  mockLeaveRequests,
-  mockTargetCycles,
-  mockStaffTargets,
-  mockIncentiveTransactions,
-  mockPayrollCycles,
-  mockPayslips,
-  mockCourses,
-  mockCertificates,
-  mockUserProgress,
-  mockNotifications,
-  mockAuditLogs,
-  mockDailyWorkLogs,
-  mockCustomerPaymentReceipts,
-  mockDesignationPermissions,
-} from '../data/mockData';
+  saveTokens,
+  clearTokens,
+  getAccessToken,
+  getJwtPayload,
+  isTokenExpired,
+} from '../api/authStorage';
 
 export type AppTab =
   | 'dashboard'
@@ -58,6 +50,8 @@ export type AppTab =
 
 export type ViewMode = 'portal' | 'public_web';
 
+
+
 interface AppContextType {
   // Navigation & Platform Mode
   viewMode: ViewMode;
@@ -68,17 +62,22 @@ interface AppContextType {
 
   // Auth & Session
   isAuthenticated: boolean;
-  login: (email: string, password?: string, targetRole?: Role) => boolean;
+  setAuthenticated: (authenticated: boolean) => void;
+  login: (
+    email: string,
+    password?: string,
+    targetRole?: Role
+  ) => Promise<boolean>;
   signup: (userData: Partial<User>, companyData?: Partial<Tenant>) => boolean;
   logout: () => void;
 
   // Multi-Tenant & Role Session
   tenants: Tenant[];
-  currentTenant: Tenant;
+  currentTenant: Tenant | null;
   setCurrentTenant: (tenant: Tenant) => void;
   addNewTenant: (tenant: Omit<Tenant, 'id'>) => Tenant;
   users: User[];
-  currentUser: User;
+  currentUser: User | null;
   setCurrentUser: (user: User) => void;
   switchRole: (role: Role) => void;
   switchUserById: (userId: string) => void;
@@ -179,48 +178,73 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const [viewMode, setViewMode] = useState<ViewMode>('portal');
   const [activeTab, setActiveTab] = useState<AppTab>('dashboard');
 
-  // Auth State - starts false so login/signup appears first
   const [isAuthenticated, setIsAuthenticated] = useState<boolean>(false);
 
   // Multi-Tenant and User State
-  const [tenants, setTenants] = useState<Tenant[]>(mockTenants);
-  const [currentTenant, setCurrentTenant] = useState<Tenant>(mockTenants[0]);
-  const [users, setUsers] = useState<User[]>(mockUsers);
-  const [currentUser, setCurrentUser] = useState<User>(mockUsers[0]);
+  const [tenants, setTenants] = useState<Tenant[]>([]);
+  const [currentTenant, setCurrentTenant] = useState<Tenant | null>(null);
+  const [users, setUsers] = useState<User[]>([]);
+  const [currentUser, setCurrentUser] = useState<User | null>(null);
   const [selectedBranchFilter, setSelectedBranchFilter] = useState<string>('All Branches');
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState<boolean>(false);
 
   // Daily Work & Call Submissions
-  const [dailyWorkLogs, setDailyWorkLogs] = useState<DailyWorkLog[]>(mockDailyWorkLogs);
+  const [dailyWorkLogs, setDailyWorkLogs] = useState<DailyWorkLog[]>([]);
   const [isWorkLogModalOpen, setIsWorkLogModalOpen] = useState<boolean>(false);
 
   // Customer Payment Receipts
-  const [customerReceipts, setCustomerReceipts] = useState<CustomerPaymentReceipt[]>(mockCustomerPaymentReceipts);
   const [selectedReceiptForView, setSelectedReceiptForView] = useState<CustomerPaymentReceipt | null>(null);
   const [isCreateReceiptModalOpen, setIsCreateReceiptModalOpen] = useState<boolean>(false);
 
-  // Designation Permissions
-  const [designationPermissions, setDesignationPermissions] = useState<DesignationPermission[]>(mockDesignationPermissions);
+  // Desconst [dailyWorkLogs, setDailyWorkLogs] = useState<DailyWorkLog[]>([]);
 
-  // Domain Entities
-  const [slabVersions, setSlabVersions] = useState<SlabVersion[]>(mockSlabVersions);
-  const [attendanceRecords, setAttendanceRecords] = useState<AttendanceRecord[]>(mockAttendanceRecords);
-  const [attendanceBatches, setAttendanceBatches] = useState<AttendanceBatch[]>(mockAttendanceBatches);
-  const [leaveRequests, setLeaveRequests] = useState<LeaveRequest[]>(mockLeaveRequests);
+  const [customerReceipts, setCustomerReceipts] =
+    useState<CustomerPaymentReceipt[]>([]);
 
-  const [targetCycles] = useState<TargetCycle[]>(mockTargetCycles);
-  const [staffTargets] = useState<StaffTarget[]>(mockStaffTargets);
-  const [incentiveTransactions, setIncentiveTransactions] = useState<IncentiveTransaction[]>(mockIncentiveTransactions);
+  const [designationPermissions, setDesignationPermissions] =
+    useState<DesignationPermission[]>([]);
 
-  const [payrollCycles, setPayrollCycles] = useState<PayrollCycle[]>(mockPayrollCycles);
-  const [payslips, setPayslips] = useState<Payslip[]>(mockPayslips);
+  const [slabVersions, setSlabVersions] =
+    useState<SlabVersion[]>([]);
 
-  const [courses, setCourses] = useState<Course[]>(mockCourses);
-  const [userProgress, setUserProgress] = useState<Record<string, UserCourseProgress>>(mockUserProgress);
-  const [certificates, setCertificates] = useState<Certificate[]>(mockCertificates);
+  const [attendanceRecords, setAttendanceRecords] =
+    useState<AttendanceRecord[]>([]);
 
-  const [notifications, setNotifications] = useState<NotificationItem[]>(mockNotifications);
-  const [auditLogs, setAuditLogs] = useState<AuditEntry[]>(mockAuditLogs);
+  const [attendanceBatches, setAttendanceBatches] =
+    useState<AttendanceBatch[]>([]);
+
+  const [leaveRequests, setLeaveRequests] =
+    useState<LeaveRequest[]>([]);
+
+  const [targetCycles, setTargetCycles] =
+    useState<TargetCycle[]>([]);
+
+  const [staffTargets, setStaffTargets] =
+    useState<StaffTarget[]>([]);
+
+  const [incentiveTransactions, setIncentiveTransactions] =
+    useState<IncentiveTransaction[]>([]);
+
+  const [payrollCycles, setPayrollCycles] =
+    useState<PayrollCycle[]>([]);
+
+  const [payslips, setPayslips] =
+    useState<Payslip[]>([]);
+
+  const [courses, setCourses] =
+    useState<Course[]>([]);
+
+  const [userProgress, setUserProgress] =
+    useState<Record<string, UserCourseProgress>>({});
+
+  const [certificates, setCertificates] =
+    useState<Certificate[]>([]);
+
+  const [notifications, setNotifications] =
+    useState<NotificationItem[]>([]);
+
+  const [auditLogs, setAuditLogs] =
+    useState<AuditEntry[]>([]);
 
   // Modals & Active View state
   const [isSearchOpen, setIsSearchOpen] = useState(false);
@@ -231,11 +255,64 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const [selectedCertificateForView, setSelectedCertificateForView] = useState<Certificate | null>(null);
   const [selectedPayslipForView, setSelectedPayslipForView] = useState<Payslip | null>(null);
 
+  useEffect(() => {
+    const restoreSession = () => {
+      if (isTokenExpired()) {
+        clearTokens();
+        localStorage.removeItem('isAuthenticated');
+
+        setCurrentUser(null);
+        setCurrentTenant(null);
+        setIsAuthenticated(false);
+
+        return;
+      }
+
+      const restoredUser = createUserFromJwt();
+
+      if (!restoredUser) {
+        clearTokens();
+        localStorage.removeItem('isAuthenticated');
+
+        setCurrentUser(null);
+        setCurrentTenant(null);
+        setIsAuthenticated(false);
+
+        return;
+      }
+
+      setCurrentUser(restoredUser);
+
+      setUsers((prev) => {
+        const exists = prev.some(
+          (u) => u.id === restoredUser.id
+        );
+
+        if (exists) {
+          return prev.map((u) =>
+            u.id === restoredUser.id
+              ? restoredUser
+              : u
+          );
+        }
+
+        return [...prev, restoredUser];
+      });
+
+      setIsAuthenticated(true);
+    };
+
+    restoreSession();
+  }, []);
+
   // Active Slab Version derived helper
   const activeSlabVersion = slabVersions.find((sv) => sv.status === 'active') || slabVersions[0];
 
   // Role tab authorization check
   const isTabAllowed = (tab: AppTab): boolean => {
+    if (!currentUser) {
+      return false;
+    }
     // Super admin and company admin have universal access
     if (currentUser.role === 'super_admin' || currentUser.role === 'company_admin') {
       return true;
@@ -269,20 +346,155 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     return ['dashboard', 'daily_work', 'attendance', 'targets_incentives', 'receipts_slabs', 'knowledge_hub', 'payroll'].includes(tab);
   };
 
+  const createUserFromJwt = (): User | null => {
+    const payload = getJwtPayload();
+
+    if (!payload) {
+      return null;
+    }
+
+    const userId =
+      payload.sub ||
+      payload.user_id ||
+      payload.nameid;
+
+    if (!userId) {
+      return null;
+    }
+
+    const role = payload.role || 'staff';
+
+    return {
+      id: userId,
+
+      tenantId: payload.tenant_id || '',
+
+      employeeCode: '',
+
+      name:
+        payload.unique_name ||
+        payload.nameid ||
+        'User',
+
+      email:
+        payload.email ||
+        '',
+
+      avatar: '',
+
+      role: role as Role,
+
+      department: '',
+
+      branch:
+        payload.branch ||
+        '',
+
+      designation:
+        payload.designation ||
+        '',
+
+      joinDate: '',
+      phone: '',
+
+      status: 'active',
+
+      salaryBase: 0,
+      salaryHra: 0,
+      salaryAllowances: 0,
+
+      assignedTarget: 0,
+      currentAchievement: 0,
+
+      bankAccount: '',
+      panOrTaxId: '',
+    };
+  };
+
   // Auth methods
-  const login = (email: string, _password?: string, targetRole?: Role): boolean => {
-    let matchedUser = users.find((u) => u.email.toLowerCase() === email.toLowerCase());
-    if (!matchedUser && targetRole) {
-      matchedUser = users.find((u) => u.role === targetRole);
+  const login = async (
+    email: string,
+    password?: string,
+    _targetRole?: Role
+  ): Promise<boolean> => {
+    try {
+      if (!password) {
+        return false;
+      }
+
+      const response = await loginUser(email, password);
+
+      console.log('Login successful:', response);
+
+      saveTokens(
+        response.accessToken,
+        response.refreshToken
+      );
+
+      localStorage.setItem('isAuthenticated', 'true');
+
+      setIsAuthenticated(true);
+
+      const backendUser = response.user;
+      const frontendUser: User = {
+        id: response.user.id,
+        tenantId: response.user.tenantId,
+
+        employeeCode: '',
+        name: response.user.name,
+        email: response.user.email,
+
+        avatar: response.user.avatar || '',
+
+        role: response.user.role as Role,
+
+        department: '',
+        branch: response.user.branch,
+        designation: response.user.designation,
+
+        joinDate: '',
+        phone: '',
+
+        status: 'active',
+
+        salaryBase: 0,
+        salaryHra: 0,
+        salaryAllowances: 0,
+
+        assignedTarget: 0,
+        currentAchievement: 0,
+
+        bankAccount: '',
+        panOrTaxId: '',
+      };
+
+      setCurrentUser(frontendUser);
+
+      setUsers((prev) => {
+        const exists = prev.some((u) => u.id === frontendUser.id);
+
+        if (exists) {
+          return prev.map((u) =>
+            u.id === frontendUser.id ? frontendUser : u
+          );
+        }
+
+        return [...prev, frontendUser];
+      });
+
+      setActiveTab('dashboard');
+
+      return true;
+    } catch (error) {
+      console.error('Login failed:', error);
+
+      setIsAuthenticated(false);
+
+      localStorage.removeItem('accessToken');
+      localStorage.removeItem('refreshToken');
+
+      return false;
     }
-    if (!matchedUser) {
-      matchedUser = users[0];
-    }
-    setCurrentUser(matchedUser);
-    setIsAuthenticated(true);
-    setActiveTab('dashboard');
-    logAuditEvent('USER_LOGIN', `User ${matchedUser.name} logged in (${matchedUser.role})`);
-    return true;
   };
 
   const signup = (userData: Partial<User>, companyData?: Partial<Tenant>): boolean => {
@@ -315,7 +527,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       name: userData.name || 'New Team Member',
       email: userData.email || 'user@estusciagroup.com',
       avatar: userData.avatar || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150&auto=format&fit=crop&q=80',
-      role: userData.role || 'staff',
+      role: userData.role || 'support_staff',
       department: userData.department || 'Private Client Advisory',
       branch: userData.branch || currentTenant.branches[0] || 'Dubai Financial Centre (HQ)',
       designation: userData.designation || 'Investment Advisor',
@@ -340,8 +552,15 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   };
 
   const logout = () => {
+    clearTokens();
+
     setIsAuthenticated(false);
-    logAuditEvent('USER_LOGOUT', `User ${currentUser.name} logged out`);
+    setCurrentUser(null);
+
+    setUsers([]);
+    setTenants([]);
+
+    setActiveTab('dashboard');
   };
 
   // Helper to switch user role seamlessly
@@ -473,7 +692,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     });
 
     logAuditEvent('CREATE_SLAB_VERSION', `Created ${newVer.versionCode} (${newVer.title}) with ${newVer.tiers.length} tiers`);
-    
+
     setNotifications((prev) => [
       {
         id: `notif-${Date.now()}`,
@@ -587,11 +806,11 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       prev.map((req) =>
         req.id === id
           ? {
-              ...req,
-              status,
-              reviewedBy: currentUser.name,
-              reviewNotes,
-            }
+            ...req,
+            status,
+            reviewedBy: currentUser.name,
+            reviewNotes,
+          }
           : req
       )
     );
@@ -913,6 +1132,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         setActiveTab,
         isTabAllowed,
         isAuthenticated,
+        setAuthenticated: setIsAuthenticated,
         login,
         signup,
         logout,

@@ -34,12 +34,15 @@ export const CustomerReceiptModal: React.FC = () => {
   const [customerEmail, setCustomerEmail] = useState('');
   const [customerPhone, setCustomerPhone] = useState('');
   const [depositAmount, setDepositAmount] = useState<number>(100000);
-  const [selectedTierId, setSelectedTierId] = useState(activeSlabVersion.tiers[1]?.id || activeSlabVersion.tiers[0]?.id || 'tier-2');
+  const [selectedTierId, setSelectedTierId] = useState('');
   const [paymentMode, setPaymentMode] = useState<'Bank Wire / RTGS' | 'Escrow Deposit' | 'Online Banking' | 'Cheque'>('Bank Wire / RTGS');
   const [transactionRef, setTransactionRef] = useState(`TXN-${Date.now().toString().slice(-8)}`);
   const [paymentStatus, setPaymentStatus] = useState<'Confirmed' | 'Escrow_Verified' | 'Under_Clearance'>('Confirmed');
 
-  const selectedTier = activeSlabVersion.tiers.find((t) => t.id === selectedTierId) || activeSlabVersion.tiers[0];
+  const tiers = activeSlabVersion?.tiers ?? [];
+
+  const selectedTier =
+    tiers.find((t) => t.id === selectedTierId) ?? tiers[0];
 
   const handleCreateSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -80,11 +83,11 @@ export const CustomerReceiptModal: React.FC = () => {
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-md overflow-y-auto print:p-0 print:bg-white">
-      
+
       {/* View / Print Official Customer Deposit Certificate Slip */}
       {selectedReceiptForView && (
         <div className="relative w-full max-w-3xl bg-[#09081E] border border-white/20 rounded-2xl shadow-2xl overflow-hidden my-8 print:border-none print:shadow-none print:my-0 print:bg-white print:text-black">
-          
+
           {/* Action Bar (Hidden on print) */}
           <div className="px-6 py-3.5 border-b border-white/10 flex items-center justify-between bg-black/40 print:hidden">
             <div className="flex items-center gap-2">
@@ -114,7 +117,7 @@ export const CustomerReceiptModal: React.FC = () => {
 
           {/* Certificate Body */}
           <div className="p-8 sm:p-10 space-y-6 relative overflow-hidden bg-gradient-to-b from-[#0e0c2b] to-[#080718] print:from-white print:to-white print:p-8">
-            
+
             {/* Watermark Crest */}
             <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 opacity-[0.03] pointer-events-none print:opacity-[0.06]">
               <EstusciaLogo size="lg" />
@@ -152,7 +155,7 @@ export const CustomerReceiptModal: React.FC = () => {
 
             {/* Investor & Deposit Details Grid */}
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              
+
               {/* Customer Box */}
               <div className="p-4 rounded-xl bg-black/40 border border-white/10 space-y-2 print:bg-slate-50 print:border-slate-200">
                 <span className="text-[10px] font-bold uppercase tracking-wider text-purple-300 print:text-purple-700 block">
@@ -255,7 +258,7 @@ export const CustomerReceiptModal: React.FC = () => {
       {/* Create New Customer Receipt Form */}
       {isCreateReceiptModalOpen && !selectedReceiptForView && (
         <div className="relative w-full max-w-xl bg-[#09081E] border border-white/15 rounded-2xl shadow-2xl overflow-hidden my-8">
-          
+
           {/* Header */}
           <div className="px-6 py-4 border-b border-white/10 flex items-center justify-between bg-white/[0.02]">
             <div className="flex items-center gap-3">
@@ -281,11 +284,11 @@ export const CustomerReceiptModal: React.FC = () => {
 
           {/* Form Body */}
           <form onSubmit={handleCreateSubmit} className="p-6 space-y-4 max-h-[75vh] overflow-y-auto custom-scrollbar">
-            
+
             {/* Customer Information */}
             <div className="space-y-3">
               <span className="text-xs font-bold text-purple-300 block">Investor / Customer Details</span>
-              
+
               <div>
                 <label className="block text-[11px] font-semibold text-gray-300 mb-1">
                   Customer / Investor Full Name *

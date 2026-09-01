@@ -1,24 +1,35 @@
-// const API_BASE_URL = 'http://localhost:5026/api';
+import { getAccessToken } from './authStorage';
+
+const API_BASE_URL = import.meta.env.VITE_API_URL;
 
 export async function apiRequest<T>(
   endpoint: string,
   options: RequestInit = {}
 ): Promise<T> {
-  const response = await fetch(`${process.env.VITE_API_URL}${endpoint}`, {
+  const token = getAccessToken();
+
+  const headers = new Headers(options.headers);
+
+  headers.set('Content-Type', 'application/json');
+
+  if (token) {
+    headers.set('Authorization', `Bearer ${token}`);
+  }
+
+  const response = await fetch(`${API_BASE_URL}${endpoint}`, {
     ...options,
-    headers: {
-      'Content-Type': 'application/json',
-      ...(options.headers || {}),
-    },
+    headers,
   });
 
   const data = await response.json().catch(() => null);
 
   if (!response.ok) {
     throw new Error(
-      data?.message || 'Something went wrong. Please try again.'
+      data?.message ||
+      data?.title ||
+      'Something went wrong. Please try again.'
     );
   }
 
-  return data;
+  return data as T;
 }

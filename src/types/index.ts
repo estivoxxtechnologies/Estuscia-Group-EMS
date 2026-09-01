@@ -2,11 +2,11 @@ export type Role =
   | 'super_admin'
   | 'company_admin'
   | 'hr_ops'
-  | 'manager'
-  | 'staff'
+  | 'branch_manager'
+  | 'sales_staff'
   | 'developer'
-  | 'support'
-  | 'trainer';
+  | 'support_staff'
+  | 'knowledge_trainer';
 
 export interface Tenant {
   id: string;
@@ -72,7 +72,7 @@ export interface DailyWorkLog {
   department: string;
   date: string;
   workType: 'sales' | 'developer' | 'operations' | 'general';
-  
+
   // Sales specific
   callsMade?: number;
   callsConnected?: number;
@@ -80,14 +80,14 @@ export interface DailyWorkLog {
   followUpsScheduled?: number;
   dealsPitched?: number;
   closingInvestmentAmount?: number;
-  
+
   // Developer specific
   tasksCompleted?: string[];
   featuresShipped?: string;
   bugFixes?: string;
   pullRequests?: string;
   hoursSpent?: number;
-  
+
   // Common notes / narration
   narration: string;
   blockers?: string;

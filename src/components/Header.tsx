@@ -47,6 +47,9 @@ export const Header: React.FC = () => {
     selectedBranchFilter,
     setSelectedBranchFilter,
   } = useApp();
+  if (!currentUser) {
+    return null;
+  }
 
   const [isTenantOpen, setIsTenantOpen] = useState(false);
   const [isBranchOpen, setIsBranchOpen] = useState(false);
@@ -105,13 +108,13 @@ export const Header: React.FC = () => {
       color: 'bg-emerald-500/20 text-emerald-300 border-emerald-500/30',
       desc: 'Biometric Excel Upload, Staff & Payroll',
     },
-    manager: {
+    branch_manager: {
       title: 'Branch Manager',
       icon: <Briefcase className="w-4 h-4 text-cyan-400" />,
       color: 'bg-cyan-500/20 text-cyan-300 border-cyan-500/30',
       desc: 'Review Team Calls, Targets & Deal Approvals',
     },
-    staff: {
+    sales_staff: {
       title: 'Sales Advisor / Staff',
       icon: <UserCheck className="w-4 h-4 text-purple-400" />,
       color: 'bg-[#5C3FE0]/20 text-purple-300 border-[#5C3FE0]/30',
@@ -123,13 +126,13 @@ export const Header: React.FC = () => {
       color: 'bg-blue-500/20 text-blue-300 border-blue-500/30',
       desc: 'Daily Code Narrations, Tasks & Attendance',
     },
-    support: {
+    support_staff: {
       title: 'Operations & Support',
       icon: <Receipt className="w-4 h-4 text-teal-400" />,
       color: 'bg-teal-500/20 text-teal-300 border-teal-500/30',
       desc: 'Customer Slips, Operations & Logs',
     },
-    trainer: {
+    knowledge_trainer: {
       title: 'Knowledge Trainer',
       icon: <Video className="w-4 h-4 text-pink-400" />,
       color: 'bg-pink-500/20 text-pink-300 border-pink-500/30',
@@ -141,7 +144,7 @@ export const Header: React.FC = () => {
 
   return (
     <header className="h-16 border-b border-white/10 bg-[#040312]/80 backdrop-blur-md flex items-center justify-between px-3 sm:px-4 lg:px-8 select-none shrink-0 sticky top-0 z-40">
-      
+
       {/* Left: Mobile Menu Trigger & Tenant/Branch Controls */}
       <div className="flex items-center gap-2 sm:gap-3">
         {/* Mobile Hamburger Toggle */}
@@ -168,7 +171,7 @@ export const Header: React.FC = () => {
                   Superadmin Scope
                 </div>
                 <div className="text-xs font-bold text-white max-w-[110px] sm:max-w-[160px] md:max-w-[200px] truncate">
-                  {currentTenant.name}
+                  {currentTenant?.name ?? 'No Tenant Selected'}
                 </div>
               </div>
               <ChevronDown className={`w-3.5 h-3.5 text-gray-400 transition-transform ${isTenantOpen ? 'rotate-180' : ''}`} />
@@ -191,11 +194,10 @@ export const Header: React.FC = () => {
                         setSelectedBranchFilter('All Branches');
                         setIsTenantOpen(false);
                       }}
-                      className={`w-full text-left px-3 py-2 rounded-xl flex items-center justify-between transition-colors ${
-                        t.id === currentTenant.id
-                          ? 'bg-amber-500/20 text-amber-300 border border-amber-500/40'
-                          : 'hover:bg-white/5 text-gray-300'
-                      }`}
+                      className={`w-full text-left px-3 py-2 rounded-xl flex items-center justify-between transition-colors ${t.id === currentTenant.id
+                        ? 'bg-amber-500/20 text-amber-300 border border-amber-500/40'
+                        : 'hover:bg-white/5 text-gray-300'
+                        }`}
                     >
                       <div>
                         <div className="text-xs font-semibold text-white">{t.name}</div>
@@ -220,7 +222,7 @@ export const Header: React.FC = () => {
                   Company Tenant
                 </div>
                 <div className="text-xs font-bold text-white max-w-[100px] sm:max-w-[140px] truncate">
-                  {currentTenant.name}
+                  {currentTenant?.name ?? 'No Tenant Selected'}
                 </div>
               </div>
             </div>
@@ -249,27 +251,25 @@ export const Header: React.FC = () => {
                         setSelectedBranchFilter('All Branches');
                         setIsBranchOpen(false);
                       }}
-                      className={`w-full text-left px-2.5 py-1.5 rounded-lg text-xs transition-colors flex items-center justify-between ${
-                        selectedBranchFilter === 'All Branches'
-                          ? 'bg-[#5C3FE0]/20 text-[#5C3FE0] font-semibold'
-                          : 'text-gray-300 hover:bg-white/5'
-                      }`}
+                      className={`w-full text-left px-2.5 py-1.5 rounded-lg text-xs transition-colors flex items-center justify-between ${selectedBranchFilter === 'All Branches'
+                        ? 'bg-[#5C3FE0]/20 text-[#5C3FE0] font-semibold'
+                        : 'text-gray-300 hover:bg-white/5'
+                        }`}
                     >
                       <span>All Branches</span>
                       {selectedBranchFilter === 'All Branches' && <CheckCircle2 className="w-3.5 h-3.5 text-[#5C3FE0]" />}
                     </button>
-                    {currentTenant.branches.map((b) => (
+                    {currentTenant?.branches?.map((b) => () => (
                       <button
                         key={b}
                         onClick={() => {
                           setSelectedBranchFilter(b);
                           setIsBranchOpen(false);
                         }}
-                        className={`w-full text-left px-2.5 py-1.5 rounded-lg text-xs transition-colors flex items-center justify-between ${
-                          selectedBranchFilter === b
-                            ? 'bg-[#5C3FE0]/20 text-[#5C3FE0] font-semibold'
-                            : 'text-gray-300 hover:bg-white/5'
-                        }`}
+                        className={`w-full text-left px-2.5 py-1.5 rounded-lg text-xs transition-colors flex items-center justify-between ${selectedBranchFilter === b
+                          ? 'bg-[#5C3FE0]/20 text-[#5C3FE0] font-semibold'
+                          : 'text-gray-300 hover:bg-white/5'
+                          }`}
                       >
                         <span className="truncate">{b}</span>
                         {selectedBranchFilter === b && <CheckCircle2 className="w-3.5 h-3.5 text-[#5C3FE0]" />}
@@ -285,7 +285,7 @@ export const Header: React.FC = () => {
 
       {/* Center/Right Action Bar */}
       <div className="flex items-center gap-1.5 sm:gap-2.5 md:gap-3">
-        
+
         {/* Quick Action: Log Work */}
         <button
           onClick={() => setIsWorkLogModalOpen(true)}
@@ -354,11 +354,10 @@ export const Header: React.FC = () => {
                         switchRole(r);
                         setIsRoleOpen(false);
                       }}
-                      className={`w-full text-left px-3 py-2 rounded-xl flex items-start gap-2.5 transition-colors cursor-pointer ${
-                        isActive
-                          ? 'bg-[#5C3FE0]/20 text-[#5C3FE0] border border-[#5C3FE0]/40'
-                          : 'hover:bg-white/5 text-gray-300'
-                      }`}
+                      className={`w-full text-left px-3 py-2 rounded-xl flex items-start gap-2.5 transition-colors cursor-pointer ${isActive
+                        ? 'bg-[#5C3FE0]/20 text-[#5C3FE0] border border-[#5C3FE0]/40'
+                        : 'hover:bg-white/5 text-gray-300'
+                        }`}
                     >
                       <div className="p-1.5 rounded-lg bg-black/40 shrink-0 mt-0.5 border border-white/5">
                         {info.icon}
@@ -405,9 +404,8 @@ export const Header: React.FC = () => {
                 {notifications.map((n) => (
                   <div
                     key={n.id}
-                    className={`p-2.5 rounded-xl transition-colors ${
-                      !n.isRead ? 'bg-[#5C3FE0]/10 text-white' : 'text-gray-300 hover:bg-white/5'
-                    }`}
+                    className={`p-2.5 rounded-xl transition-colors ${!n.isRead ? 'bg-[#5C3FE0]/10 text-white' : 'text-gray-300 hover:bg-white/5'
+                      }`}
                   >
                     <div className="flex items-center justify-between text-xs font-semibold">
                       <span className="text-[#5C3FE0] font-bold">{n.title}</span>
@@ -428,21 +426,33 @@ export const Header: React.FC = () => {
             className="flex items-center gap-2 p-1 rounded-xl hover:bg-white/5 transition-colors cursor-pointer"
             aria-label="User profile menu"
           >
-            <img
-              src={currentUser.avatar}
-              alt={currentUser.name}
-              className="w-8 h-8 rounded-full object-cover border border-[#5C3FE0]"
-            />
+            {currentUser.avatar ? (
+              <img
+                src={currentUser.avatar}
+                alt={currentUser.name}
+                className="w-9 h-9 rounded-full object-cover border border-white/15 shrink-0"
+              />
+            ) : (
+              <div className="w-9 h-9 rounded-full bg-[#5C3FE0]/20 border border-[#5C3FE0]/30 flex items-center justify-center text-white text-xs font-bold shrink-0">
+                {currentUser.name?.charAt(0)?.toUpperCase() ?? 'U'}
+              </div>
+            )}
           </button>
 
           {isUserMenuOpen && (
             <div className="absolute right-0 mt-2 w-64 bg-[#09081E] border border-white/15 rounded-2xl shadow-2xl p-3 z-50 animate-in fade-in zoom-in-95 duration-100">
               <div className="flex items-center gap-3 pb-3 border-b border-white/10">
-                <img
-                  src={currentUser.avatar}
-                  alt={currentUser.name}
-                  className="w-10 h-10 rounded-full object-cover border border-[#5C3FE0]"
-                />
+                {currentUser.avatar ? (
+                  <img
+                    src={currentUser.avatar}
+                    alt={currentUser.name}
+                    className="w-9 h-9 rounded-full object-cover border border-white/15 shrink-0"
+                  />
+                ) : (
+                  <div className="w-9 h-9 rounded-full bg-[#5C3FE0]/20 border border-[#5C3FE0]/30 flex items-center justify-center text-white text-xs font-bold shrink-0">
+                    {currentUser.name?.charAt(0)?.toUpperCase() ?? 'U'}
+                  </div>
+                )}
                 <div className="min-w-0">
                   <div className="text-xs font-bold text-white truncate">{currentUser.name}</div>
                   <div className="text-[10px] text-gray-400 truncate">{currentUser.designation}</div>

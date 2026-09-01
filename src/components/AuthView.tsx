@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { useApp } from '../context/AppContext';
 import { EstusciaLogo } from './EstusciaLogo';
 import {
   ShieldCheck,
@@ -18,7 +19,7 @@ import {
   Eye,
   EyeOff,
 } from 'lucide-react';
-import { loginUser } from '../api/auth';
+// import { loginUser } from '../api/auth';
 
 export const AuthView: React.FC = () => {
   const [loginError, setLoginError] = useState('');
@@ -39,6 +40,7 @@ export const AuthView: React.FC = () => {
   const [companyDomain, setCompanyDomain] = useState('');
   const [plan, setPlan] = useState<'Growth' | 'Enterprise Pro'>('Enterprise Pro');
   const [currency, setCurrency] = useState('USD ($)');
+  const { login } = useApp();
 
   const handleLoginSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -47,30 +49,12 @@ export const AuthView: React.FC = () => {
     setIsLoggingIn(true);
 
     try {
-      const response = await loginUser(email, password);
+      const success = await login(email, password);
 
-      localStorage.setItem(
-        'accessToken',
-        response.accessToken
-      );
-
-      localStorage.setItem(
-        'refreshToken',
-        response.refreshToken
-      );
-
-      localStorage.setItem(
-        'user',
-        JSON.stringify(response.user)
-      );
-
-      console.log('Logged in user:', response.user);
-
-      // Temporary:
-      // After we connect your routing/dashboard,
-      // redirect will happen here.
-      window.location.href = '/dashboard';
-
+      if (!success) {
+        setLoginError('Invalid email or password.');
+        return;
+      }
     } catch (error) {
       setLoginError(
         error instanceof Error
@@ -179,7 +163,7 @@ export const AuthView: React.FC = () => {
   // ];
 
   return (
-    <div className="min-h-screen w-full bg-[#040312] text-slate-100 flex flex-col justify-between relative overflow-hidden font-sans">
+    <div className="min-h-screen w-full bg-[#040312] text-slate-100 flex flex-col relative overflow-x-hidden font-sans lg:h-screen lg:overflow-hidden">
       {/* Ambient background glows */}
       <div className="absolute -top-40 -left-40 w-96 h-96 bg-[#5C3FE0]/15 rounded-full blur-3xl pointer-events-none" />
       <div className="absolute -bottom-40 -right-40 w-96 h-96 bg-purple-600/10 rounded-full blur-3xl pointer-events-none" />
@@ -208,346 +192,307 @@ export const AuthView: React.FC = () => {
       </header>
 
       {/* Main Content Body */}
-      <main className="flex-1 relative z-10 max-w-7xl mx-auto w-full px-4 sm:px-6 lg:px-8 py-8 flex items-center justify-center">
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 w-full items-start">
+      <main className="flex-1 relative z-10 w-full flex items-center">
+        <div className="max-w-7xl mx-auto w-full px-6 sm:px-8 lg:px-12 py-8 lg:py-6">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-10 lg:gap-16 w-full items-center min-h-0">
 
-          {/* Left Column: Quick Role Switcher / Showcase */}
-          <div className="lg:col-span-7 space-y-6">
-            <div className="space-y-2">
-              <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-[#5C3FE0]/20 text-[#5C3FE0] border border-[#5C3FE0]/30 text-xs font-semibold">
-                <Sparkles className="w-3.5 h-3.5" />
-                <span>Role-Based Designations & Access Control</span>
+            {/* LEFT — BRANDING */}
+            <div className="flex items-center justify-center lg:justify-start">
+              <div className="w-full max-w-2xl">
+
+                {/* Company Logo */}
+                <img
+                  src="/estuscia-logo.png"
+                  alt="Estuscia Group"
+                  className="w-44 sm:w-56 lg:w-72 h-auto max-w-full object-contain mb-5 sm:mb-6"
+                />
+
+                {/* Corporate Label */}
+                <p className="text-xs sm:text-sm uppercase tracking-[0.2em] font-semibold text-[#8B7CFF] mb-4">
+                  ESTUSCIA GROUP • CORPORATE BUSINESS ECOSYSTEM
+                </p>
+
+                {/* Main Heading */}
+                <h1 className="text-3xl sm:text-5xl lg:text-[3.8rem] font-bold tracking-tight leading-[1.08] text-white">
+                  Building Businesses.
+                  <br />
+                  <span className="text-white/80">
+                    Creating Opportunities.
+                  </span>
+                  <br />
+                  <span className="text-[#7C5CFF]">
+                    Empowering the Future.
+                  </span>
+                </h1>
+
+                {/* Description */}
+                {/* <p className="mt-5 sm:mt-6 max-w-xl text-sm sm:text-base leading-6 text-gray-400">
+                  Estuscia Group is a diversified business ecosystem focused on
+                  financial services, business consulting, technology, media, trade,
+                  and startup development. We help entrepreneurs, businesses, and
+                  investors build sustainable long-term growth through strategic
+                  solutions.
+                </p> */}
+
               </div>
-              <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-white">
-                Select a Role or Sign In to Your Portal
-              </h1>
-              <p className="text-sm text-gray-400 max-w-xl">
-                Modules are automatically restricted according to employee designations. Sales staff only see daily call logs, personal targets, and customer deposit slips. Developers see task narrations, while HR manages Excel attendance and payroll.
-              </p>
+
             </div>
 
-            {/* Interactive 1-Click Role Switcher Grid */}
-            {/* <div className="space-y-3">
-                <div className="flex items-center justify-between text-xs text-gray-400 font-medium px-1">
-                  <span>1-Click Instant Demo Login:</span>
-                  <span className="text-[#5C3FE0]">Click any role below to test their portal</span>
+            {/* Right Column: Standard Auth Box */}
+            <div className="w-full flex justify-center lg:justify-end">
+              <div className="w-full max-w-md p-6 sm:p-7 rounded-2xl bg-[#09081E]/95 border border-white/10 shadow-2xl shadow-purple-950/20 backdrop-blur-xl relative">
+
+                {/* Tab Switcher: Login / Signup */}
+                <div className="flex p-1 rounded-xl bg-black/40 border border-white/10 mb-6">
+                  <button
+                    type="button"
+                    onClick={() => setAuthMode('login')}
+                    className={`flex-1 py-2 rounded-lg text-xs font-bold transition-all ${authMode === 'login'
+                      ? 'bg-[#5C3FE0] text-white shadow-lg shadow-[#5C3FE0]/25'
+                      : 'text-gray-400 hover:text-white'
+                      }`}
+                  >
+                    Account Sign In
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setAuthMode('signup')}
+                    className={`flex-1 py-2 rounded-lg text-xs font-bold transition-all ${authMode === 'signup'
+                      ? 'bg-[#5C3FE0] text-white shadow-lg shadow-[#5C3FE0]/25'
+                      : 'text-gray-400 hover:text-white'
+                      }`}
+                  >
+                    Register / Onboard
+                  </button>
                 </div>
 
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                  {demoRoles.map((demo) => (
-                    <button
-                      key={demo.role}
-                      onClick={() => handleQuickLogin(demo.role, demo.email)}
-                      className={`p-3.5 rounded-xl border text-left transition-all duration-200 group relative overflow-hidden ${demo.color}`}
-                    >
-                      <div className="flex items-start justify-between gap-2 mb-2">
-                        <div className="flex items-center gap-2.5">
-                          <div className="p-2 rounded-lg bg-black/40 border border-white/10 group-hover:scale-105 transition-transform">
-                            {demo.icon}
-                          </div>
-                          <div>
-                            <p className="text-xs font-bold text-white group-hover:text-purple-300 transition-colors">
-                              {demo.label}
-                            </p>
-                            <p className="text-[11px] text-gray-400">{demo.name}</p>
-                          </div>
+                {authMode === 'login' ? (
+                  /* Login Form */
+                  <form onSubmit={handleLoginSubmit} className="space-y-4">
+                    <div>
+                      <label className="block text-xs font-semibold text-gray-300 mb-1.5">
+                        Employee Email
+                      </label>
+                      <div className="relative">
+                        <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-gray-400">
+                          <Mail className="w-4 h-4" />
                         </div>
-                        <span className="text-[10px] font-semibold px-2 py-0.5 rounded bg-white/10 text-gray-300 border border-white/10">
-                          {demo.badge}
-                        </span>
-                      </div>
-                      <p className="text-[11px] text-gray-400 leading-relaxed">{demo.desc}</p>
-                      <div className="mt-2.5 pt-2 border-t border-white/5 flex items-center justify-between text-[10px] text-gray-500 font-medium">
-                        <span>Click to log in as {demo.name.split(' ')[0]}</span>
-                        <ArrowRight className="w-3 h-3 text-[#5C3FE0] group-hover:translate-x-1 transition-transform" />
-                      </div>
-                    </button>
-                  ))}
-                </div>
-              </div> */}
-
-            {/* Feature Highlights */}
-            <div className="grid grid-cols-3 gap-3 pt-2 text-xs">
-              <div className="p-3 rounded-xl bg-white/[0.03] border border-white/5 space-y-1">
-                <div className="flex items-center gap-1.5 text-emerald-400 font-semibold">
-                  <CheckCircle2 className="w-3.5 h-3.5" />
-                  <span>Excel Biometric Sync</span>
-                </div>
-                <p className="text-[11px] text-gray-400">Bulk upload employee attendance sheets effortlessly.</p>
-              </div>
-
-              <div className="p-3 rounded-xl bg-white/[0.03] border border-white/5 space-y-1">
-                <div className="flex items-center gap-1.5 text-[#5C3FE0] font-semibold">
-                  <CheckCircle2 className="w-3.5 h-3.5" />
-                  <span>Customer Deposit Slips</span>
-                </div>
-                <p className="text-[11px] text-gray-400">Generate verified customer payment certificates.</p>
-              </div>
-
-              <div className="p-3 rounded-xl bg-white/[0.03] border border-white/5 space-y-1">
-                <div className="flex items-center gap-1.5 text-cyan-400 font-semibold">
-                  <CheckCircle2 className="w-3.5 h-3.5" />
-                  <span>White-Label Ready</span>
-                </div>
-                <p className="text-[11px] text-gray-400">Sellable multi-tenant architecture for client firms.</p>
-              </div>
-            </div>
-          </div>
-
-          {/* Right Column: Standard Auth Box */}
-          <div className="lg:col-span-5">
-            <div className="p-6 sm:p-7 rounded-2xl bg-[#09081E] border border-white/10 shadow-2xl shadow-purple-950/20 backdrop-blur-xl relative">
-
-              {/* Tab Switcher: Login / Signup */}
-              <div className="flex p-1 rounded-xl bg-black/40 border border-white/10 mb-6">
-                <button
-                  type="button"
-                  onClick={() => setAuthMode('login')}
-                  className={`flex-1 py-2 rounded-lg text-xs font-bold transition-all ${authMode === 'login'
-                    ? 'bg-[#5C3FE0] text-white shadow-lg shadow-[#5C3FE0]/25'
-                    : 'text-gray-400 hover:text-white'
-                    }`}
-                >
-                  Account Sign In
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setAuthMode('signup')}
-                  className={`flex-1 py-2 rounded-lg text-xs font-bold transition-all ${authMode === 'signup'
-                    ? 'bg-[#5C3FE0] text-white shadow-lg shadow-[#5C3FE0]/25'
-                    : 'text-gray-400 hover:text-white'
-                    }`}
-                >
-                  Register / Onboard
-                </button>
-              </div>
-
-              {authMode === 'login' ? (
-                /* Login Form */
-                <form onSubmit={handleLoginSubmit} className="space-y-4">
-                  <div>
-                    <label className="block text-xs font-semibold text-gray-300 mb-1.5">
-                      Employee Email or ID
-                    </label>
-                    <div className="relative">
-                      <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-gray-400">
-                        <Mail className="w-4 h-4" />
-                      </div>
-                      <input
-                        type="email"
-                        value={email}
-                        onChange={(e) => setEmail(e.target.value)}
-                        required
-                        placeholder="your.name@estusciagroup.com"
-                        className="w-full pl-9 pr-3 py-2.5 rounded-xl bg-black/40 border border-white/10 text-white text-xs placeholder-gray-500 focus:outline-none focus:border-[#5C3FE0] focus:ring-1 focus:ring-[#5C3FE0]"
-                      />
-                    </div>
-                  </div>
-
-                  <div>
-                    <div className="flex items-center justify-between mb-1.5">
-                      <label className="text-xs font-semibold text-gray-300">Password</label>
-                      <button
-                        type="button"
-                        onClick={() => alert('Demo platform: Simply click any of the 1-click role buttons or submit with any password!')}
-                        className="text-[11px] text-[#5C3FE0] hover:underline"
-                      >
-                        Forgot password?
-                      </button>
-                    </div>
-                    <div className="relative">
-                      <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-gray-400">
-                        <Lock className="w-4 h-4" />
-                      </div>
-                      <input
-                        type={showPassword ? 'text' : 'password'}
-                        value={password}
-                        onChange={(e) => setPassword(e.target.value)}
-                        required
-                        placeholder="Enter your security password"
-                        className="w-full pl-9 pr-10 py-2.5 rounded-xl bg-black/40 border border-white/10 text-white text-xs placeholder-gray-500 focus:outline-none focus:border-[#5C3FE0] focus:ring-1 focus:ring-[#5C3FE0]"
-                      />
-                      <button
-                        type="button"
-                        onClick={() => setShowPassword(!showPassword)}
-                        className="absolute inset-y-0 right-0 pr-3 flex items-center text-gray-400 hover:text-gray-200"
-                      >
-                        {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-                      </button>
-                    </div>
-                  </div>
-
-                  {/* Login error message */}
-                  {loginError && (
-                    <div className="rounded-lg border border-red-500/20 bg-red-500/10 px-3 py-2 text-xs text-red-400">
-                      {loginError}
-                    </div>
-                  )}
-
-                  {/*Submit Button*/}
-                  <div className="pt-2">
-                    <button
-                      type="submit"
-                      disabled={isLoggingIn}
-                      className="w-full py-3 rounded-xl bg-gradient-to-r from-[#5C3FE0] to-[#7C3AED] hover:from-[#6A4DF4] hover:to-[#8B5CF6] disabled:opacity-50 disabled:cursor-not-allowed text-white font-bold text-xs tracking-wide shadow-lg shadow-[#5C3FE0]/30 transition-all flex items-center justify-center gap-2 group"
-                    >
-                      <UserCheck className="w-4 h-4" />
-
-                      <span>
-                        {isLoggingIn ? 'Signing In...' : 'Access Sovereign Workspace'}
-                      </span>
-
-                      {!isLoggingIn && (
-                        <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
-                      )}
-                    </button>
-                  </div>
-                </form>
-              ) : (
-                /* Signup / Onboard Form */
-                <form onSubmit={() => { }} className="space-y-3.5">
-                  <div className="flex gap-2 p-1 rounded-lg bg-black/40 border border-white/10 mb-2">
-                    <button
-                      type="button"
-                      onClick={() => setSignupType('employee')}
-                      className={`flex-1 py-1.5 rounded-md text-[11px] font-bold ${signupType === 'employee'
-                        ? 'bg-white/15 text-white'
-                        : 'text-gray-400 hover:text-white'
-                        }`}
-                    >
-                      Join as Employee
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setSignupType('company')}
-                      className={`flex-1 py-1.5 rounded-md text-[11px] font-bold ${signupType === 'company'
-                        ? 'bg-[#5C3FE0] text-white'
-                        : 'text-gray-400 hover:text-white'
-                        }`}
-                    >
-                      Onboard New Client Company
-                    </button>
-                  </div>
-
-                  {signupType === 'company' ? (
-                    <>
-                      <div>
-                        <label className="block text-[11px] font-semibold text-gray-300 mb-1">Company / Firm Name</label>
                         <input
-                          type="text"
+                          type="email"
+                          value={email}
+                          onChange={(e) => setEmail(e.target.value)}
                           required
-                          value={companyName}
-                          onChange={(e) => setCompanyName(e.target.value)}
-                          placeholder="e.g. Apex Wealth Management LLC"
-                          className="w-full px-3 py-2 rounded-lg bg-black/40 border border-white/10 text-white text-xs focus:outline-none focus:border-[#5C3FE0]"
+                          placeholder="your.name@estusciagroup.com"
+                          className="w-full pl-9 pr-3 py-2.5 rounded-xl bg-black/40 border border-white/10 text-white text-xs placeholder-gray-500 focus:outline-none focus:border-[#5C3FE0] focus:ring-1 focus:ring-[#5C3FE0]"
                         />
                       </div>
-                      <div className="grid grid-cols-2 gap-2">
+                    </div>
+
+                    <div>
+                      <div className="flex items-center justify-between mb-1.5">
+                        <label className="text-xs font-semibold text-gray-300">Password</label>
+                        <button
+                          type="button"
+                          onClick={() => alert('Demo platform: Simply click any of the 1-click role buttons or submit with any password!')}
+                          className="text-[11px] text-[#5C3FE0] hover:underline"
+                        >
+                          Forgot password?
+                        </button>
+                      </div>
+                      <div className="relative">
+                        <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-gray-400">
+                          <Lock className="w-4 h-4" />
+                        </div>
+                        <input
+                          type={showPassword ? 'text' : 'password'}
+                          value={password}
+                          onChange={(e) => setPassword(e.target.value)}
+                          required
+                          placeholder="Enter your security password"
+                          className="w-full pl-9 pr-10 py-2.5 rounded-xl bg-black/40 border border-white/10 text-white text-xs placeholder-gray-500 focus:outline-none focus:border-[#5C3FE0] focus:ring-1 focus:ring-[#5C3FE0]"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => setShowPassword(!showPassword)}
+                          className="absolute inset-y-0 right-0 pr-3 flex items-center text-gray-400 hover:text-gray-200"
+                        >
+                          {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                        </button>
+                      </div>
+                    </div>
+
+                    {/* Login error message */}
+                    {loginError && (
+                      <div className="rounded-lg border border-red-500/20 bg-red-500/10 px-3 py-2 text-xs text-red-400">
+                        {loginError}
+                      </div>
+                    )}
+
+                    {/*Submit Button*/}
+                    <div className="pt-2">
+                      <button
+                        type="submit"
+                        disabled={isLoggingIn}
+                        className="w-full py-3 rounded-xl bg-gradient-to-r from-[#5C3FE0] to-[#7C3AED] hover:from-[#6A4DF4] hover:to-[#8B5CF6] disabled:opacity-50 disabled:cursor-not-allowed text-white font-bold text-xs tracking-wide shadow-lg shadow-[#5C3FE0]/30 transition-all flex items-center justify-center gap-2 group"
+                      >
+                        <UserCheck className="w-4 h-4" />
+
+                        <span>
+                          {isLoggingIn ? 'Signing In...' : 'Access Sovereign Workspace'}
+                        </span>
+
+                        {!isLoggingIn && (
+                          <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
+                        )}
+                      </button>
+                    </div>
+                  </form>
+                ) : (
+                  /* Signup / Onboard Form */
+                  <form onSubmit={() => { }} className="space-y-3.5">
+                    <div className="flex gap-2 p-1 rounded-lg bg-black/40 border border-white/10 mb-2">
+                      <button
+                        type="button"
+                        onClick={() => setSignupType('employee')}
+                        className={`flex-1 py-1.5 rounded-md text-[11px] font-bold ${signupType === 'employee'
+                          ? 'bg-white/15 text-white'
+                          : 'text-gray-400 hover:text-white'
+                          }`}
+                      >
+                        Join as Employee
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setSignupType('company')}
+                        className={`flex-1 py-1.5 rounded-md text-[11px] font-bold ${signupType === 'company'
+                          ? 'bg-[#5C3FE0] text-white'
+                          : 'text-gray-400 hover:text-white'
+                          }`}
+                      >
+                        Onboard New Client Company
+                      </button>
+                    </div>
+
+                    {signupType === 'company' ? (
+                      <>
                         <div>
-                          <label className="block text-[11px] font-semibold text-gray-300 mb-1">Domain</label>
+                          <label className="block text-[11px] font-semibold text-gray-300 mb-1">Company / Firm Name</label>
                           <input
                             type="text"
-                            value={companyDomain}
-                            onChange={(e) => setCompanyDomain(e.target.value)}
-                            placeholder="apexwealth.com"
+                            required
+                            value={companyName}
+                            onChange={(e) => setCompanyName(e.target.value)}
+                            placeholder="e.g. Apex Wealth Management LLC"
                             className="w-full px-3 py-2 rounded-lg bg-black/40 border border-white/10 text-white text-xs focus:outline-none focus:border-[#5C3FE0]"
                           />
                         </div>
+                        <div className="grid grid-cols-2 gap-2">
+                          <div>
+                            <label className="block text-[11px] font-semibold text-gray-300 mb-1">Domain</label>
+                            <input
+                              type="text"
+                              value={companyDomain}
+                              onChange={(e) => setCompanyDomain(e.target.value)}
+                              placeholder="apexwealth.com"
+                              className="w-full px-3 py-2 rounded-lg bg-black/40 border border-white/10 text-white text-xs focus:outline-none focus:border-[#5C3FE0]"
+                            />
+                          </div>
+                          <div>
+                            <label className="block text-[11px] font-semibold text-gray-300 mb-1">Currency</label>
+                            <select
+                              value={currency}
+                              onChange={(e) => setCurrency(e.target.value)}
+                              className="w-full px-3 py-2 rounded-lg bg-black/40 border border-white/10 text-white text-xs focus:outline-none focus:border-[#5C3FE0]"
+                            >
+                              <option value="USD ($)">USD ($)</option>
+                              <option value="EUR (€)">EUR (€)</option>
+                              <option value="AED (AED)">AED (AED)</option>
+                              <option value="GBP (£)">GBP (£)</option>
+                              <option value="INR (₹)">INR (₹)</option>
+                            </select>
+                          </div>
+                        </div>
+                      </>
+                    ) : null}
+
+                    <div>
+                      <label className="block text-[11px] font-semibold text-gray-300 mb-1">Full Name</label>
+                      <input
+                        type="text"
+                        required
+                        value={name}
+                        onChange={(e) => setName(e.target.value)}
+                        placeholder="e.g. Tariq Mansoor"
+                        className="w-full px-3 py-2 rounded-lg bg-black/40 border border-white/10 text-white text-xs focus:outline-none focus:border-[#5C3FE0]"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-[11px] font-semibold text-gray-300 mb-1">Work Email</label>
+                      <input
+                        type="email"
+                        required
+                        value={signupEmail}
+                        onChange={(e) => setSignupEmail(e.target.value)}
+                        placeholder="tariq@estusciagroup.com"
+                        className="w-full px-3 py-2 rounded-lg bg-black/40 border border-white/10 text-white text-xs focus:outline-none focus:border-[#5C3FE0]"
+                      />
+                    </div>
+
+                    {signupType === 'employee' ? (
+                      <div className="grid grid-cols-2 gap-2">
                         <div>
-                          <label className="block text-[11px] font-semibold text-gray-300 mb-1">Currency</label>
+                          <label className="block text-[11px] font-semibold text-gray-300 mb-1">Designation</label>
                           <select
-                            value={currency}
-                            onChange={(e) => setCurrency(e.target.value)}
+                            value={designation}
+                            onChange={(e) => setDesignation(e.target.value)}
                             className="w-full px-3 py-2 rounded-lg bg-black/40 border border-white/10 text-white text-xs focus:outline-none focus:border-[#5C3FE0]"
                           >
-                            <option value="USD ($)">USD ($)</option>
-                            <option value="EUR (€)">EUR (€)</option>
-                            <option value="AED (AED)">AED (AED)</option>
-                            <option value="GBP (£)">GBP (£)</option>
-                            <option value="INR (₹)">INR (₹)</option>
+                            <option value="Investment Advisor">Investment Advisor (Sales)</option>
+                            <option value="Client Relationship Manager">Relationship Manager (Sales)</option>
+                            <option value="Senior Full Stack Software Engineer">Software Developer (Tech)</option>
+                            <option value="HR Operations Specialist">HR & Payroll Specialist</option>
+                            <option value="Operations & Client Services">Operations Support</option>
+                          </select>
+                        </div>
+                        <div>
+                          <label className="block text-[11px] font-semibold text-gray-300 mb-1">Department</label>
+                          <select
+                            value={department}
+                            onChange={(e) => setDepartment(e.target.value)}
+                            className="w-full px-3 py-2 rounded-lg bg-black/40 border border-white/10 text-white text-xs focus:outline-none focus:border-[#5C3FE0]"
+                          >
+                            <option value="Private Client Advisory">Private Client Advisory</option>
+                            <option value="Engineering & Tech">Engineering & Tech</option>
+                            <option value="Operations & HR">Operations & HR</option>
+                            <option value="Investment & Wealth">Investment & Wealth</option>
                           </select>
                         </div>
                       </div>
-                    </>
-                  ) : null}
+                    ) : null}
 
-                  <div>
-                    <label className="block text-[11px] font-semibold text-gray-300 mb-1">Full Name</label>
-                    <input
-                      type="text"
-                      required
-                      value={name}
-                      onChange={(e) => setName(e.target.value)}
-                      placeholder="e.g. Tariq Mansoor"
-                      className="w-full px-3 py-2 rounded-lg bg-black/40 border border-white/10 text-white text-xs focus:outline-none focus:border-[#5C3FE0]"
-                    />
-                  </div>
-
-                  <div>
-                    <label className="block text-[11px] font-semibold text-gray-300 mb-1">Work Email</label>
-                    <input
-                      type="email"
-                      required
-                      value={signupEmail}
-                      onChange={(e) => setSignupEmail(e.target.value)}
-                      placeholder="tariq@estusciagroup.com"
-                      className="w-full px-3 py-2 rounded-lg bg-black/40 border border-white/10 text-white text-xs focus:outline-none focus:border-[#5C3FE0]"
-                    />
-                  </div>
-
-                  {signupType === 'employee' ? (
-                    <div className="grid grid-cols-2 gap-2">
-                      <div>
-                        <label className="block text-[11px] font-semibold text-gray-300 mb-1">Designation</label>
-                        <select
-                          value={designation}
-                          onChange={(e) => setDesignation(e.target.value)}
-                          className="w-full px-3 py-2 rounded-lg bg-black/40 border border-white/10 text-white text-xs focus:outline-none focus:border-[#5C3FE0]"
-                        >
-                          <option value="Investment Advisor">Investment Advisor (Sales)</option>
-                          <option value="Client Relationship Manager">Relationship Manager (Sales)</option>
-                          <option value="Senior Full Stack Software Engineer">Software Developer (Tech)</option>
-                          <option value="HR Operations Specialist">HR & Payroll Specialist</option>
-                          <option value="Operations & Client Services">Operations Support</option>
-                        </select>
-                      </div>
-                      <div>
-                        <label className="block text-[11px] font-semibold text-gray-300 mb-1">Department</label>
-                        <select
-                          value={department}
-                          onChange={(e) => setDepartment(e.target.value)}
-                          className="w-full px-3 py-2 rounded-lg bg-black/40 border border-white/10 text-white text-xs focus:outline-none focus:border-[#5C3FE0]"
-                        >
-                          <option value="Private Client Advisory">Private Client Advisory</option>
-                          <option value="Engineering & Tech">Engineering & Tech</option>
-                          <option value="Operations & HR">Operations & HR</option>
-                          <option value="Investment & Wealth">Investment & Wealth</option>
-                        </select>
-                      </div>
+                    <div className="pt-2">
+                      <button
+                        type="submit"
+                        className="w-full py-2.5 rounded-xl bg-[#5C3FE0] hover:bg-[#6A4DF4] text-white font-bold text-xs tracking-wide shadow-lg shadow-[#5C3FE0]/30 transition-all flex items-center justify-center gap-2"
+                      >
+                        <Sparkles className="w-4 h-4" />
+                        <span>
+                          {signupType === 'company' ? 'Register Client Company' : 'Complete Employee Profile'}
+                        </span>
+                      </button>
                     </div>
-                  ) : null}
-
-                  <div className="pt-2">
-                    <button
-                      type="submit"
-                      className="w-full py-2.5 rounded-xl bg-[#5C3FE0] hover:bg-[#6A4DF4] text-white font-bold text-xs tracking-wide shadow-lg shadow-[#5C3FE0]/30 transition-all flex items-center justify-center gap-2"
-                    >
-                      <Sparkles className="w-4 h-4" />
-                      <span>
-                        {signupType === 'company' ? 'Register Client Company' : 'Complete Employee Profile'}
-                      </span>
-                    </button>
-                  </div>
-                </form>
-              )}
+                  </form>
+                )}
+              </div>
             </div>
-          </div>
 
+          </div>
         </div>
       </main>
 
       {/* Footer */}
-      <footer className="relative z-10 w-full px-6 py-4 border-t border-white/5 text-center text-xs text-gray-500 flex flex-col sm:flex-row items-center justify-between gap-2">
+      <footer className="relative z-10 w-full px-5 sm:px-6 py-4 border-t border-white/5 text-center text-xs text-gray-500 flex flex-col sm:flex-row items-center justify-between gap-2">
         <span>© 2026 Estuscia Group Holdings. Sovereign Employee Management & Investment System.</span>
         <div className="flex items-center gap-4 text-[11px]">
           <span>Security SLA 99.99%</span>
