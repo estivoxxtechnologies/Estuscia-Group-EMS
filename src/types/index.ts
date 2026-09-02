@@ -26,12 +26,14 @@ export interface Tenant {
 export interface User {
   id: string;
   tenantId: string;
+  tenantName: string;
   employeeCode: string;
   name: string;
   email: string;
   avatar: string;
   role: Role;
   department: string;
+  branchId: string;
   branch: string;
   designation: string;
   reportingManagerId?: string;

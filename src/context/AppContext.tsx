@@ -4,7 +4,11 @@ import React, {
   useState,
   useEffect,
 } from 'react';
-import { loginUser } from '../api/auth';
+import {
+  loginUser,
+  getCurrentUser,
+  BackendUser,
+} from '../api/auth';
 import {
   Tenant,
   User,
@@ -34,6 +38,7 @@ import {
   getJwtPayload,
   isTokenExpired,
 } from '../api/authStorage';
+
 
 export type AppTab =
   | 'dashboard'
@@ -182,7 +187,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   // Multi-Tenant and User State
   const [tenants, setTenants] = useState<Tenant[]>([]);
-  const [currentTenant, setCurrentTenant] = useState<Tenant | null>(null);
+  // const [currentTenant, setCurrentTenant] = useState<Tenant | null>(null);
   const [users, setUsers] = useState<User[]>([]);
   const [currentUser, setCurrentUser] = useState<User | null>(null);
   const [selectedBranchFilter, setSelectedBranchFilter] = useState<string>('All Branches');
@@ -256,55 +261,112 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const [selectedPayslipForView, setSelectedPayslipForView] = useState<Payslip | null>(null);
 
   useEffect(() => {
-    const restoreSession = () => {
-      if (isTokenExpired()) {
-        clearTokens();
-        localStorage.removeItem('isAuthenticated');
-
-        setCurrentUser(null);
-        setCurrentTenant(null);
-        setIsAuthenticated(false);
-
-        return;
-      }
-
-      const restoredUser = createUserFromJwt();
-
-      if (!restoredUser) {
-        clearTokens();
-        localStorage.removeItem('isAuthenticated');
-
-        setCurrentUser(null);
-        setCurrentTenant(null);
-        setIsAuthenticated(false);
-
-        return;
-      }
-
-      setCurrentUser(restoredUser);
-
-      setUsers((prev) => {
-        const exists = prev.some(
-          (u) => u.id === restoredUser.id
-        );
-
-        if (exists) {
-          return prev.map((u) =>
-            u.id === restoredUser.id
-              ? restoredUser
-              : u
+    const restoreSession = async () => {
+      try {
+        if (isTokenExpired()) {
+          clearTokens();
+          localStorage.removeItem(
+            'isAuthenticated'
           );
+
+          setCurrentUser(null);
+          setIsAuthenticated(false);
+
+          return;
         }
 
-        return [...prev, restoredUser];
-      });
+        await loadCurrentUser();
 
-      setIsAuthenticated(true);
+        setIsAuthenticated(true);
+      } catch (error) {
+        console.error(
+          'Session restoration failed:',
+          error
+        );
+
+        clearTokens();
+
+        localStorage.removeItem(
+          'isAuthenticated'
+        );
+
+        setCurrentUser(null);
+        setIsAuthenticated(false);
+      }
     };
 
     restoreSession();
   }, []);
 
+  const mapBackendUserToFrontendUser = (
+    backendUser: BackendUser
+  ): User => {
+    return {
+      id: backendUser.id,
+
+      tenantId: backendUser.tenantId,
+      tenantName: backendUser.tenantName,
+
+      branchId: backendUser.branchId,
+      branch: backendUser.branch || '',
+
+      employeeCode: '',
+
+      name: backendUser.name,
+      email: backendUser.email,
+
+      avatar: backendUser.avatar || '',
+
+      role: backendUser.role as Role,
+
+      department: '',
+
+      designation:
+        backendUser.designation || '',
+
+      joinDate: '',
+      phone: '',
+
+      status: 'active',
+
+      salaryBase: 0,
+      salaryHra: 0,
+      salaryAllowances: 0,
+
+      assignedTarget: 0,
+      currentAchievement: 0,
+
+      bankAccount: '',
+      panOrTaxId: '',
+    };
+  };
+  
+  const loadCurrentUser = async (): Promise<User> => {
+    const backendUser = await getCurrentUser();
+
+    const frontendUser =
+      mapBackendUserToFrontendUser(backendUser);
+
+    setCurrentUser(frontendUser);
+
+    setUsers((prev) => {
+      const exists = prev.some(
+        (u) => u.id === frontendUser.id
+      );
+
+      if (exists) {
+        return prev.map((u) =>
+          u.id === frontendUser.id
+            ? frontendUser
+            : u
+        );
+      }
+
+      return [...prev, frontendUser];
+    });
+
+    return frontendUser;
+  };
   // Active Slab Version derived helper
   const activeSlabVersion = slabVersions.find((sv) => sv.status === 'active') || slabVersions[0];
 
@@ -333,172 +395,67 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     if (currentUser.role === 'hr_ops') {
       return ['dashboard', 'staff', 'daily_work', 'attendance', 'payroll', 'receipts_slabs', 'knowledge_hub'].includes(tab);
     }
-    if (currentUser.role === 'manager') {
+    if (currentUser.role === 'branch_manager') {
       return ['dashboard', 'staff', 'daily_work', 'attendance', 'targets_incentives', 'receipts_slabs', 'payroll', 'knowledge_hub'].includes(tab);
     }
     if (currentUser.role === 'developer') {
       return ['dashboard', 'daily_work', 'attendance', 'knowledge_hub', 'payroll'].includes(tab);
     }
-    if (currentUser.role === 'support') {
+    if (currentUser.role === 'support_staff') {
       return ['dashboard', 'daily_work', 'attendance', 'receipts_slabs', 'knowledge_hub', 'payroll'].includes(tab);
     }
     // Sales / Staff default
     return ['dashboard', 'daily_work', 'attendance', 'targets_incentives', 'receipts_slabs', 'knowledge_hub', 'payroll'].includes(tab);
   };
 
-  const createUserFromJwt = (): User | null => {
-    const payload = getJwtPayload();
-
-    if (!payload) {
-      return null;
-    }
-
-    const userId =
-      payload.sub ||
-      payload.user_id ||
-      payload.nameid;
-
-    if (!userId) {
-      return null;
-    }
-
-    const role = payload.role || 'staff';
-
-    return {
-      id: userId,
-
-      tenantId: payload.tenant_id || '',
-
-      employeeCode: '',
-
-      name:
-        payload.unique_name ||
-        payload.nameid ||
-        'User',
-
-      email:
-        payload.email ||
-        '',
-
-      avatar: '',
-
-      role: role as Role,
-
-      department: '',
-
-      branch:
-        payload.branch ||
-        '',
-
-      designation:
-        payload.designation ||
-        '',
-
-      joinDate: '',
-      phone: '',
-
-      status: 'active',
-
-      salaryBase: 0,
-      salaryHra: 0,
-      salaryAllowances: 0,
-
-      assignedTarget: 0,
-      currentAchievement: 0,
-
-      bankAccount: '',
-      panOrTaxId: '',
-    };
-  };
-
   // Auth methods
   const login = async (
     email: string,
-    password?: string,
-    _targetRole?: Role
+    password: string
   ): Promise<boolean> => {
     try {
-      if (!password) {
-        return false;
-      }
-
-      const response = await loginUser(email, password);
-
-      console.log('Login successful:', response);
+      const response = await loginUser(
+        email,
+        password
+      );
 
       saveTokens(
         response.accessToken,
         response.refreshToken
       );
 
-      localStorage.setItem('isAuthenticated', 'true');
+      localStorage.setItem(
+        'isAuthenticated',
+        'true'
+      );
+
+      await loadCurrentUser();
 
       setIsAuthenticated(true);
-
-      const backendUser = response.user;
-      const frontendUser: User = {
-        id: response.user.id,
-        tenantId: response.user.tenantId,
-
-        employeeCode: '',
-        name: response.user.name,
-        email: response.user.email,
-
-        avatar: response.user.avatar || '',
-
-        role: response.user.role as Role,
-
-        department: '',
-        branch: response.user.branch,
-        designation: response.user.designation,
-
-        joinDate: '',
-        phone: '',
-
-        status: 'active',
-
-        salaryBase: 0,
-        salaryHra: 0,
-        salaryAllowances: 0,
-
-        assignedTarget: 0,
-        currentAchievement: 0,
-
-        bankAccount: '',
-        panOrTaxId: '',
-      };
-
-      setCurrentUser(frontendUser);
-
-      setUsers((prev) => {
-        const exists = prev.some((u) => u.id === frontendUser.id);
-
-        if (exists) {
-          return prev.map((u) =>
-            u.id === frontendUser.id ? frontendUser : u
-          );
-        }
-
-        return [...prev, frontendUser];
-      });
-
       setActiveTab('dashboard');
 
       return true;
     } catch (error) {
-      console.error('Login failed:', error);
+      console.error(
+        'Login failed:',
+        error
+      );
 
+      clearTokens();
+
+      localStorage.removeItem(
+        'isAuthenticated'
+      );
+
+      setCurrentUser(null);
       setIsAuthenticated(false);
-
-      localStorage.removeItem('accessToken');
-      localStorage.removeItem('refreshToken');
 
       return false;
     }
   };
 
   const signup = (userData: Partial<User>, companyData?: Partial<Tenant>): boolean => {
-    let tenantId = currentTenant.id;
+    let tenantId = currentUser?.tenantId;
 
     if (companyData && companyData.name) {
       const newTenant: Tenant = {
@@ -516,20 +473,22 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         supportEmail: companyData.supportEmail || `admin@${companyData.domain || 'company.com'}`,
       };
       setTenants((prev) => [...prev, newTenant]);
-      setCurrentTenant(newTenant);
+      // setCurrentTenant(newTenant);
       tenantId = newTenant.id;
     }
 
     const newUser: User = {
       id: `usr-${Date.now()}`,
       tenantId,
+      tenantName: currentUser.tenantName,
       employeeCode: `EST-EMP-${Math.floor(100 + Math.random() * 900)}`,
       name: userData.name || 'New Team Member',
       email: userData.email || 'user@estusciagroup.com',
       avatar: userData.avatar || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150&auto=format&fit=crop&q=80',
       role: userData.role || 'support_staff',
       department: userData.department || 'Private Client Advisory',
-      branch: userData.branch || currentTenant.branches[0] || 'Dubai Financial Centre (HQ)',
+      branch: userData.branch || 'Dubai Financial Centre (HQ)',
+      branchId: userData.branchId || '',
       designation: userData.designation || 'Investment Advisor',
       joinDate: new Date().toISOString().substring(0, 10),
       phone: userData.phone || '+971 50 000 0000',
@@ -583,7 +542,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const logAuditEvent = (action: string, target: string) => {
     const newLog: AuditEntry = {
       id: `aud-${Date.now()}`,
-      tenantId: currentTenant.id,
+      tenantId: currentUser.tenantId,
       actorName: currentUser.name,
       actorRole: currentUser.role,
       action,
@@ -714,7 +673,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
     const newBatch: AttendanceBatch = {
       id: batchId,
-      tenantId: currentTenant.id,
+      tenantId: currentUser.tenantId,
       uploadedBy: currentUser.id,
       uploadedByName: currentUser.name,
       uploadedAt: new Date().toISOString().replace('T', ' ').substring(0, 19),
@@ -728,7 +687,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
     const newRecords: AttendanceRecord[] = records.map((r, idx) => ({
       id: `att-${Date.now()}-${idx}`,
-      tenantId: currentTenant.id,
+      tenantId: currentUser.tenantId,
       userId: r.userId || users[idx % users.length].id,
       userName: r.userName || users[idx % users.length].name,
       employeeCode: r.employeeCode || users[idx % users.length].employeeCode,
@@ -857,7 +816,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           return {
             ...deal,
             status,
-            ...(currentUser.role === 'manager' ? { managerNotes: notes } : { hrNotes: notes }),
+            ...(currentUser.role === 'branch_manager' ? { managerNotes: notes } : { hrNotes: notes }),
           };
         }
         return deal;
@@ -871,7 +830,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     const cycleId = `pay-cycle-${Date.now()}`;
     const newCycle: PayrollCycle = {
       id: cycleId,
-      tenantId: currentTenant.id,
+      tenantId: currentUser.tenantId,
       monthYear,
       processedDate: new Date().toISOString().substring(0, 10),
       totalEmployees: users.length,
@@ -894,7 +853,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
       return {
         id: `slip-${u.id}-${Date.now()}`,
-        tenantId: currentTenant.id,
+        tenantId: currentUser.tenantId,
         payrollCycleId: cycleId,
         userId: u.id,
         userName: u.name,
@@ -1080,8 +1039,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     const newCert: Certificate = {
       id: `cert-${Date.now()}`,
       certificateNumber: certNum,
-      tenantId: currentTenant.id,
-      tenantName: currentTenant.name,
+      tenantId: currentUser.tenantId,
+      tenantName: currentUser.tenantName,
       userId: user.id,
       userName: user.name,
       courseId: course.id,
@@ -1137,8 +1096,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         signup,
         logout,
         tenants,
-        currentTenant,
-        setCurrentTenant,
+        // currentTenant,
+        // setCurrentTenant,
         addNewTenant,
         users,
         currentUser,

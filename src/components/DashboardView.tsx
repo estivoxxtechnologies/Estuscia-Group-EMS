@@ -44,10 +44,27 @@ export const DashboardView: React.FC = () => {
     setSelectedReceiptForView,
   } = useApp();
 
-  const isStaff = currentUser.role === 'staff';
+  console.log(currentUser,"erfffffffffffffffffffffffffffffffffffff")
+
+  console.log(currentTenant,"tenaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaant")
+
+  if (!currentUser || !currentTenant) {
+  return (
+    <div className="flex items-center justify-center min-h-[400px]">
+      <div className="text-center">
+        <div className="w-8 h-8 border-2 border-purple-500 border-t-transparent rounded-full animate-spin mx-auto mb-3" />
+        <p className="text-sm text-gray-400">
+          Loading your workspace...
+        </p>
+      </div>
+    </div>
+  );
+}
+
+  const isStaff = currentUser.role === 'support_staff';
   const isDeveloper = currentUser.role === 'developer';
   const isHR = currentUser.role === 'hr_ops';
-  const isManager = currentUser.role === 'manager';
+  const isManager = currentUser.role === 'branch_manager';
   const isAdmin = currentUser.role === 'super_admin' || currentUser.role === 'company_admin';
 
   // Metrics

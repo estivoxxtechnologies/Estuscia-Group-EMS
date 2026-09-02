@@ -5,34 +5,42 @@ export interface LoginRequest {
   password: string;
 }
 
-export interface User {
+export interface BackendUser {
   id: string;
   email: string;
   name: string;
   role: string;
   designation: string;
+
+  branchId: string;
   branch: string;
+
   tenantId: string;
   tenantName: string;
+
   avatar: string;
 }
-
 export interface AuthResponse {
   accessToken: string;
   refreshToken: string;
-  user: User;
+  user: BackendUser;
 }
 
 export async function loginUser(
   email: string,
   password: string
 ): Promise<AuthResponse> {
-  console.log("here reached...!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!")
   return apiRequest<AuthResponse>('/Auth/login', {
     method: 'POST',
     body: JSON.stringify({
       email,
       password,
     }),
+  });
+}
+
+export async function getCurrentUser(): Promise<BackendUser> {
+  return apiRequest<BackendUser>('/Auth/me', {
+    method: 'GET',
   });
 }

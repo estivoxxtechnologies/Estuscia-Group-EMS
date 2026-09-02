@@ -30,8 +30,8 @@ import { Role } from '../types';
 
 export const Header: React.FC = () => {
   const {
-    currentTenant,
-    setCurrentTenant,
+    // currentTenant,
+    // setCurrentTenant,
     tenants,
     currentUser,
     switchRole,
@@ -50,6 +50,8 @@ export const Header: React.FC = () => {
   if (!currentUser) {
     return null;
   }
+
+  console.log(currentUser,"useeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeerrrrrrrrrrr")
 
   const [isTenantOpen, setIsTenantOpen] = useState(false);
   const [isBranchOpen, setIsBranchOpen] = useState(false);
@@ -171,7 +173,7 @@ export const Header: React.FC = () => {
                   Superadmin Scope
                 </div>
                 <div className="text-xs font-bold text-white max-w-[110px] sm:max-w-[160px] md:max-w-[200px] truncate">
-                  {currentTenant?.name ?? 'No Tenant Selected'}
+                  {currentUser?.tenantName ?? 'No Tenant Selected'}
                 </div>
               </div>
               <ChevronDown className={`w-3.5 h-3.5 text-gray-400 transition-transform ${isTenantOpen ? 'rotate-180' : ''}`} />
@@ -190,11 +192,11 @@ export const Header: React.FC = () => {
                     <button
                       key={t.id}
                       onClick={() => {
-                        setCurrentTenant(t);
+                        // setCurrentTenant(t);
                         setSelectedBranchFilter('All Branches');
                         setIsTenantOpen(false);
                       }}
-                      className={`w-full text-left px-3 py-2 rounded-xl flex items-center justify-between transition-colors ${t.id === currentTenant.id
+                      className={`w-full text-left px-3 py-2 rounded-xl flex items-center justify-between transition-colors ${t.id === currentUser.tenantId
                         ? 'bg-amber-500/20 text-amber-300 border border-amber-500/40'
                         : 'hover:bg-white/5 text-gray-300'
                         }`}
@@ -203,7 +205,7 @@ export const Header: React.FC = () => {
                         <div className="text-xs font-semibold text-white">{t.name}</div>
                         <div className="text-[10px] text-gray-400">{t.domain} • {t.branches.length} Branches</div>
                       </div>
-                      {t.id === currentTenant.id && (
+                      {t.id === currentUser.tenantId && (
                         <CheckCircle2 className="w-4 h-4 text-amber-400" />
                       )}
                     </button>
@@ -222,7 +224,7 @@ export const Header: React.FC = () => {
                   Company Tenant
                 </div>
                 <div className="text-xs font-bold text-white max-w-[100px] sm:max-w-[140px] truncate">
-                  {currentTenant?.name ?? 'No Tenant Selected'}
+                  {currentUser?.tenantName ?? 'No Tenant Selected'}
                 </div>
               </div>
             </div>
@@ -259,7 +261,7 @@ export const Header: React.FC = () => {
                       <span>All Branches</span>
                       {selectedBranchFilter === 'All Branches' && <CheckCircle2 className="w-3.5 h-3.5 text-[#5C3FE0]" />}
                     </button>
-                    {currentTenant?.branches?.map((b) => () => (
+                    {/* {currentTenant?.branches?.map((b) => () => (
                       <button
                         key={b}
                         onClick={() => {
@@ -274,7 +276,7 @@ export const Header: React.FC = () => {
                         <span className="truncate">{b}</span>
                         {selectedBranchFilter === b && <CheckCircle2 className="w-3.5 h-3.5 text-[#5C3FE0]" />}
                       </button>
-                    ))}
+                    ))} */}
                   </div>
                 </div>
               )}
