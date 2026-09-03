@@ -51,7 +51,7 @@ export const Header: React.FC = () => {
     return null;
   }
 
-  console.log(currentUser,"useeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeerrrrrrrrrrr")
+  console.log(currentUser, "useeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeerrrrrrrrrrr")
 
   const [isTenantOpen, setIsTenantOpen] = useState(false);
   const [isBranchOpen, setIsBranchOpen] = useState(false);
@@ -65,7 +65,7 @@ export const Header: React.FC = () => {
   const notifRef = useRef<HTMLDivElement>(null);
   const userRef = useRef<HTMLDivElement>(null);
 
-  const isSuperAdmin = currentUser.role === 'super_admin';
+  const isSuperAdmin = currentUser.roleName === 'super_admin';
   const unreadNotifs = notifications.filter((n) => !n.isRead);
 
   // Close dropdowns on outside click
@@ -142,7 +142,10 @@ export const Header: React.FC = () => {
     },
   };
 
-  const isHR = currentUser.role === 'hr_ops' || currentUser.role === 'company_admin' || currentUser.role === 'super_admin';
+  const isHR =
+    currentUser.roleName === 'hr_ops' ||
+    currentUser.roleName === 'company_admin' ||
+    currentUser.roleName === 'super_admin';
 
   return (
     <header className="h-16 border-b border-white/10 bg-[#040312]/80 backdrop-blur-md flex items-center justify-between px-3 sm:px-4 lg:px-8 select-none shrink-0 sticky top-0 z-40">
@@ -332,10 +335,10 @@ export const Header: React.FC = () => {
         <div className="relative" ref={roleRef}>
           <button
             onClick={() => setIsRoleOpen(!isRoleOpen)}
-            className={`flex items-center gap-1.5 sm:gap-2 px-2.5 sm:px-3 py-1.5 rounded-xl border text-xs font-semibold transition-all cursor-pointer ${roleLabels[currentUser.role]?.color || 'bg-white/10 text-white'}`}
+            className={`flex items-center gap-1.5 sm:gap-2 px-2.5 sm:px-3 py-1.5 rounded-xl border text-xs font-semibold transition-all cursor-pointer ${roleLabels[currentUser.roleName as Role]?.color || 'bg-white/10 text-white'}`}
           >
-            {roleLabels[currentUser.role]?.icon}
-            <span className="hidden md:inline">{roleLabels[currentUser.role]?.title || currentUser.role}</span>
+            {roleLabels[currentUser.roleName]?.icon}
+            <span className="hidden md:inline">{roleLabels[currentUser.roleName]?.title || currentUser.roleName}</span>
             <ChevronDown className={`w-3.5 h-3.5 transition-transform ${isRoleOpen ? 'rotate-180' : ''}`} />
           </button>
 
@@ -348,7 +351,7 @@ export const Header: React.FC = () => {
               <div className="space-y-1 mt-1">
                 {(Object.keys(roleLabels) as Role[]).map((r) => {
                   const info = roleLabels[r];
-                  const isActive = currentUser.role === r;
+                  const isActive = currentUser.roleName === r;
                   return (
                     <button
                       key={r}
@@ -428,15 +431,15 @@ export const Header: React.FC = () => {
             className="flex items-center gap-2 p-1 rounded-xl hover:bg-white/5 transition-colors cursor-pointer"
             aria-label="User profile menu"
           >
-            {currentUser.avatar ? (
+            {currentUser.avatarUrl ? (
               <img
-                src={currentUser.avatar}
-                alt={currentUser.name}
+                src={currentUser.avatarUrl}
+                alt={currentUser.username}
                 className="w-9 h-9 rounded-full object-cover border border-white/15 shrink-0"
               />
             ) : (
               <div className="w-9 h-9 rounded-full bg-[#5C3FE0]/20 border border-[#5C3FE0]/30 flex items-center justify-center text-white text-xs font-bold shrink-0">
-                {currentUser.name?.charAt(0)?.toUpperCase() ?? 'U'}
+                {currentUser.username?.charAt(0)?.toUpperCase() ?? 'U'}
               </div>
             )}
           </button>
@@ -444,19 +447,19 @@ export const Header: React.FC = () => {
           {isUserMenuOpen && (
             <div className="absolute right-0 mt-2 w-64 bg-[#09081E] border border-white/15 rounded-2xl shadow-2xl p-3 z-50 animate-in fade-in zoom-in-95 duration-100">
               <div className="flex items-center gap-3 pb-3 border-b border-white/10">
-                {currentUser.avatar ? (
+                {currentUser.avatarUrl ? (
                   <img
-                    src={currentUser.avatar}
-                    alt={currentUser.name}
+                    src={currentUser.avatarUrl}
+                    alt={currentUser.username}
                     className="w-9 h-9 rounded-full object-cover border border-white/15 shrink-0"
                   />
                 ) : (
                   <div className="w-9 h-9 rounded-full bg-[#5C3FE0]/20 border border-[#5C3FE0]/30 flex items-center justify-center text-white text-xs font-bold shrink-0">
-                    {currentUser.name?.charAt(0)?.toUpperCase() ?? 'U'}
+                    {currentUser.username?.charAt(0)?.toUpperCase() ?? 'U'}
                   </div>
                 )}
                 <div className="min-w-0">
-                  <div className="text-xs font-bold text-white truncate">{currentUser.name}</div>
+                  <div className="text-xs font-bold text-white truncate">{currentUser.username}</div>
                   <div className="text-[10px] text-gray-400 truncate">{currentUser.designation}</div>
                   <div className="text-[10px] text-purple-300 font-mono mt-0.5">{currentUser.employeeCode}</div>
                 </div>

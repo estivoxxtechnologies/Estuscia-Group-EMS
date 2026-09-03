@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useApp } from '../context/AppContext';
 import { EstusciaLogo } from './EstusciaLogo';
 import {
@@ -41,6 +42,7 @@ export const AuthView: React.FC = () => {
   const [plan, setPlan] = useState<'Growth' | 'Enterprise Pro'>('Enterprise Pro');
   const [currency, setCurrency] = useState('USD ($)');
   const { login } = useApp();
+  const navigate = useNavigate();
 
   const handleLoginSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -55,6 +57,9 @@ export const AuthView: React.FC = () => {
         setLoginError('Invalid email or password.');
         return;
       }
+
+      navigate('/', { replace: true });
+
     } catch (error) {
       setLoginError(
         error instanceof Error

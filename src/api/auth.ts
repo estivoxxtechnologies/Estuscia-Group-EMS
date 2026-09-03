@@ -6,19 +6,23 @@ export interface LoginRequest {
 }
 
 export interface BackendUser {
-  id: string;
+  userId: number;
+
+  username: string;
   email: string;
-  name: string;
-  role: string;
+
+  roleId: number;
+  roleName: string;
+
   designation: string;
 
-  branchId: string;
-  branch: string;
-
-  tenantId: string;
+  tenantId: number;
   tenantName: string;
 
-  avatar: string;
+  branchId: number | null;
+  branchName: string | null;
+
+  avatarUrl: string;
 }
 export interface AuthResponse {
   accessToken: string;

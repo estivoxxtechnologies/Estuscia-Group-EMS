@@ -38,6 +38,7 @@ import {
   getJwtPayload,
   isTokenExpired,
 } from '../api/authStorage';
+import { CurrentUser } from '../types/currentUser';
 
 
 export type AppTab =
@@ -67,6 +68,7 @@ interface AppContextType {
 
   // Auth & Session
   isAuthenticated: boolean;
+  authLoading: boolean;
   setAuthenticated: (authenticated: boolean) => void;
   login: (
     email: string,
@@ -82,8 +84,8 @@ interface AppContextType {
   setCurrentTenant: (tenant: Tenant) => void;
   addNewTenant: (tenant: Omit<Tenant, 'id'>) => Tenant;
   users: User[];
-  currentUser: User | null;
-  setCurrentUser: (user: User) => void;
+  currentUser: CurrentUser | null;
+  setCurrentUser: (user: CurrentUser | null) => void;
   switchRole: (role: Role) => void;
   switchUserById: (userId: string) => void;
 
@@ -182,6 +184,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   // Navigation State
   const [viewMode, setViewMode] = useState<ViewMode>('portal');
   const [activeTab, setActiveTab] = useState<AppTab>('dashboard');
+  const [authLoading, setAuthLoading] = useState(true);
 
   const [isAuthenticated, setIsAuthenticated] = useState<boolean>(false);
 
@@ -189,7 +192,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const [tenants, setTenants] = useState<Tenant[]>([]);
   // const [currentTenant, setCurrentTenant] = useState<Tenant | null>(null);
   const [users, setUsers] = useState<User[]>([]);
-  const [currentUser, setCurrentUser] = useState<User | null>(null);
+  const [currentUser, setCurrentUser] =
+    useState<CurrentUser | null>(null);
   const [selectedBranchFilter, setSelectedBranchFilter] = useState<string>('All Branches');
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState<boolean>(false);
 
@@ -263,110 +267,86 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   useEffect(() => {
     const restoreSession = async () => {
       try {
-        if (isTokenExpired()) {
-          clearTokens();
-          localStorage.removeItem(
-            'isAuthenticated'
-          );
+        setAuthLoading(true);
 
+        const token = getAccessToken();
+
+        console.log(
+          'RESTORE SESSION - access token:',
+          !!token
+        );
+
+        if (!token) {
           setCurrentUser(null);
           setIsAuthenticated(false);
-
           return;
         }
 
-        await loadCurrentUser();
+        // Let the backend validate the access token.
+        const user = await loadCurrentUser();
 
+        console.log(
+          'SESSION RESTORED:',
+          user
+        );
+
+        setCurrentUser(user);
         setIsAuthenticated(true);
+
       } catch (error) {
         console.error(
-          'Session restoration failed:',
+          'Session restore failed:',
           error
         );
 
         clearTokens();
 
-        localStorage.removeItem(
-          'isAuthenticated'
-        );
-
         setCurrentUser(null);
         setIsAuthenticated(false);
+
+      } finally {
+        setAuthLoading(false);
       }
     };
 
     restoreSession();
   }, []);
 
-  const mapBackendUserToFrontendUser = (
+  const mapBackendUserToCurrentUser = (
     backendUser: BackendUser
-  ): User => {
+  ): CurrentUser => {
     return {
-      id: backendUser.id,
+      userId: backendUser.userId,
+      username: backendUser.username,
+      email: backendUser.email,
+
+      roleId: backendUser.roleId,
+      roleName: backendUser.roleName,
+
+      designation: backendUser.designation,
 
       tenantId: backendUser.tenantId,
       tenantName: backendUser.tenantName,
 
       branchId: backendUser.branchId,
-      branch: backendUser.branch || '',
+      branchName: backendUser.branchName,
 
-      employeeCode: '',
-
-      name: backendUser.name,
-      email: backendUser.email,
-
-      avatar: backendUser.avatar || '',
-
-      role: backendUser.role as Role,
-
-      department: '',
-
-      designation:
-        backendUser.designation || '',
-
-      joinDate: '',
-      phone: '',
-
-      status: 'active',
-
-      salaryBase: 0,
-      salaryHra: 0,
-      salaryAllowances: 0,
-
-      assignedTarget: 0,
-      currentAchievement: 0,
-
-      bankAccount: '',
-      panOrTaxId: '',
+      avatarUrl: backendUser.avatarUrl,
     };
   };
-  
-  const loadCurrentUser = async (): Promise<User> => {
+
+  const loadCurrentUser = async (): Promise<CurrentUser> => {
     const backendUser = await getCurrentUser();
 
-    const frontendUser =
-      mapBackendUserToFrontendUser(backendUser);
+    console.log('BACKEND /Auth/me:', backendUser);
 
-    setCurrentUser(frontendUser);
+    const currentUser = mapBackendUserToCurrentUser(backendUser);
 
-    setUsers((prev) => {
-      const exists = prev.some(
-        (u) => u.id === frontendUser.id
-      );
+    console.log('MAPPED CURRENT USER:', currentUser);
 
-      if (exists) {
-        return prev.map((u) =>
-          u.id === frontendUser.id
-            ? frontendUser
-            : u
-        );
-      }
-
-      return [...prev, frontendUser];
-    });
-
-    return frontendUser;
+    return currentUser;
   };
+
   // Active Slab Version derived helper
   const activeSlabVersion = slabVersions.find((sv) => sv.status === 'active') || slabVersions[0];
 
@@ -375,37 +355,97 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     if (!currentUser) {
       return false;
     }
+
     // Super admin and company admin have universal access
-    if (currentUser.role === 'super_admin' || currentUser.role === 'company_admin') {
+    if (
+      currentUser.roleName === 'super_admin' ||
+      currentUser.roleName === 'company_admin'
+    ) {
       return true;
     }
 
     // Check designation permission configuration if defined
     const matchedPerm = designationPermissions.find(
-      (p) => p.designation.toLowerCase() === currentUser.designation.toLowerCase()
+      (p) =>
+        p.designation.toLowerCase() ===
+        currentUser.designation.toLowerCase()
     );
 
     if (matchedPerm) {
-      if (tab === 'slabs' && matchedPerm.allowedTabs.includes('receipts_slabs')) return true;
-      if (tab === 'lms_academy' && matchedPerm.allowedTabs.includes('knowledge_hub')) return true;
+      if (
+        tab === 'slabs' &&
+        matchedPerm.allowedTabs.includes('receipts_slabs')
+      ) {
+        return true;
+      }
+
+      if (
+        tab === 'lms_academy' &&
+        matchedPerm.allowedTabs.includes('knowledge_hub')
+      ) {
+        return true;
+      }
+
       return matchedPerm.allowedTabs.includes(tab);
     }
 
     // Role defaults
-    if (currentUser.role === 'hr_ops') {
-      return ['dashboard', 'staff', 'daily_work', 'attendance', 'payroll', 'receipts_slabs', 'knowledge_hub'].includes(tab);
+    if (currentUser.roleName === 'hr_ops') {
+      return [
+        'dashboard',
+        'staff',
+        'daily_work',
+        'attendance',
+        'payroll',
+        'receipts_slabs',
+        'knowledge_hub',
+      ].includes(tab);
     }
-    if (currentUser.role === 'branch_manager') {
-      return ['dashboard', 'staff', 'daily_work', 'attendance', 'targets_incentives', 'receipts_slabs', 'payroll', 'knowledge_hub'].includes(tab);
+
+    if (currentUser.roleName === 'branch_manager') {
+      return [
+        'dashboard',
+        'staff',
+        'daily_work',
+        'attendance',
+        'targets_incentives',
+        'receipts_slabs',
+        'payroll',
+        'knowledge_hub',
+      ].includes(tab);
     }
-    if (currentUser.role === 'developer') {
-      return ['dashboard', 'daily_work', 'attendance', 'knowledge_hub', 'payroll'].includes(tab);
+
+    if (currentUser.roleName === 'developer') {
+      return [
+        'dashboard',
+        'daily_work',
+        'attendance',
+        'knowledge_hub',
+        'payroll',
+      ].includes(tab);
     }
-    if (currentUser.role === 'support_staff') {
-      return ['dashboard', 'daily_work', 'attendance', 'receipts_slabs', 'knowledge_hub', 'payroll'].includes(tab);
+
+    if (currentUser.roleName === 'support_staff') {
+      return [
+        'dashboard',
+        'daily_work',
+        'attendance',
+        'receipts_slabs',
+        'knowledge_hub',
+        'payroll',
+      ].includes(tab);
     }
+
     // Sales / Staff default
-    return ['dashboard', 'daily_work', 'attendance', 'targets_incentives', 'receipts_slabs', 'knowledge_hub', 'payroll'].includes(tab);
+    return [
+      'dashboard',
+      'daily_work',
+      'attendance',
+      'targets_incentives',
+      'receipts_slabs',
+      'knowledge_hub',
+      'payroll',
+    ].includes(tab);
   };
 
   // Auth methods
@@ -429,12 +469,15 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         'true'
       );
 
-      await loadCurrentUser();
+      const user = await loadCurrentUser();
 
+      setCurrentUser(user);
       setIsAuthenticated(true);
+
       setActiveTab('dashboard');
 
       return true;
+
     } catch (error) {
       console.error(
         'Login failed:',
@@ -525,31 +568,48 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   // Helper to switch user role seamlessly
   const switchRole = (targetRole: Role) => {
     const matchedUser = users.find((u) => u.role === targetRole);
+
     if (matchedUser) {
       setCurrentUser(matchedUser);
-      logAuditEvent('SWITCH_USER_SESSION', `Switched view context to ${matchedUser.name} (${targetRole})`);
+      logAuditEvent(
+        'SWITCH_USER_SESSION',
+        `Switched view context to ${matchedUser.name} (${targetRole})`
+      );
     }
   };
 
   const switchUserById = (userId: string) => {
     const matchedUser = users.find((u) => u.id === userId);
+
     if (matchedUser) {
       setCurrentUser(matchedUser);
-      logAuditEvent('SWITCH_USER_SESSION', `Switched view context to ${matchedUser.name} (${matchedUser.role})`);
+
+      logAuditEvent(
+        'SWITCH_USER_SESSION',
+        `Switched view context to ${matchedUser.name} (${matchedUser.role})`
+      );
     }
   };
 
   const logAuditEvent = (action: string, target: string) => {
+    if (!currentUser) {
+      return;
+    }
+
     const newLog: AuditEntry = {
       id: `aud-${Date.now()}`,
       tenantId: currentUser.tenantId,
-      actorName: currentUser.name,
-      actorRole: currentUser.role,
+      actorName: currentUser.username,
+      actorRole: currentUser.roleName,
       action,
       target,
-      timestamp: new Date().toISOString().replace('T', ' ').substring(0, 19),
-      ipAddress: '194.67.210.12',
+      timestamp: new Date()
+        .toISOString()
+        .replace('T', ' ')
+        .substring(0, 19),
+      ipAddress: 'Client',
     };
+
     setAuditLogs((prev) => [newLog, ...prev]);
   };
 
@@ -675,7 +735,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       id: batchId,
       tenantId: currentUser.tenantId,
       uploadedBy: currentUser.id,
-      uploadedByName: currentUser.name,
+      uploadedByName: currentUser.username,
       uploadedAt: new Date().toISOString().replace('T', ' ').substring(0, 19),
       fileName,
       totalRows: records.length,
@@ -698,7 +758,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       totalHours: r.totalHours || 8.5,
       status: (r.status as any) || 'Present',
       uploadBatchId: batchId,
-      uploadedBy: currentUser.name,
+      uploadedBy: currentUser.username,
       notes: r.notes || 'Imported via biometric Excel batch',
     }));
 
@@ -767,7 +827,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           ? {
             ...req,
             status,
-            reviewedBy: currentUser.name,
+            reviewedBy: currentUser.username,
             reviewNotes,
           }
           : req
@@ -816,7 +876,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           return {
             ...deal,
             status,
-            ...(currentUser.role === 'branch_manager' ? { managerNotes: notes } : { hrNotes: notes }),
+            ...(currentUser.roleName === 'branch_manager' ? { managerNotes: notes } : { hrNotes: notes }),
           };
         }
         return deal;
@@ -1091,6 +1151,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         setActiveTab,
         isTabAllowed,
         isAuthenticated,
+        authLoading,
         setAuthenticated: setIsAuthenticated,
         login,
         signup,
