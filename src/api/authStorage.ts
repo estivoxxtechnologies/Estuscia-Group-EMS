@@ -23,6 +23,7 @@ export function saveTokens(
 export function clearTokens(): void {
   localStorage.removeItem(ACCESS_TOKEN_KEY);
   localStorage.removeItem(REFRESH_TOKEN_KEY);
+  localStorage.removeItem('isAuthenticated');
 }
 
 export function getJwtPayload(): JwtPayload | null {

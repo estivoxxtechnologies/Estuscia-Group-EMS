@@ -39,6 +39,13 @@ import {
   isTokenExpired,
 } from '../api/authStorage';
 import { CurrentUser } from '../types/currentUser';
+import {
+  getBranches,
+} from '../api/branches';
+
+import {
+  Branch,
+} from '../types/branch';
 
 
 export type AppTab =
@@ -80,12 +87,18 @@ interface AppContextType {
 
   // Multi-Tenant & Role Session
   tenants: Tenant[];
-  currentTenant: Tenant | null;
-  setCurrentTenant: (tenant: Tenant) => void;
   addNewTenant: (tenant: Omit<Tenant, 'id'>) => Tenant;
+
   users: User[];
+
   currentUser: CurrentUser | null;
   setCurrentUser: (user: CurrentUser | null) => void;
+
+  branches: Branch[];
+  selectedBranch: Branch | null;
+  setSelectedBranch: (branch: Branch | null) => void;
+  loadBranches: () => Promise<void>;
+
   switchRole: (role: Role) => void;
   switchUserById: (userId: string) => void;
 
@@ -162,8 +175,6 @@ interface AppContextType {
   setIsSearchOpen: (open: boolean) => void;
   isMobileMenuOpen: boolean;
   setIsMobileMenuOpen: (open: boolean) => void;
-  selectedBranchFilter: string;
-  setSelectedBranchFilter: (branch: string) => void;
   isAddEmployeeOpen: boolean;
   setIsAddEmployeeOpen: (open: boolean) => void;
   isBatchUploadOpen: boolean;
@@ -190,11 +201,16 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   // Multi-Tenant and User State
   const [tenants, setTenants] = useState<Tenant[]>([]);
-  // const [currentTenant, setCurrentTenant] = useState<Tenant | null>(null);
   const [users, setUsers] = useState<User[]>([]);
+
   const [currentUser, setCurrentUser] =
     useState<CurrentUser | null>(null);
-  const [selectedBranchFilter, setSelectedBranchFilter] = useState<string>('All Branches');
+
+  const [branches, setBranches] = useState<Branch[]>([]);
+  const [selectedBranch, setSelectedBranch] =
+    useState<Branch | null>(null);
+
+
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState<boolean>(false);
 
   // Daily Work & Call Submissions
@@ -1215,8 +1231,6 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         setIsSearchOpen,
         isMobileMenuOpen,
         setIsMobileMenuOpen,
-        selectedBranchFilter,
-        setSelectedBranchFilter,
         isAddEmployeeOpen,
         setIsAddEmployeeOpen,
         isBatchUploadOpen,

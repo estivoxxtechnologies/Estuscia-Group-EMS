@@ -1,4 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
+import { getBranches } from '../api/branches';
+import { Branch } from '../types/branch';
 import {
   Building2,
   ChevronDown,
@@ -30,8 +32,6 @@ import { Role } from '../types';
 
 export const Header: React.FC = () => {
   const {
-    // currentTenant,
-    // setCurrentTenant,
     tenants,
     currentUser,
     switchRole,
@@ -44,8 +44,6 @@ export const Header: React.FC = () => {
     logout,
     isMobileMenuOpen,
     setIsMobileMenuOpen,
-    selectedBranchFilter,
-    setSelectedBranchFilter,
   } = useApp();
   if (!currentUser) {
     return null;
@@ -58,6 +56,45 @@ export const Header: React.FC = () => {
   const [isRoleOpen, setIsRoleOpen] = useState(false);
   const [isNotifsOpen, setIsNotifsOpen] = useState(false);
   const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
+  const [branches, setBranches] = useState<Branch[]>([]);
+  const [selectedBranch, setSelectedBranch] = useState<Branch | null>(null);
+  const [isBranchesLoading, setIsBranchesLoading] = useState(false);
+
+  useEffect(() => {
+    const loadBranches = async () => {
+      if (!currentUser) {
+        setBranches([]);
+        setSelectedBranch(null);
+        return;
+      }
+
+      try {
+        setIsBranchesLoading(true);
+
+        const data = await getBranches();
+
+        setBranches(data);
+
+        // Select the user's current/assigned branch
+        if (currentUser.branchId !== null) {
+          const userBranch = data.find(
+            (branch) => branch.id === currentUser.branchId
+          );
+
+          setSelectedBranch(userBranch ?? null);
+        }
+      } catch (error) {
+        console.error('Failed to load branches:', error);
+
+        setBranches([]);
+        setSelectedBranch(null);
+      } finally {
+        setIsBranchesLoading(false);
+      }
+    };
+
+    loadBranches();
+  }, [currentUser]);
 
   const tenantRef = useRef<HTMLDivElement>(null);
   const branchRef = useRef<HTMLDivElement>(null);
@@ -196,7 +233,7 @@ export const Header: React.FC = () => {
                       key={t.id}
                       onClick={() => {
                         // setCurrentTenant(t);
-                        setSelectedBranchFilter('All Branches');
+                        setSelectedBranch('All Branches');
                         setIsTenantOpen(false);
                       }}
                       className={`w-full text-left px-3 py-2 rounded-xl flex items-center justify-between transition-colors ${t.id === currentUser.tenantId
@@ -233,16 +270,22 @@ export const Header: React.FC = () => {
             </div>
 
             {/* Branch Selector for Company Managers / Admins */}
+            {/* Branch Selector */}
             <div className="relative" ref={branchRef}>
               <button
                 onClick={() => setIsBranchOpen(!isBranchOpen)}
                 className="bg-[#09081E] px-2.5 sm:px-3 py-1.5 rounded-xl border border-white/10 flex items-center gap-1.5 hover:border-[#5C3FE0]/50 transition-colors cursor-pointer"
               >
                 <MapPin className="w-3.5 h-3.5 text-cyan-400 shrink-0" />
+
                 <span className="text-xs font-medium text-gray-200 max-w-[90px] sm:max-w-[130px] truncate">
-                  {selectedBranchFilter}
+                  {selectedBranch?.branchName ?? 'All Branches'}
                 </span>
-                <ChevronDown className={`w-3 h-3 text-gray-400 transition-transform ${isBranchOpen ? 'rotate-180' : ''}`} />
+
+                <ChevronDown
+                  className={`w-3 h-3 text-gray-400 transition-transform ${isBranchOpen ? 'rotate-180' : ''
+                    }`}
+                />
               </button>
 
               {isBranchOpen && (
@@ -250,36 +293,77 @@ export const Header: React.FC = () => {
                   <div className="px-2.5 py-1 text-[10px] font-bold tracking-wider text-gray-400 uppercase">
                     Select Branch Scope
                   </div>
+
                   <div className="space-y-1 mt-1">
+
+                    {/* All Branches */}
                     <button
                       onClick={() => {
-                        setSelectedBranchFilter('All Branches');
+                        setSelectedBranch(null);
                         setIsBranchOpen(false);
                       }}
-                      className={`w-full text-left px-2.5 py-1.5 rounded-lg text-xs transition-colors flex items-center justify-between ${selectedBranchFilter === 'All Branches'
-                        ? 'bg-[#5C3FE0]/20 text-[#5C3FE0] font-semibold'
-                        : 'text-gray-300 hover:bg-white/5'
+                      className={`w-full text-left px-2.5 py-1.5 rounded-lg text-xs transition-colors flex items-center justify-between ${selectedBranch === null
+                          ? 'bg-[#5C3FE0]/20 text-[#5C3FE0] font-semibold'
+                          : 'text-gray-300 hover:bg-white/5'
                         }`}
                     >
                       <span>All Branches</span>
-                      {selectedBranchFilter === 'All Branches' && <CheckCircle2 className="w-3.5 h-3.5 text-[#5C3FE0]" />}
+
+                      {selectedBranch === null && (
+                        <CheckCircle2 className="w-3.5 h-3.5 text-[#5C3FE0]" />
+                      )}
                     </button>
-                    {/* {currentTenant?.branches?.map((b) => () => (
-                      <button
-                        key={b}
-                        onClick={() => {
-                          setSelectedBranchFilter(b);
-                          setIsBranchOpen(false);
-                        }}
-                        className={`w-full text-left px-2.5 py-1.5 rounded-lg text-xs transition-colors flex items-center justify-between ${selectedBranchFilter === b
-                          ? 'bg-[#5C3FE0]/20 text-[#5C3FE0] font-semibold'
-                          : 'text-gray-300 hover:bg-white/5'
-                          }`}
-                      >
-                        <span className="truncate">{b}</span>
-                        {selectedBranchFilter === b && <CheckCircle2 className="w-3.5 h-3.5 text-[#5C3FE0]" />}
-                      </button>
-                    ))} */}
+
+                    {/* Loading */}
+                    {isBranchesLoading && (
+                      <div className="px-2.5 py-2 text-xs text-gray-500">
+                        Loading branches...
+                      </div>
+                    )}
+
+                    {/* Empty */}
+                    {!isBranchesLoading && branches.length === 0 && (
+                      <div className="px-2.5 py-2 text-xs text-gray-500">
+                        No branches available
+                      </div>
+                    )}
+
+                    {/* Branches */}
+                    {!isBranchesLoading &&
+                      branches.map((branch) => {
+                        const isSelected =
+                          selectedBranch?.id === branch.id;
+
+                        return (
+                          <button
+                            key={branch.id}
+                            onClick={() => {
+                              setSelectedBranch(branch);
+                              setIsBranchOpen(false);
+                            }}
+                            className={`w-full text-left px-2.5 py-1.5 rounded-lg text-xs transition-colors flex items-center justify-between ${isSelected
+                                ? 'bg-[#5C3FE0]/20 text-[#5C3FE0] font-semibold'
+                                : 'text-gray-300 hover:bg-white/5'
+                              }`}
+                          >
+                            <div className="min-w-0">
+                              <div className="truncate">
+                                {branch.branchName}
+                              </div>
+
+                              {branch.city && (
+                                <div className="text-[10px] text-gray-500 truncate">
+                                  {branch.city}
+                                </div>
+                              )}
+                            </div>
+
+                            {isSelected && (
+                              <CheckCircle2 className="w-3.5 h-3.5 text-[#5C3FE0] shrink-0" />
+                            )}
+                          </button>
+                        );
+                      })}
                   </div>
                 </div>
               )}
