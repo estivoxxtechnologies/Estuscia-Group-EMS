@@ -5,7 +5,9 @@ import {
   Search,
   Filter,
   ChevronRight,
+  Edit,
 } from 'lucide-react';
+import { EditEmployeeModal } from './EditEmployeeModal';
 import { useApp } from '../context/AppContext';
 import { BackendUser, getUsers } from '../api/users';
 
@@ -21,6 +23,8 @@ export const StaffView: React.FC = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedDept, setSelectedDept] = useState('all');
   const [selectedUserForDetail, setSelectedUserForDetail] =
+    useState<BackendUser | null>(null);
+  const [selectedUserForEdit, setSelectedUserForEdit] =
     useState<BackendUser | null>(null);
 
   // Load users from backend
@@ -220,9 +224,26 @@ export const StaffView: React.FC = () => {
                     {user.fullName}
                   </h3>
 
-                  <span className="px-1.5 py-0.5 rounded text-[10px] font-mono bg-[#1a144b] text-[#A78BFA] border border-[#2d2770] shrink-0">
-                    {user.employeeCode}
-                  </span>
+                  <div className="flex items-center gap-1.5 shrink-0">
+
+                    <span className="px-1.5 py-0.5 rounded text-[10px] font-mono bg-[#1a144b] text-[#A78BFA] border border-[#2d2770]">
+                      {user.employeeCode}
+                    </span>
+
+                    {/* Edit Button */}
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setSelectedUserForEdit(user);
+                      }}
+                      className="p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-[#5C3FE0]/20 border border-transparent hover:border-[#5C3FE0]/30 transition-all"
+                      title="Edit employee"
+                    >
+                      <Edit className="w-3.5 h-3.5" />
+                    </button>
+
+                  </div>
 
                 </div>
 
@@ -267,8 +288,14 @@ export const StaffView: React.FC = () => {
                   Status
                 </span>
 
-                <span className="text-emerald-400 font-semibold">
-                  Active
+                <span
+                  className={
+                    user.isActive
+                      ? 'text-emerald-400 font-semibold'
+                      : 'text-red-400 font-semibold'
+                  }
+                >
+                  {user.isActive ? 'Active' : 'Inactive'}
                 </span>
               </div>
 
@@ -448,6 +475,24 @@ export const StaffView: React.FC = () => {
           </div>
         </div>
       )}
+
+      {/* Edit Employee Modal */}
+      <EditEmployeeModal
+        user={selectedUserForEdit}
+        isOpen={selectedUserForEdit !== null}
+        onClose={() => setSelectedUserForEdit(null)}
+        onUpdated={(updatedUser) => {
+          setUsers((currentUsers) =>
+            currentUsers.map((existingUser) =>
+              existingUser.id === updatedUser.id
+                ? updatedUser
+                : existingUser
+            )
+          );
+
+          setSelectedUserForEdit(null);
+        }}
+      />
 
     </div>
   );

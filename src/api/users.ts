@@ -40,6 +40,19 @@ export interface CreateUserRequest {
     avatarUrl: string;
 }
 
+export interface UpdateUserRequest {
+    fullName: string;
+    email: string;
+    employeeCode: string;
+    roleNumber: number;
+    designation: string;
+    department: string;
+    salaryBase: number;
+    branchId: number;
+    avatarUrl?: string;
+    isActive: boolean;
+}
+
 export async function getUsers(): Promise<BackendUser[]> {
     return apiRequest<BackendUser[]>('/Users', {
         method: 'GET',
@@ -51,6 +64,16 @@ export async function createUser(
 ): Promise<{ id: number; message: string }> {
     return apiRequest<{ id: number; message: string }>('/Users', {
         method: 'POST',
+        body: JSON.stringify(request),
+    });
+}
+
+export async function updateUser(
+    id: number,
+    request: UpdateUserRequest
+): Promise<BackendUser> {
+    return apiRequest<BackendUser>(`/Users/${id}`, {
+        method: 'PUT',
         body: JSON.stringify(request),
     });
 }
