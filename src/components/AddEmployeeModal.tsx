@@ -18,6 +18,7 @@ import {
   getRoles,
   BackendRole,
 } from '../api/roles';
+import { toast } from 'react-toastify';
 
 export const AddEmployeeModal: React.FC = () => {
   const {
@@ -256,6 +257,7 @@ export const AddEmployeeModal: React.FC = () => {
       // Successfully created
       resetForm();
       setIsAddEmployeeOpen(false);
+      toast.success('Employee added successfully.');
 
       // Notify StaffView to reload if using this event
       window.dispatchEvent(
@@ -267,6 +269,7 @@ export const AddEmployeeModal: React.FC = () => {
         'Failed to create employee:',
         err
       );
+      toast.error('Failed to create employee.');
 
       setError(
         err instanceof Error

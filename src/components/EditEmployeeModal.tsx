@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import { toast } from 'react-toastify';
 import {
     X,
     UserCog,
@@ -263,6 +264,9 @@ export const EditEmployeeModal: React.FC<
                 onUpdated(updatedUser);
 
                 onClose();
+                toast.success(
+                    `${updatedUser.fullName} updated successfully.`
+                );
 
             } catch (err) {
                 console.error(
@@ -275,6 +279,7 @@ export const EditEmployeeModal: React.FC<
                         ? err.message
                         : 'Failed to update employee.'
                 );
+                toast.error('Failed to update employee.');
 
             } finally {
                 setIsSubmitting(false);
@@ -414,8 +419,8 @@ export const EditEmployeeModal: React.FC<
                                     onClick={() => setIsActive((current) => !current)}
                                     disabled={isSubmitting}
                                     className={`w-full h-[40px] px-3 rounded-xl border flex items-center justify-between transition-all ${isActive
-                                            ? 'bg-emerald-500/10 border-emerald-500/30'
-                                            : 'bg-red-500/10 border-red-500/30'
+                                        ? 'bg-emerald-500/10 border-emerald-500/30'
+                                        : 'bg-red-500/10 border-red-500/30'
                                         }`}
                                 >
                                     <span
@@ -431,14 +436,14 @@ export const EditEmployeeModal: React.FC<
                                     {/* Toggle */}
                                     <span
                                         className={`relative w-10 h-5 rounded-full transition-colors shrink-0 ${isActive
-                                                ? 'bg-emerald-500'
-                                                : 'bg-slate-600'
+                                            ? 'bg-emerald-500'
+                                            : 'bg-slate-600'
                                             }`}
                                     >
                                         <span
                                             className={`absolute top-0.5 left-0.5 w-4 h-4 rounded-full bg-white shadow-sm transition-transform duration-200 ${isActive
-                                                    ? 'translate-x-5'
-                                                    : 'translate-x-0'
+                                                ? 'translate-x-5'
+                                                : 'translate-x-0'
                                                 }`}
                                         />
                                     </span>
