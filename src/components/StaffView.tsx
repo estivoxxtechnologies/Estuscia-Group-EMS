@@ -10,6 +10,7 @@ import {
 import { EditEmployeeModal } from './EditEmployeeModal';
 import { useApp } from '../context/AppContext';
 import { BackendUser, getUsers } from '../api/users';
+import { BackendRole, getRoles } from '../api/roles';
 
 export const StaffView: React.FC = () => {
   const {
@@ -21,7 +22,9 @@ export const StaffView: React.FC = () => {
   const [usersError, setUsersError] = useState<string | null>(null);
 
   const [searchQuery, setSearchQuery] = useState('');
-  const [selectedDept, setSelectedDept] = useState('all');
+  const [selectedRole, setSelectedRole] = useState('all');
+  const [roles, setRoles] = useState<BackendRole[]>([]);
+  const [isRolesLoading, setIsRolesLoading] = useState(false);
   const [selectedUserForDetail, setSelectedUserForDetail] =
     useState<BackendUser | null>(null);
   const [selectedUserForEdit, setSelectedUserForEdit] =
@@ -53,6 +56,33 @@ export const StaffView: React.FC = () => {
     loadUsers();
   }, []);
 
+  useEffect(() => {
+    const loadRoles = async () => {
+      try {
+        setIsRolesLoading(true);
+
+        const data = await getRoles();
+
+        setRoles(data);
+      } catch (error) {
+        console.error('Failed to load roles:', error);
+      } finally {
+        setIsRolesLoading(false);
+      }
+    };
+
+    loadRoles();
+  }, []);
+
+  const canManageEmployees = [
+    'super_admin',
+    'company_admin',
+    'hr_ops',
+    'branch_manager',
+  ].includes(
+    users?.roleName?.toLowerCase() ?? ''
+  );
+
   // Count unique branches represented by users
   const branchCount = new Set(
     users
@@ -60,21 +90,9 @@ export const StaffView: React.FC = () => {
       .filter((id): id is number => id !== null)
   ).size;
 
-  // Get departments from backend users
-  const departments = Array.from(
-    new Set(
-      users
-        .map((user) => user.department)
-        .filter(
-          (department): department is string =>
-            Boolean(department)
-        )
-    )
-  ).sort();
-
-  // Search + department filter
+  // Search + role filter
   const filteredUsers = users.filter((user) => {
-    const search = searchQuery.toLowerCase();
+    const search = searchQuery.toLowerCase().trim();
 
     const matchesSearch =
       user.fullName.toLowerCase().includes(search) ||
@@ -82,11 +100,11 @@ export const StaffView: React.FC = () => {
       user.designation.toLowerCase().includes(search) ||
       user.email.toLowerCase().includes(search);
 
-    const matchesDept =
-      selectedDept === 'all' ||
-      user.department === selectedDept;
+    const matchesRole =
+      selectedRole === 'all' ||
+      user.roleId === Number(selectedRole);
 
-    return matchesSearch && matchesDept;
+    return matchesSearch && matchesRole;
   });
 
   return (
@@ -113,14 +131,16 @@ export const StaffView: React.FC = () => {
           </div>
         </div>
 
-        <button
-          onClick={() => setIsAddEmployeeOpen(true)}
-          className="px-4 py-2.5 rounded-xl bg-[#5C3FE0] hover:bg-[#7152FF] text-white text-xs font-bold shadow-lg shadow-[#5C3FE0]/30 transition-all flex items-center gap-2 cursor-pointer"
-          id="onboard-employee-btn"
-        >
-          <UserPlus className="w-4 h-4" />
-          <span>Onboard New Employee</span>
-        </button>
+        {canManageEmployees && (
+          <button
+            onClick={() => setIsAddEmployeeOpen(true)}
+            className="px-4 py-2.5 rounded-xl bg-[#5C3FE0] hover:bg-[#7152FF] text-white text-xs font-bold shadow-lg shadow-[#5C3FE0]/30 transition-all flex items-center gap-2 cursor-pointer"
+            id="onboard-employee-btn"
+          >
+            <UserPlus className="w-4 h-4" />
+            <span>Onboard New Employee</span>
+          </button>
+        )}
       </div>
 
       {/* Loading */}
@@ -156,22 +176,25 @@ export const StaffView: React.FC = () => {
           <Filter className="w-4 h-4 text-slate-400 shrink-0" />
 
           <select
-            value={selectedDept}
-            onChange={(e) => setSelectedDept(e.target.value)}
-            className="px-3 py-2 rounded-xl bg-[#0e0b2e] border border-[#2d2770] text-slate-200 text-xs w-full sm:w-auto"
+            value={selectedRole}
+            onChange={(e) => setSelectedRole(e.target.value)}
+            disabled={isRolesLoading}
+            className="px-3 py-2 rounded-xl bg-[#0e0b2e] border border-[#2d2770] text-slate-200 text-xs w-full sm:w-auto disabled:opacity-50"
           >
             <option value="all">
-              All Departments ({users.length})
+              All Roles ({users.length})
             </option>
 
-            {departments.map((department) => (
-              <option
-                key={department}
-                value={department}
-              >
-                {department}
-              </option>
-            ))}
+            {roles
+              .filter((role) => role.isActive)
+              .map((role) => (
+                <option
+                  key={role.roleNumber}
+                  value={role.roleNumber}
+                >
+                  {role.roleName.replace(/_/g, ' ')}
+                </option>
+              ))}
           </select>
         </div>
       </div>
@@ -231,17 +254,19 @@ export const StaffView: React.FC = () => {
                     </span>
 
                     {/* Edit Button */}
-                    <button
-                      type="button"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        setSelectedUserForEdit(user);
-                      }}
-                      className="p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-[#5C3FE0]/20 border border-transparent hover:border-[#5C3FE0]/30 transition-all"
-                      title="Edit employee"
-                    >
-                      <Edit className="w-3.5 h-3.5" />
-                    </button>
+                    {canManageEmployees && (
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setSelectedUserForEdit(user);
+                        }}
+                        className="p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-[#5C3FE0]/20 border border-transparent hover:border-[#5C3FE0]/30 transition-all"
+                        title="Edit employee"
+                      >
+                        <Edit className="w-3.5 h-3.5" />
+                      </button>
+                    )}
 
                   </div>
 
@@ -477,22 +502,24 @@ export const StaffView: React.FC = () => {
       )}
 
       {/* Edit Employee Modal */}
-      <EditEmployeeModal
-        user={selectedUserForEdit}
-        isOpen={selectedUserForEdit !== null}
-        onClose={() => setSelectedUserForEdit(null)}
-        onUpdated={(updatedUser) => {
-          setUsers((currentUsers) =>
-            currentUsers.map((existingUser) =>
-              existingUser.id === updatedUser.id
-                ? updatedUser
-                : existingUser
-            )
-          );
+      {canManageEmployees && (
+        <EditEmployeeModal
+          user={selectedUserForEdit}
+          isOpen={selectedUserForEdit !== null}
+          onClose={() => setSelectedUserForEdit(null)}
+          onUpdated={(updatedUser) => {
+            setUsers((currentUsers) =>
+              currentUsers.map((existingUser) =>
+                existingUser.id === updatedUser.id
+                  ? updatedUser
+                  : existingUser
+              )
+            );
 
-          setSelectedUserForEdit(null);
-        }}
-      />
+            setSelectedUserForEdit(null);
+          }}
+        />
+      )}
 
     </div>
   );
