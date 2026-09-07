@@ -59,7 +59,8 @@ export type AppTab =
   | 'knowledge_hub'
   | 'audit_settings'
   | 'slabs'
-  | 'lms_academy';
+  | 'lms_academy'
+  | 'tenants';
 
 export type ViewMode = 'portal' | 'public_web';
 

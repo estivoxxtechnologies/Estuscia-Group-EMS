@@ -15,6 +15,7 @@ import { BackendRole, getRoles } from '../api/roles';
 export const StaffView: React.FC = () => {
   const {
     setIsAddEmployeeOpen,
+    currentUser,
   } = useApp();
 
   const [users, setUsers] = useState<BackendUser[]>([]);
@@ -80,8 +81,13 @@ export const StaffView: React.FC = () => {
     'hr_ops',
     'branch_manager',
   ].includes(
-    users?.roleName?.toLowerCase() ?? ''
+    currentUser?.roleName?.toLowerCase() ?? ''
   );
+
+  console.log(canManageEmployees,"Mnaging employees")
+  console.log(users?.roleName,"rolesssss")
+  console.log(users,"usssssssssssssssssssssssssssssssssssssssssssssssssss");
+  
 
   // Count unique branches represented by users
   const branchCount = new Set(
@@ -477,9 +483,9 @@ export const StaffView: React.FC = () => {
                 {selectedUserForDetail.tenantName}
               </div>
 
-              <div className="text-slate-400">
+              {/* <div className="text-slate-400">
                 <span className="font-semibold text-white">
-                  Tenant ID:
+                  Tenant:
                 </span>{' '}
                 <span className="font-mono">
                   {selectedUserForDetail.tenantId}
@@ -493,7 +499,7 @@ export const StaffView: React.FC = () => {
                 <span className="font-mono">
                   {selectedUserForDetail.branchId ?? 'N/A'}
                 </span>
-              </div>
+              </div> */}
 
             </div>
 
