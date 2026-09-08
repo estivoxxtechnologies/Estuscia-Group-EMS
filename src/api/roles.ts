@@ -4,6 +4,7 @@ export interface BackendRole {
   roleNumber: number;
   roleName: string;
   isActive: boolean;
+  displayName: string;
 }
 
 export async function getRoles(): Promise<BackendRole[]> {

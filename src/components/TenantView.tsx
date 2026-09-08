@@ -6,9 +6,23 @@ import {
     ChevronRight,
     Globe,
     ShieldCheck,
+    Plus,
+    Pencil,
+    X,
+    Save,
+    Loader2,
 } from 'lucide-react';
+
 import { useApp } from '../context/AppContext';
-import { BackendTenant, getTenants } from '../api/tenants';
+
+import {
+    BackendTenant,
+    getTenants,
+    createTenant,
+    updateTenant,
+} from '../api/tenants';
+
+import { toast } from 'react-toastify';
 
 export const TenantView: React.FC = () => {
     const { currentUser } = useApp();
@@ -24,11 +38,43 @@ export const TenantView: React.FC = () => {
         useState<BackendTenant | null>(null);
 
     // ---------------------------------------------------------
+    // Add / Edit tenant state
+    // ---------------------------------------------------------
+
+    const [isTenantFormOpen, setIsTenantFormOpen] =
+        useState(false);
+
+    const [isEditingTenant, setIsEditingTenant] =
+        useState(false);
+
+    const [isSavingTenant, setIsSavingTenant] =
+        useState(false);
+
+    const [tenantName, setTenantName] =
+        useState('');
+
+    const [tenantCode, setTenantCode] =
+        useState('');
+
+    const [tenantDomain, setTenantDomain] =
+        useState('');
+
+    const [tenantPlan, setTenantPlan] =
+        useState('Enterprise Pro');
+
+    const [tenantCurrency, setTenantCurrency] =
+        useState('INR');
+
+    const [tenantIsActive, setTenantIsActive] =
+        useState(true);
+
+    // ---------------------------------------------------------
     // SUPER ADMIN ONLY
     // ---------------------------------------------------------
 
     const isSuperAdmin =
         currentUser?.roleName?.toLowerCase() === 'super_admin';
+
 
     // ---------------------------------------------------------
     // Load tenants
@@ -138,6 +184,150 @@ export const TenantView: React.FC = () => {
     };
 
     // ---------------------------------------------------------
+    // Open Add Tenant
+    // ---------------------------------------------------------
+
+    const handleAddTenant = () => {
+        setIsEditingTenant(false);
+        setSelectedTenant(null);
+
+        setTenantName('');
+        setTenantCode('');
+        setTenantDomain('');
+        setTenantPlan('Enterprise Pro');
+        setTenantCurrency('INR');
+        setTenantIsActive(true);
+
+        setIsTenantFormOpen(true);
+    };
+
+    // ---------------------------------------------------------
+    // Open Edit Tenant
+    // ---------------------------------------------------------
+
+    const handleEditTenant = (tenant: BackendTenant) => {
+        setIsEditingTenant(true);
+
+        setTenantName(tenant.name);
+        setTenantCode(tenant.code);
+        setTenantDomain(tenant.domain);
+        setTenantPlan(tenant.plan);
+        setTenantCurrency(tenant.currency);
+        setTenantIsActive(tenant.isActive);
+
+        setIsTenantFormOpen(true);
+    };
+
+    // ---------------------------------------------------------
+    // Close Tenant Form
+    // ---------------------------------------------------------
+
+    const handleCloseTenantForm = () => {
+        if (isSavingTenant) {
+            return;
+        }
+
+        setIsTenantFormOpen(false);
+    };
+
+    // ---------------------------------------------------------
+    // Save Tenant
+    // ---------------------------------------------------------
+
+    const handleSaveTenant = async (
+        e: React.FormEvent
+    ) => {
+        e.preventDefault();
+
+        if (!tenantName.trim()) {
+            toast.error('Tenant name is required.');
+            return;
+        }
+
+        if (!tenantCode.trim()) {
+            toast.error('Tenant code is required.');
+            return;
+        }
+
+        if (!tenantPlan.trim()) {
+            toast.error('Tenant plan is required.');
+            return;
+        }
+
+        if (!tenantCurrency.trim()) {
+            toast.error('Currency is required.');
+            return;
+        }
+
+        try {
+            setIsSavingTenant(true);
+
+            if (isEditingTenant && selectedTenant) {
+                const updated = await updateTenant(
+                    selectedTenant.id,
+                    {
+                        name: tenantName.trim(),
+                        code: tenantCode.trim(),
+                        domain: tenantDomain.trim(),
+                        plan: tenantPlan.trim(),
+                        currency: tenantCurrency.trim(),
+                        isActive: tenantIsActive,
+                    }
+                );
+
+                setTenants((previous) =>
+                    previous.map((tenant) =>
+                        tenant.id === updated.id
+                            ? updated
+                            : tenant
+                    )
+                );
+
+                setSelectedTenant(updated);
+
+                toast.success(
+                    'Tenant updated successfully.'
+                );
+            } else {
+                const created = await createTenant({
+                    name: tenantName.trim(),
+                    code: tenantCode.trim(),
+                    domain: tenantDomain.trim(),
+                    plan: tenantPlan.trim(),
+                    currency: tenantCurrency.trim(),
+                });
+
+                setTenants((previous) =>
+                    [...previous, created].sort(
+                        (a, b) =>
+                            a.name.localeCompare(b.name)
+                    )
+                );
+
+                toast.success(
+                    'Tenant created successfully.'
+                );
+            }
+
+            setIsTenantFormOpen(false);
+
+        } catch (error) {
+            console.error(
+                'Failed to save tenant:',
+                error
+            );
+
+            toast.error(
+                error instanceof Error
+                    ? error.message
+                    : 'Failed to save tenant.'
+            );
+        } finally {
+            setIsSavingTenant(false);
+        }
+    };
+
+    // ---------------------------------------------------------
     // UI
     // ---------------------------------------------------------
 
@@ -170,7 +360,7 @@ export const TenantView: React.FC = () => {
                     </div>
                 </div>
 
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-2 flex-wrap">
 
                     <div className="px-3 py-2 rounded-xl bg-[#0e0b2e] border border-[#231e54]">
                         <span className="text-[10px] text-slate-500 uppercase block">
@@ -201,6 +391,15 @@ export const TenantView: React.FC = () => {
                             {inactiveTenantCount}
                         </span>
                     </div>
+
+                    <button
+                        type="button"
+                        onClick={handleAddTenant}
+                        className="px-4 py-2.5 rounded-xl bg-[#5C3FE0] hover:bg-[#7152FF] text-white text-xs font-bold flex items-center gap-2 shadow-lg shadow-[#5C3FE0]/20 transition-all"
+                    >
+                        <Plus className="w-4 h-4" />
+                        Add Tenant
+                    </button>
 
                 </div>
 
@@ -469,12 +668,30 @@ export const TenantView: React.FC = () => {
 
                             </div>
 
-                            <button
-                                onClick={() => setSelectedTenant(null)}
-                                className="px-3 py-1 rounded-lg hover:bg-[#1a144b] text-slate-400 hover:text-white"
-                            >
-                                Close
-                            </button>
+                            <div className="flex items-center gap-2">
+
+                                <button
+                                    type="button"
+                                    onClick={() =>
+                                        handleEditTenant(selectedTenant)
+                                    }
+                                    className="px-3 py-1.5 rounded-lg bg-[#5C3FE0]/20 border border-[#5C3FE0]/40 text-[#A78BFA] hover:bg-[#5C3FE0]/30 flex items-center gap-1.5"
+                                >
+                                    <Pencil className="w-3.5 h-3.5" />
+                                    Edit
+                                </button>
+
+                                <button
+                                    type="button"
+                                    onClick={() =>
+                                        setSelectedTenant(null)
+                                    }
+                                    className="px-3 py-1.5 rounded-lg hover:bg-[#1a144b] text-slate-400 hover:text-white"
+                                >
+                                    Close
+                                </button>
+
+                            </div>
 
                         </div>
 
@@ -620,6 +837,317 @@ export const TenantView: React.FC = () => {
 
                 </div>
 
+            )}
+
+            {/* =====================================================
+    ADD / EDIT TENANT MODAL
+===================================================== */}
+
+            {isTenantFormOpen && (
+
+                <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/85 backdrop-blur-md">
+
+                    <div className="w-full max-w-xl bg-[#09071e] border border-[#2d2770] rounded-2xl shadow-2xl overflow-hidden">
+
+                        {/* Header */}
+
+                        <div className="flex items-center justify-between px-6 py-4 bg-[#0e0b2e] border-b border-[#231e54]">
+
+                            <div className="flex items-center gap-3">
+
+                                <div className="p-2 rounded-lg bg-[#5C3FE0]/20 text-[#A78BFA] border border-[#5C3FE0]/30">
+                                    {isEditingTenant ? (
+                                        <Pencil className="w-5 h-5" />
+                                    ) : (
+                                        <Plus className="w-5 h-5" />
+                                    )}
+                                </div>
+
+                                <div>
+
+                                    <h2 className="text-base font-bold text-white">
+                                        {isEditingTenant
+                                            ? 'Edit Tenant'
+                                            : 'Add Tenant'}
+                                    </h2>
+
+                                    <p className="text-xs text-slate-400">
+                                        {isEditingTenant
+                                            ? 'Update tenant organization details'
+                                            : 'Create a new organization tenant'}
+                                    </p>
+
+                                </div>
+
+                            </div>
+
+                            <button
+                                type="button"
+                                onClick={handleCloseTenantForm}
+                                disabled={isSavingTenant}
+                                className="p-1.5 rounded-lg hover:bg-[#1f1857] text-slate-400 hover:text-white disabled:opacity-50"
+                            >
+                                <X className="w-4 h-4" />
+                            </button>
+
+                        </div>
+
+                        {/* Form */}
+
+                        <form
+                            onSubmit={handleSaveTenant}
+                            className="p-6 space-y-4 text-xs"
+                        >
+
+                            {/* Name + Code */}
+
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+
+                                <div>
+
+                                    <label className="block text-[11px] font-semibold text-slate-300 uppercase tracking-wider mb-1">
+                                        Tenant Name *
+                                    </label>
+
+                                    <input
+                                        type="text"
+                                        required
+                                        value={tenantName}
+                                        onChange={(e) =>
+                                            setTenantName(
+                                                e.target.value
+                                            )
+                                        }
+                                        placeholder="Estuscia Group"
+                                        disabled={isSavingTenant}
+                                        className="w-full px-3.5 py-2.5 rounded-xl bg-[#0e0b2e] border border-[#2d2770] text-white placeholder-slate-500 focus:outline-none focus:border-[#5C3FE0] disabled:opacity-50"
+                                    />
+
+                                </div>
+
+                                <div>
+
+                                    <label className="block text-[11px] font-semibold text-slate-300 uppercase tracking-wider mb-1">
+                                        Tenant Code *
+                                    </label>
+
+                                    <input
+                                        type="text"
+                                        required
+                                        value={tenantCode}
+                                        onChange={(e) =>
+                                            setTenantCode(
+                                                e.target.value
+                                            )
+                                        }
+                                        placeholder="ESTUSCIA"
+                                        disabled={isSavingTenant}
+                                        className="w-full px-3.5 py-2.5 rounded-xl bg-[#0e0b2e] border border-[#2d2770] text-[#A78BFA] font-mono uppercase focus:outline-none focus:border-[#5C3FE0] disabled:opacity-50"
+                                    />
+
+                                </div>
+
+                            </div>
+
+                            {/* Domain */}
+
+                            <div>
+
+                                <label className="block text-[11px] font-semibold text-slate-300 uppercase tracking-wider mb-1">
+                                    Domain
+                                </label>
+
+                                <div className="relative">
+
+                                    <Globe className="absolute left-3 top-3 w-4 h-4 text-slate-500" />
+
+                                    <input
+                                        type="text"
+                                        value={tenantDomain}
+                                        onChange={(e) =>
+                                            setTenantDomain(
+                                                e.target.value
+                                            )
+                                        }
+                                        placeholder="estusciagroup.com"
+                                        disabled={isSavingTenant}
+                                        className="w-full pl-9 pr-3.5 py-2.5 rounded-xl bg-[#0e0b2e] border border-[#2d2770] text-white placeholder-slate-500 focus:outline-none focus:border-[#5C3FE0] disabled:opacity-50"
+                                    />
+
+                                </div>
+
+                            </div>
+
+                            {/* Plan + Currency */}
+
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+
+                                <div>
+
+                                    <label className="block text-[11px] font-semibold text-slate-300 uppercase tracking-wider mb-1">
+                                        Plan *
+                                    </label>
+
+                                    <select
+                                        required
+                                        value={tenantPlan}
+                                        onChange={(e) =>
+                                            setTenantPlan(
+                                                e.target.value
+                                            )
+                                        }
+                                        disabled={isSavingTenant}
+                                        className="w-full px-3 py-2.5 rounded-xl bg-[#0e0b2e] border border-[#2d2770] text-white focus:outline-none focus:border-[#5C3FE0] disabled:opacity-50"
+                                    >
+                                        <option value="Enterprise Pro">
+                                            Enterprise Pro
+                                        </option>
+
+                                        <option value="Enterprise">
+                                            Enterprise
+                                        </option>
+
+                                        <option value="Professional">
+                                            Professional
+                                        </option>
+
+                                        <option value="Basic">
+                                            Basic
+                                        </option>
+
+                                    </select>
+
+                                </div>
+
+                                <div>
+
+                                    <label className="block text-[11px] font-semibold text-slate-300 uppercase tracking-wider mb-1">
+                                        Currency *
+                                    </label>
+
+                                    <select
+                                        required
+                                        value={tenantCurrency}
+                                        onChange={(e) =>
+                                            setTenantCurrency(
+                                                e.target.value
+                                            )
+                                        }
+                                        disabled={isSavingTenant}
+                                        className="w-full px-3 py-2.5 rounded-xl bg-[#0e0b2e] border border-[#2d2770] text-white focus:outline-none focus:border-[#5C3FE0] disabled:opacity-50"
+                                    >
+                                        <option value="INR">
+                                            INR — Indian Rupee
+                                        </option>
+
+                                        <option value="USD">
+                                            USD — US Dollar
+                                        </option>
+
+                                        <option value="AED">
+                                            AED — UAE Dirham
+                                        </option>
+
+                                        <option value="GBP">
+                                            GBP — British Pound
+                                        </option>
+
+                                        <option value="EUR">
+                                            EUR — Euro
+                                        </option>
+
+                                    </select>
+
+                                </div>
+
+                            </div>
+
+                            {/* Status - Edit only */}
+
+                            {isEditingTenant && (
+
+                                <div className="p-4 rounded-xl bg-[#0e0b2e] border border-[#231e54]">
+
+                                    <div className="flex items-center justify-between">
+
+                                        <div>
+
+                                            <p className="text-xs font-semibold text-white">
+                                                Tenant Status
+                                            </p>
+
+                                            <p className="text-[10px] text-slate-500 mt-1">
+                                                Inactive tenants cannot be used normally.
+                                            </p>
+
+                                        </div>
+
+                                        <button
+                                            type="button"
+                                            onClick={() =>
+                                                setTenantIsActive(
+                                                    !tenantIsActive
+                                                )
+                                            }
+                                            className={
+                                                tenantIsActive
+                                                    ? 'px-3 py-1.5 rounded-lg bg-emerald-950/40 border border-emerald-900/50 text-emerald-400 text-xs font-semibold'
+                                                    : 'px-3 py-1.5 rounded-lg bg-red-950/40 border border-red-900/50 text-red-400 text-xs font-semibold'
+                                            }
+                                        >
+                                            {tenantIsActive
+                                                ? 'Active'
+                                                : 'Inactive'}
+                                        </button>
+
+                                    </div>
+
+                                </div>
+
+                            )}
+
+                            {/* Footer */}
+
+                            <div className="pt-4 border-t border-[#231e54] flex items-center justify-end gap-3">
+
+                                <button
+                                    type="button"
+                                    onClick={handleCloseTenantForm}
+                                    disabled={isSavingTenant}
+                                    className="px-4 py-2 rounded-xl text-xs font-semibold text-slate-400 hover:text-white disabled:opacity-50"
+                                >
+                                    Cancel
+                                </button>
+
+                                <button
+                                    type="submit"
+                                    disabled={isSavingTenant}
+                                    className="px-5 py-2.5 rounded-xl bg-[#5C3FE0] hover:bg-[#7152FF] disabled:opacity-50 disabled:cursor-not-allowed text-white text-xs font-bold flex items-center gap-2 shadow-lg shadow-[#5C3FE0]/20"
+                                >
+
+                                    {isSavingTenant ? (
+                                        <>
+                                            <Loader2 className="w-4 h-4 animate-spin" />
+                                            Saving...
+                                        </>
+                                    ) : (
+                                        <>
+                                            <Save className="w-4 h-4" />
+                                            {isEditingTenant
+                                                ? 'Save Changes'
+                                                : 'Create Tenant'}
+                                        </>
+                                    )}
+
+                                </button>
+
+                            </div>
+
+                        </form>
+
+                    </div>
+
+                </div>
             )}
 
         </div>

@@ -198,7 +198,7 @@ export const StaffView: React.FC = () => {
                   key={role.roleNumber}
                   value={role.roleNumber}
                 >
-                  {role.roleName.replace(/_/g, ' ')}
+                  {role.displayName}
                 </option>
               ))}
           </select>

@@ -60,7 +60,8 @@ export type AppTab =
   | 'audit_settings'
   | 'slabs'
   | 'lms_academy'
-  | 'tenants';
+  | 'tenants'
+  | 'branch_management';
 
 export type ViewMode = 'portal' | 'public_web';
 
@@ -328,6 +329,19 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
     restoreSession();
   }, []);
+
+  const loadBranches = async () => {
+    try {
+      const data = await getBranches();
+
+      setBranches(data);
+
+      console.log('Branches loaded:', data);
+    } catch (error) {
+      console.error('Failed to load branches:', error);
+      setBranches([]);
+    }
+  };
 
   const mapBackendUserToCurrentUser = (
     backendUser: BackendUser
@@ -1180,6 +1194,10 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         users,
         currentUser,
         setCurrentUser,
+        branches,
+        selectedBranch,
+        setSelectedBranch,
+        loadBranches,
         switchRole,
         switchUserById,
         dailyWorkLogs,

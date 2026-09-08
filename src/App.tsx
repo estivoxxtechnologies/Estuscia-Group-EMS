@@ -20,6 +20,8 @@ import { PayslipModal } from './components/PayslipModal';
 import { BatchUploadModal } from './components/BatchUploadModal';
 import { LogDealModal } from './components/LogDealModal';
 import { AddEmployeeModal } from './components/AddEmployeeModal';
+import { BranchManagementView } from './components/BranchManagementView';
+import { TenantView } from './components/TenantView';
 import {
   LayoutDashboard,
   PhoneCall,
@@ -30,14 +32,17 @@ import {
 import { Navigate, Route, Routes } from 'react-router-dom';
 import ProtectedRoute from './ProtectedRoute';
 import PublicRoute from './PublicRoute';
+import { SuperAdminDashboard } from './components/SuperAdminDashboard';
 
 const AppContent: React.FC = () => {
-  const { activeTab, setActiveTab } = useApp();
+  const { activeTab, setActiveTab, currentUser } = useApp();
 
   const renderActiveView = () => {
     switch (activeTab) {
       case 'dashboard':
-        return <DashboardView />;
+  if (currentUser?.roleName?.toLowerCase() === 'super_admin') {
+    return <SuperAdminDashboard />;
+  }
       case 'daily_work':
         return <DailyWorkView />;
       case 'attendance':
@@ -56,6 +61,10 @@ const AppContent: React.FC = () => {
         return <KnowledgeHubView />;
       case 'audit_settings':
         return <AuditTenantView />;
+      case 'tenants':
+        return <TenantView />;
+      case 'branch_management':
+        return <BranchManagementView />;
       default:
         return <DashboardView />;
     }

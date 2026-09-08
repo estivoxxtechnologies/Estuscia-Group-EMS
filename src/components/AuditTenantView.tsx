@@ -114,7 +114,7 @@ export const AuditTenantView: React.FC = () => {
 
         <div className="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-black/40 border border-white/10 text-xs font-mono text-emerald-400">
           <Database className="w-4 h-4" />
-          <span>Tenant Partition: {currentTenant.id}</span>
+          <span>Tenant Partition: {currentTenant?.id}</span>
         </div>
       </div>
 

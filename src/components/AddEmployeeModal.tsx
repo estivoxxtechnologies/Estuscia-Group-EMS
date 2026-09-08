@@ -37,7 +37,7 @@ export const AddEmployeeModal: React.FC = () => {
 
   const [department, setDepartment] = useState('');
   const [designation, setDesignation] =
-    useState('Investment Advisor');
+    useState('Senior');
 
   const [branchId, setBranchId] =
     useState<number | ''>('');
@@ -150,7 +150,7 @@ export const AddEmployeeModal: React.FC = () => {
     setPassword('');
     setEmployeeCode('');
     setDepartment('');
-    setDesignation('Investment Advisor');
+    setDesignation('Senior');
     setBranchId('');
     setRoleNumber('');
     setSalaryBase(6000);
@@ -462,7 +462,7 @@ export const AddEmployeeModal: React.FC = () => {
                       key={role.roleNumber}
                       value={role.roleNumber}
                     >
-                      {role.roleName}
+                      {role.displayName}
                     </option>
                   ))}
               </select>
@@ -537,19 +537,21 @@ export const AddEmployeeModal: React.FC = () => {
 
             <div>
               <label className="block text-[11px] font-semibold text-slate-300 uppercase tracking-wider mb-1">
-                Designation *
+                Employee Level *
               </label>
 
-              <input
-                type="text"
+              <select
                 required
-                placeholder="Senior Wealth Advisor"
                 value={designation}
                 onChange={(e) =>
                   setDesignation(e.target.value)
                 }
-                className="w-full px-3.5 py-2 rounded-xl bg-[#0e0b2e] border border-[#2d2770] text-white focus:outline-none focus:border-[#5C3FE0]"
-              />
+                disabled={isSubmitting}
+                className="w-full px-3 py-2 rounded-xl bg-[#0e0b2e] border border-[#2d2770] text-white focus:outline-none focus:border-[#5C3FE0] disabled:opacity-50"
+              >
+                <option value="Senior">Senior</option>
+                <option value="Junior">Junior</option>
+              </select>
             </div>
           </div>
 

@@ -12,6 +12,7 @@ import {
   LogOut,
   Building2,
   Code2,
+  GitBranch,
   X,
 } from 'lucide-react';
 
@@ -48,6 +49,12 @@ export const Sidebar: React.FC = () => {
 
   const isSuperAdmin = normalizedRole === 'super_admin';
 
+  const superAdminAllowedTabs: AppTab[] = [
+    'dashboard',
+    'tenants',
+    'branch_management',
+    'knowledge_hub',
+  ];
   // ---------------------------------------------------------
   // Badges / Counts
   // ---------------------------------------------------------
@@ -79,150 +86,159 @@ export const Sidebar: React.FC = () => {
     badge?: string | number;
     badgeColor?: string;
     section:
-      | 'daily_ops'
-      | 'finance_slabs'
-      | 'leadership_gov';
+    | 'daily_ops'
+    | 'finance_slabs'
+    | 'leadership_gov';
     superAdminOnly?: boolean;
   }[] = [
 
-    // =======================================================
-    // DAILY OPERATIONS
-    // =======================================================
+      // =======================================================
+      // DAILY OPERATIONS
+      // =======================================================
 
-    {
-      id: 'dashboard',
-      label: 'Portal Overview',
-      icon: (
-        <LayoutDashboard className="w-4 h-4" />
-      ),
-      section: 'daily_ops',
-    },
+      {
+        id: 'dashboard',
+        label: 'Portal Overview',
+        icon: (
+          <LayoutDashboard className="w-4 h-4" />
+        ),
+        section: 'daily_ops',
+      },
 
-    {
-      id: 'daily_work',
-      label:
-        currentUser.roleName === 'developer'
-          ? 'Daily Code & Tasks'
-          : 'Daily Work & Calls',
-      icon:
-        currentUser.roleName === 'developer'
-          ? <Code2 className="w-4 h-4" />
-          : <PhoneCall className="w-4 h-4" />,
-      badge:
-        todayLogsCount > 0
-          ? `${todayLogsCount} Logged`
-          : 'Action Req',
-      badgeColor:
-        todayLogsCount > 0
-          ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30'
-          : 'bg-purple-500/20 text-purple-300 border border-purple-500/30',
-      section: 'daily_ops',
-    },
+      {
+        id: 'daily_work',
+        label:
+          currentUser.roleName === 'developer'
+            ? 'Daily Code & Tasks'
+            : 'Daily Work & Calls',
+        icon:
+          currentUser.roleName === 'developer'
+            ? <Code2 className="w-4 h-4" />
+            : <PhoneCall className="w-4 h-4" />,
+        badge:
+          todayLogsCount > 0
+            ? `${todayLogsCount} Logged`
+            : 'Action Req',
+        badgeColor:
+          todayLogsCount > 0
+            ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30'
+            : 'bg-purple-500/20 text-purple-300 border border-purple-500/30',
+        section: 'daily_ops',
+      },
 
-    {
-      id: 'attendance',
-      label: 'Biometric & Attendance',
-      icon: (
-        <CalendarCheck className="w-4 h-4" />
-      ),
-      badge:
-        pendingLeavesCount > 0
-          ? `${pendingLeavesCount} Leaves`
-          : undefined,
-      badgeColor:
-        'bg-amber-500/20 text-amber-300 border border-amber-500/30',
-      section: 'daily_ops',
-    },
+      {
+        id: 'attendance',
+        label: 'Biometric & Attendance',
+        icon: (
+          <CalendarCheck className="w-4 h-4" />
+        ),
+        badge:
+          pendingLeavesCount > 0
+            ? `${pendingLeavesCount} Leaves`
+            : undefined,
+        badgeColor:
+          'bg-amber-500/20 text-amber-300 border border-amber-500/30',
+        section: 'daily_ops',
+      },
 
-    // =======================================================
-    // BUSINESS & COMPENSATION
-    // =======================================================
+      // =======================================================
+      // BUSINESS & COMPENSATION
+      // =======================================================
 
-    {
-      id: 'targets_incentives',
-      label: 'Targets & Incentives',
-      icon: (
-        <Target className="w-4 h-4" />
-      ),
-      badge:
-        pendingDealsCount > 0
-          ? `${pendingDealsCount} Deals`
-          : undefined,
-      badgeColor:
-        'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30',
-      section: 'finance_slabs',
-    },
+      {
+        id: 'targets_incentives',
+        label: 'Targets & Incentives',
+        icon: (
+          <Target className="w-4 h-4" />
+        ),
+        badge:
+          pendingDealsCount > 0
+            ? `${pendingDealsCount} Deals`
+            : undefined,
+        badgeColor:
+          'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30',
+        section: 'finance_slabs',
+      },
 
-    {
-      id: 'receipts_slabs',
-      label: 'Customer Receipts & Slabs',
-      icon: (
-        <Receipt className="w-4 h-4" />
-      ),
-      badge: 'Official Slips',
-      badgeColor:
-        'bg-teal-500/20 text-teal-300 border border-teal-500/30',
-      section: 'finance_slabs',
-    },
+      {
+        id: 'receipts_slabs',
+        label: 'Customer Receipts & Slabs',
+        icon: (
+          <Receipt className="w-4 h-4" />
+        ),
+        badge: 'Official Slips',
+        badgeColor:
+          'bg-teal-500/20 text-teal-300 border border-teal-500/30',
+        section: 'finance_slabs',
+      },
 
-    {
-      id: 'payroll',
-      label: 'Salary & Payslips',
-      icon: (
-        <CreditCard className="w-4 h-4" />
-      ),
-      section: 'finance_slabs',
-    },
+      {
+        id: 'payroll',
+        label: 'Salary & Payslips',
+        icon: (
+          <CreditCard className="w-4 h-4" />
+        ),
+        section: 'finance_slabs',
+      },
 
-    {
-      id: 'staff',
-      label: 'Staff & Team Directory',
-      icon: (
-        <Users className="w-4 h-4" />
-      ),
-      section: 'finance_slabs',
-    },
+      {
+        id: 'staff',
+        label: 'Staff & Team Directory',
+        icon: (
+          <Users className="w-4 h-4" />
+        ),
+        section: 'finance_slabs',
+      },
 
-    // =======================================================
-    // GOVERNANCE
-    // =======================================================
+      // =======================================================
+      // GOVERNANCE
+      // =======================================================
 
-    {
-      id: 'knowledge_hub',
-      label: 'CEO Knowledge Hub',
-      icon: (
-        <Video className="w-4 h-4" />
-      ),
-      badge: 'Videos',
-      badgeColor:
-        'bg-[#5C3FE0]/20 text-[#5C3FE0] border border-[#5C3FE0]/30',
-      section: 'leadership_gov',
-    },
+      {
+        id: 'knowledge_hub',
+        label: 'CEO Knowledge Hub',
+        icon: (
+          <Video className="w-4 h-4" />
+        ),
+        badge: 'Videos',
+        badgeColor:
+          'bg-[#5C3FE0]/20 text-[#5C3FE0] border border-[#5C3FE0]/30',
+        section: 'leadership_gov',
+      },
 
-    {
-      id: 'audit_settings',
-      label: 'Access Matrix',
-      icon: (
-        <ShieldCheck className="w-4 h-4" />
-      ),
-      section: 'leadership_gov',
-    },
+      // {
+      //   id: 'audit_settings',
+      //   label: 'Access Matrix',
+      //   icon: (
+      //     <ShieldCheck className="w-4 h-4" />
+      //   ),
+      //   section: 'leadership_gov',
+      // },
 
-    // =======================================================
-    // TENANT MANAGEMENT
-    // SUPER ADMIN ONLY
-    // =======================================================
+      // =======================================================
+      // TENANT MANAGEMENT
+      // SUPER ADMIN ONLY
+      // =======================================================
 
-    {
-      id: 'tenants',
-      label: 'Tenant Management',
-      icon: (
-        <Building2 className="w-4 h-4" />
-      ),
-      section: 'leadership_gov',
-      superAdminOnly: true,
-    },
-  ];
+      {
+        id: 'tenants',
+        label: 'Tenant Management',
+        icon: (
+          <Building2 className="w-4 h-4" />
+        ),
+        section: 'leadership_gov',
+        superAdminOnly: true,
+      },
+      {
+        id: 'branch_management',
+        label: 'Branch Management',
+        icon: (
+          <GitBranch className="w-4 h-4" />
+        ),
+        section: 'leadership_gov',
+        superAdminOnly: true,
+      },
+    ];
 
   // ---------------------------------------------------------
   // Filter Navigation
@@ -236,12 +252,16 @@ export const Sidebar: React.FC = () => {
 
   const allowedNavItems = allNavItems.filter((item) => {
 
-    // Tenant Management is SUPER ADMIN ONLY
-    if (item.superAdminOnly && !isSuperAdmin) {
+    // SUPER ADMIN HAS A COMPLETELY SEPARATE SIDEBAR
+    if (isSuperAdmin) {
+      return superAdminAllowedTabs.includes(item.id);
+    }
+
+    // NORMAL USERS
+    if (item.superAdminOnly) {
       return false;
     }
 
-    // Existing permission system
     return isTabAllowed(item.id);
   });
 
@@ -302,11 +322,10 @@ export const Sidebar: React.FC = () => {
                 handleTabClick(item.id)
               }
               id={`nav-tab-${item.id}`}
-              className={`flex items-center justify-between px-3 py-2.5 text-xs font-semibold transition-all cursor-pointer rounded-xl ${
-                isActive
-                  ? 'bg-[#5C3FE0] text-white shadow-lg shadow-[#5C3FE0]/25'
-                  : 'text-gray-400 hover:text-white hover:bg-white/5'
-              }`}
+              className={`flex items-center justify-between px-3 py-2.5 text-xs font-semibold transition-all cursor-pointer rounded-xl ${isActive
+                ? 'bg-[#5C3FE0] text-white shadow-lg shadow-[#5C3FE0]/25'
+                : 'text-gray-400 hover:text-white hover:bg-white/5'
+                }`}
             >
 
               {/* Left side */}
@@ -333,12 +352,11 @@ export const Sidebar: React.FC = () => {
 
               {item.badge && (
                 <span
-                  className={`text-[9px] font-mono px-1.5 py-0.5 rounded font-bold uppercase shrink-0 ${
-                    isActive
-                      ? 'bg-white/20 text-white'
-                      : item.badgeColor ||
-                        'bg-white/10 text-gray-300'
-                  }`}
+                  className={`text-[9px] font-mono px-1.5 py-0.5 rounded font-bold uppercase shrink-0 ${isActive
+                    ? 'bg-white/20 text-white'
+                    : item.badgeColor ||
+                    'bg-white/10 text-gray-300'
+                    }`}
                 >
                   {item.badge}
                 </span>
