@@ -133,7 +133,7 @@ export const SuperAdminDashboard: React.FC = () => {
       </div>
 
       {/* Global Metrics */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
 
         {/* Tenants */}
         <div className="p-5 rounded-2xl bg-[#09081E] border border-white/10">
@@ -331,7 +331,7 @@ export const SuperAdminDashboard: React.FC = () => {
                       </p>
                     </div>
 
-                    <button
+                    {/* <button
                       onClick={() =>
                         setActiveTab('branch_management')
                       }
@@ -339,7 +339,7 @@ export const SuperAdminDashboard: React.FC = () => {
                       title="Manage branches"
                     >
                       <Settings2 className="w-3.5 h-3.5" />
-                    </button>
+                    </button> */}
                   </div>
                 </div>
               );
@@ -352,7 +352,7 @@ export const SuperAdminDashboard: React.FC = () => {
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
 
         {/* Platform Governance */}
-        <div className="p-5 rounded-2xl bg-gradient-to-br from-[#120e3a] to-[#09081E] border border-purple-500/20">
+        {/* <div className="p-5 rounded-2xl bg-gradient-to-br from-[#120e3a] to-[#09081E] border border-purple-500/20">
           <div className="flex items-center gap-2 mb-3">
             <ShieldCheck className="w-4 h-4 text-purple-300" />
 
@@ -373,10 +373,10 @@ export const SuperAdminDashboard: React.FC = () => {
             <ShieldCheck className="w-3.5 h-3.5" />
             Open Access Matrix
           </button>
-        </div>
+        </div> */}
 
         {/* Knowledge Hub */}
-        <div className="p-5 rounded-2xl bg-gradient-to-br from-[#0d1d25] to-[#09081E] border border-cyan-500/20">
+        {/* <div className="p-5 rounded-2xl bg-gradient-to-br from-[#0d1d25] to-[#09081E] border border-cyan-500/20">
           <div className="flex items-center gap-2 mb-3">
             <Video className="w-4 h-4 text-cyan-300" />
 
@@ -397,7 +397,7 @@ export const SuperAdminDashboard: React.FC = () => {
             <Video className="w-3.5 h-3.5" />
             Open Knowledge Hub
           </button>
-        </div>
+        </div> */}
 
       </div>
     </div>

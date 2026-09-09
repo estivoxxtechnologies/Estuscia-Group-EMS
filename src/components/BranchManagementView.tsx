@@ -24,6 +24,8 @@ import {
 } from '../api/branches';
 
 import { Branch } from '../types/branch';
+import { toast } from 'react-toastify';
+
 
 export const BranchManagementView: React.FC = () => {
   const { currentUser } = useApp();
@@ -97,6 +99,12 @@ export const BranchManagementView: React.FC = () => {
 
   const [formError, setFormError] =
     useState<string | null>(null);
+
+  const [branchToToggle, setBranchToToggle] =
+    useState<Branch | null>(null);
+
+  const [isTogglingStatus, setIsTogglingStatus] =
+    useState(false);
 
   // =========================================================
   // LOAD TENANTS
@@ -265,21 +273,20 @@ export const BranchManagementView: React.FC = () => {
   // SAVE BRANCH
   // =========================================================
 
+  // =========================================================
+  // SAVE BRANCH
+  // =========================================================
+
   const handleSaveBranch = async () => {
     if (!selectedTenant) {
       return;
     }
 
-    const trimmedName =
-      branchName.trim();
-
-    const trimmedCity =
-      city.trim();
+    const trimmedName = branchName.trim();
+    const trimmedCity = city.trim();
 
     if (!trimmedName) {
-      setFormError(
-        'Branch name is required.'
-      );
+      setFormError('Branch name is required.');
       return;
     }
 
@@ -288,16 +295,14 @@ export const BranchManagementView: React.FC = () => {
       setFormError(null);
 
       if (editingBranch) {
-        const updated =
-          await updateBranch(
-            editingBranch.id,
-            {
-              branchName: trimmedName,
-              city:
-                trimmedCity || null,
-              isActive,
-            }
-          );
+        const updated = await updateBranch(
+          editingBranch.id,
+          {
+            branchName: trimmedName,
+            city: trimmedCity || null,
+            isActive,
+          }
+        );
 
         setBranches((current) =>
           current.map((branch) =>
@@ -306,75 +311,149 @@ export const BranchManagementView: React.FC = () => {
               : branch
           )
         );
+
+        toast.success(
+          `Branch "${updated.branchName}" updated successfully.`
+        );
       } else {
-        const created =
-          await createBranch({
-            tenantId:
-              selectedTenant.id,
+        const created = await createBranch(
+          selectedTenant.id,
+          {
             branchName: trimmedName,
-            city:
-              trimmedCity || null,
-            isActive: true,
-          });
+            city: trimmedCity || null,
+          }
+        );
 
         setBranches((current) => [
           ...current,
           created,
         ]);
+
+        toast.success(
+          `Branch "${created.branchName}" created successfully.`
+        );
       }
 
       setIsBranchModalOpen(false);
       setEditingBranch(null);
+
     } catch (error) {
       console.error(
         'Failed to save branch:',
         error
       );
 
-      setFormError(
+      const message =
         error instanceof Error
           ? error.message
-          : 'Failed to save branch.'
-      );
+          : 'Failed to save branch.';
+
+      setFormError(message);
+      toast.error(message);
+
     } finally {
       setIsSaving(false);
     }
   };
 
   // =========================================================
-  // TOGGLE STATUS
+  // REQUEST STATUS CHANGE
   // =========================================================
 
-  const handleToggleStatus = async (
-    branch: Branch
-  ) => {
+  const handleToggleStatus = (branch: Branch) => {
+    setBranchToToggle(branch);
+  };
+
+  // =========================================================
+  // CONFIRM STATUS CHANGE
+  // =========================================================
+
+  const confirmToggleStatus = async () => {
+    if (!branchToToggle) {
+      return;
+    }
+
     try {
-      const updated =
-        await toggleBranchStatus(
-          branch.id,
-          !branch.isActive
-        );
+      setIsTogglingStatus(true);
+      setBranchError(null);
+
+      const newStatus = !branchToToggle.isActive;
+
+      const updated = await toggleBranchStatus(
+        branchToToggle.id,
+        newStatus
+      );
 
       setBranches((current) =>
         current.map((item) =>
-          item.id === branch.id
+          item.id === branchToToggle.id
             ? updated
             : item
         )
       );
+
+      toast.success(
+        `Branch "${updated.branchName}" ${newStatus ? 'enabled' : 'disabled'
+        } successfully.`
+      );
+
+      setBranchToToggle(null);
+
     } catch (error) {
       console.error(
         'Failed to update branch status:',
         error
       );
 
-      setBranchError(
+      const message =
         error instanceof Error
           ? error.message
-          : 'Failed to update branch status.'
-      );
+          : 'Failed to update branch status.';
+
+      setBranchError(message);
+      toast.error(message);
+
+    } finally {
+      setIsTogglingStatus(false);
     }
   };
+
+
+  // =========================================================
+  // TOGGLE STATUS
+  // =========================================================
+
+  // const handleToggleStatus = async (
+  //   branch: Branch
+  // ) => {
+  //   try {
+  //     const updated =
+  //       await toggleBranchStatus(
+  //         branch.id,
+  //         !branch.isActive
+  //       );
+
+  //     setBranches((current) =>
+  //       current.map((item) =>
+  //         item.id === branch.id
+  //           ? updated
+  //           : item
+  //       )
+  //     );
+  //     toast.success("Branch status updated successfully")
+  //   } catch (error) {
+  //     console.error(
+  //       'Failed to update branch status:',
+  //       error
+  //     );
+
+  //     setBranchError(
+  //       error instanceof Error
+  //         ? error.message
+  //         : 'Failed to update branch status.'
+  //     );
+  //   }
+  // };
 
   // =========================================================
   // ACCESS DENIED
@@ -1056,6 +1135,219 @@ export const BranchManagementView: React.FC = () => {
                 {editingBranch
                   ? 'Save Changes'
                   : 'Create Branch'}
+
+              </button>
+
+            </div>
+
+          </div>
+
+        </div>
+      )}
+
+      {/* =====================================================
+    STATUS CONFIRMATION MODAL
+===================================================== */}
+
+      {branchToToggle && (
+        <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/80 backdrop-blur-md">
+
+          <div className="w-full max-w-md bg-[#09071e] border border-[#2d2770] rounded-2xl shadow-2xl overflow-hidden">
+
+            {/* Header */}
+
+            <div className="px-6 py-5 border-b border-[#231e54]">
+
+              <div className="flex items-center gap-3">
+
+                <div
+                  className={
+                    branchToToggle.isActive
+                      ? 'w-10 h-10 rounded-xl bg-red-500/10 border border-red-500/20 flex items-center justify-center'
+                      : 'w-10 h-10 rounded-xl bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center'
+                  }
+                >
+                  <Power
+                    className={
+                      branchToToggle.isActive
+                        ? 'w-5 h-5 text-red-400'
+                        : 'w-5 h-5 text-emerald-400'
+                    }
+                  />
+                </div>
+
+                <div>
+
+                  <h2 className="text-base font-bold text-white">
+                    {branchToToggle.isActive
+                      ? 'Disable Branch'
+                      : 'Enable Branch'}
+                  </h2>
+
+                  <p className="text-[11px] text-slate-400 mt-0.5">
+                    Confirm branch status change
+                  </p>
+
+                </div>
+
+              </div>
+
+            </div>
+
+            {/* Content */}
+
+            <div className="px-6 py-5">
+
+              <p className="text-sm text-slate-300 leading-relaxed">
+
+                Are you sure you want to{' '}
+
+                <span
+                  className={
+                    branchToToggle.isActive
+                      ? 'font-bold text-red-400'
+                      : 'font-bold text-emerald-400'
+                  }
+                >
+                  {branchToToggle.isActive
+                    ? 'disable'
+                    : 'enable'}
+                </span>{' '}
+
+                the branch{' '}
+
+                <span className="font-bold text-white">
+                  "{branchToToggle.branchName}"
+                </span>
+                ?
+
+              </p>
+
+              {/* Branch Information */}
+
+              <div className="mt-4 p-3 rounded-xl bg-[#0e0b2e] border border-[#231e54]">
+
+                <div className="flex items-center justify-between text-xs">
+
+                  <span className="text-slate-500">
+                    Organization
+                  </span>
+
+                  <span className="text-slate-300 font-medium">
+                    {selectedTenant.name}
+                  </span>
+
+                </div>
+
+                <div className="flex items-center justify-between text-xs mt-2">
+
+                  <span className="text-slate-500">
+                    Branch
+                  </span>
+
+                  <span className="text-white font-medium">
+                    {branchToToggle.branchName}
+                  </span>
+
+                </div>
+
+                <div className="flex items-center justify-between text-xs mt-2">
+
+                  <span className="text-slate-500">
+                    Current Status
+                  </span>
+
+                  <span
+                    className={
+                      branchToToggle.isActive
+                        ? 'text-emerald-400 font-semibold'
+                        : 'text-red-400 font-semibold'
+                    }
+                  >
+                    {branchToToggle.isActive
+                      ? 'Active'
+                      : 'Inactive'}
+                  </span>
+
+                </div>
+
+                <div className="flex items-center justify-between text-xs mt-2">
+
+                  <span className="text-slate-500">
+                    New Status
+                  </span>
+
+                  <span
+                    className={
+                      branchToToggle.isActive
+                        ? 'text-red-400 font-semibold'
+                        : 'text-emerald-400 font-semibold'
+                    }
+                  >
+                    {branchToToggle.isActive
+                      ? 'Inactive'
+                      : 'Active'}
+                  </span>
+
+                </div>
+
+              </div>
+
+              {/* Warning */}
+
+              {branchToToggle.isActive && (
+                <p className="mt-4 text-[11px] text-slate-500 leading-relaxed">
+                  Disabling this branch will prevent it from
+                  being assigned to employees until it is
+                  enabled again.
+                </p>
+              )}
+
+            </div>
+
+            {/* Footer */}
+
+            <div className="flex items-center justify-end gap-2 px-6 py-4 border-t border-[#231e54]">
+
+              {/* Cancel */}
+
+              <button
+                type="button"
+                onClick={() => {
+                  if (!isTogglingStatus) {
+                    setBranchToToggle(null);
+                  }
+                }}
+                disabled={isTogglingStatus}
+                className="px-4 py-2 rounded-xl bg-white/5 hover:bg-white/10 text-slate-300 text-xs font-semibold border border-white/10 disabled:opacity-50 transition-colors"
+              >
+                Cancel
+              </button>
+
+              {/* Confirm */}
+
+              <button
+                type="button"
+                onClick={confirmToggleStatus}
+                disabled={isTogglingStatus}
+                className={
+                  branchToToggle.isActive
+                    ? 'flex items-center gap-2 px-4 py-2 rounded-xl bg-red-600 hover:bg-red-500 disabled:opacity-50 text-white text-xs font-bold transition-colors'
+                    : 'flex items-center gap-2 px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 disabled:opacity-50 text-white text-xs font-bold transition-colors'
+                }
+              >
+
+                {isTogglingStatus ? (
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                ) : (
+                  <Power className="w-4 h-4" />
+                )}
+
+                {isTogglingStatus
+                  ? 'Updating...'
+                  : branchToToggle.isActive
+                    ? 'Disable Branch'
+                    : 'Enable Branch'}
 
               </button>
 

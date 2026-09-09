@@ -2,10 +2,8 @@ import { apiRequest } from './client';
 import { Branch } from '../types/branch';
 
 export interface CreateBranchRequest {
-  tenantId: number;
   branchName: string;
   city: string | null;
-  isActive: boolean;
 }
 
 export interface UpdateBranchRequest {
@@ -15,7 +13,9 @@ export interface UpdateBranchRequest {
 }
 
 /**
- * Get all branches.
+ * Get all active branches.
+ *
+ * Used by existing branch combo boxes.
  */
 export async function getBranches(): Promise<Branch[]> {
   return apiRequest<Branch[]>('/Branches', {
@@ -24,50 +24,65 @@ export async function getBranches(): Promise<Branch[]> {
 }
 
 /**
- * Get branches belonging to a specific tenant.
+ * Get all branches for a specific tenant.
+ *
+ * Used by Super Admin branch management.
  */
-export const getBranchesByTenant = async (
+export async function getBranchesByTenant(
   tenantId: number
-): Promise<Branch[]> => {
-  return apiRequest<Branch[]>(`/Branches/tenant/${tenantId}`, {
-    method: 'GET',
-  });
-};
+): Promise<Branch[]> {
+  return apiRequest<Branch[]>(
+    `/Branches/tenant/${tenantId}`,
+    {
+      method: 'GET',
+    }
+  );
+}
 
 /**
- * Create a new branch for a tenant.
+ * Create a branch for a specific tenant.
  */
-export const createBranch = async (
+export async function createBranch(
+  tenantId: number,
   request: CreateBranchRequest
-): Promise<Branch> => {
-  return apiRequest<Branch>('/Branches', {
-    method: 'POST',
-    body: JSON.stringify(request),
-  });
-};
+): Promise<Branch> {
+  return apiRequest<Branch>(
+    `/Branches/tenant/${tenantId}`,
+    {
+      method: 'POST',
+      body: JSON.stringify(request),
+    }
+  );
+}
 
 /**
  * Update an existing branch.
  */
-export const updateBranch = async (
+export async function updateBranch(
   branchId: number,
   request: UpdateBranchRequest
-): Promise<Branch> => {
-  return apiRequest<Branch>(`/Branches/${branchId}`, {
-    method: 'PUT',
-    body: JSON.stringify(request),
-  });
-};
+): Promise<Branch> {
+  return apiRequest<Branch>(
+    `/Branches/${branchId}`,
+    {
+      method: 'PUT',
+      body: JSON.stringify(request),
+    }
+  );
+}
 
 /**
  * Enable / disable a branch.
  */
-export const toggleBranchStatus = async (
+export async function toggleBranchStatus(
   branchId: number,
   isActive: boolean
-): Promise<Branch> => {
-  return apiRequest<Branch>(`/Branches/${branchId}/status`, {
-    method: 'PATCH',
-    body: JSON.stringify({ isActive }),
-  });
-};
+): Promise<Branch> {
+  return apiRequest<Branch>(
+    `/Branches/${branchId}/status`,
+    {
+      method: 'PATCH',
+      body: JSON.stringify(isActive),
+    }
+  );
+}

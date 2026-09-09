@@ -199,62 +199,62 @@ export const Header: React.FC = () => {
         </button>
 
         {/* Tenant Scope Control */}
-        {isSuperAdmin ? (
+        {!isSuperAdmin &&  (
           // Super Admin can switch across all customer tenants
-          <div className="relative" ref={tenantRef}>
-            <button
-              onClick={() => setIsTenantOpen(!isTenantOpen)}
-              className="bg-[#09081E] px-2.5 sm:px-3 py-1.5 rounded-xl border border-amber-500/40 flex items-center gap-1.5 sm:gap-2 hover:border-amber-500/70 transition-colors shadow-sm cursor-pointer"
-              id="tenant-switcher-btn"
-            >
-              <Shield className="w-3.5 h-3.5 text-amber-400 shrink-0" />
-              <div className="text-left">
-                <div className="text-[9px] text-amber-400 font-bold uppercase tracking-wider hidden sm:block">
-                  Superadmin Scope
-                </div>
-                <div className="text-xs font-bold text-white max-w-[110px] sm:max-w-[160px] md:max-w-[200px] truncate">
-                  {currentUser?.tenantName ?? 'No Tenant Selected'}
-                </div>
-              </div>
-              <ChevronDown className={`w-3.5 h-3.5 text-gray-400 transition-transform ${isTenantOpen ? 'rotate-180' : ''}`} />
-            </button>
+          // <div className="relative" ref={tenantRef}>
+          //   <button
+          //     onClick={() => setIsTenantOpen(!isTenantOpen)}
+          //     className="bg-[#09081E] px-2.5 sm:px-3 py-1.5 rounded-xl border border-amber-500/40 flex items-center gap-1.5 sm:gap-2 hover:border-amber-500/70 transition-colors shadow-sm cursor-pointer"
+          //     id="tenant-switcher-btn"
+          //   >
+          //     <Shield className="w-3.5 h-3.5 text-amber-400 shrink-0" />
+          //     <div className="text-left">
+          //       <div className="text-[9px] text-amber-400 font-bold uppercase tracking-wider hidden sm:block">
+          //         Superadmin Scope
+          //       </div>
+          //       <div className="text-xs font-bold text-white max-w-[110px] sm:max-w-[160px] md:max-w-[200px] truncate">
+          //         {currentUser?.tenantName ?? 'No Tenant Selected'}
+          //       </div>
+          //     </div>
+          //     <ChevronDown className={`w-3.5 h-3.5 text-gray-400 transition-transform ${isTenantOpen ? 'rotate-180' : ''}`} />
+          //   </button>
 
-            {isTenantOpen && (
-              <div className="absolute left-0 mt-2 w-72 sm:w-80 bg-[#09081E] border border-white/15 rounded-2xl shadow-2xl p-2 z-50 animate-in fade-in zoom-in-95 duration-100">
-                <div className="px-3 py-1.5 text-[10px] font-bold tracking-widest text-amber-400 uppercase flex items-center justify-between">
-                  <span>Customer Tenants List</span>
-                  <span className="text-[10px] px-1.5 py-0.5 rounded bg-amber-500/20 text-amber-300 font-mono">
-                    {tenants.length} Tenants
-                  </span>
-                </div>
-                <div className="space-y-1 mt-1">
-                  {tenants.map((t) => (
-                    <button
-                      key={t.id}
-                      onClick={() => {
-                        // setCurrentTenant(t);
-                        setSelectedBranch('All Branches');
-                        setIsTenantOpen(false);
-                      }}
-                      className={`w-full text-left px-3 py-2 rounded-xl flex items-center justify-between transition-colors ${t.id === currentUser.tenantId
-                        ? 'bg-amber-500/20 text-amber-300 border border-amber-500/40'
-                        : 'hover:bg-white/5 text-gray-300'
-                        }`}
-                    >
-                      <div>
-                        <div className="text-xs font-semibold text-white">{t.name}</div>
-                        <div className="text-[10px] text-gray-400">{t.domain} • {t.branches.length} Branches</div>
-                      </div>
-                      {t.id === currentUser.tenantId && (
-                        <CheckCircle2 className="w-4 h-4 text-amber-400" />
-                      )}
-                    </button>
-                  ))}
-                </div>
-              </div>
-            )}
-          </div>
-        ) : (
+          //   {isTenantOpen && (
+          //     <div className="absolute left-0 mt-2 w-72 sm:w-80 bg-[#09081E] border border-white/15 rounded-2xl shadow-2xl p-2 z-50 animate-in fade-in zoom-in-95 duration-100">
+          //       <div className="px-3 py-1.5 text-[10px] font-bold tracking-widest text-amber-400 uppercase flex items-center justify-between">
+          //         <span>Customer Tenants List</span>
+          //         <span className="text-[10px] px-1.5 py-0.5 rounded bg-amber-500/20 text-amber-300 font-mono">
+          //           {tenants.length} Tenants
+          //         </span>
+          //       </div>
+          //       <div className="space-y-1 mt-1">
+          //         {tenants.map((t) => (
+          //           <button
+          //             key={t.id}
+          //             onClick={() => {
+          //               // setCurrentTenant(t);
+          //               setSelectedBranch('All Branches');
+          //               setIsTenantOpen(false);
+          //             }}
+          //             className={`w-full text-left px-3 py-2 rounded-xl flex items-center justify-between transition-colors ${t.id === currentUser.tenantId
+          //               ? 'bg-amber-500/20 text-amber-300 border border-amber-500/40'
+          //               : 'hover:bg-white/5 text-gray-300'
+          //               }`}
+          //           >
+          //             <div>
+          //               <div className="text-xs font-semibold text-white">{t.name}</div>
+          //               <div className="text-[10px] text-gray-400">{t.domain} • {t.branches.length} Branches</div>
+          //             </div>
+          //             {t.id === currentUser.tenantId && (
+          //               <CheckCircle2 className="w-4 h-4 text-amber-400" />
+          //             )}
+          //           </button>
+          //         ))}
+          //       </div>
+          //     </div>
+          //   )}
+          // </div>
+        // ) : (
           // Non-superadmin: Tenant is locked, Branch selector is available
           <div className="flex items-center gap-1.5 sm:gap-2">
             <div className="bg-[#09081E] px-2.5 sm:px-3 py-1.5 rounded-xl border border-white/10 flex items-center gap-1.5">
@@ -303,8 +303,8 @@ export const Header: React.FC = () => {
                         setIsBranchOpen(false);
                       }}
                       className={`w-full text-left px-2.5 py-1.5 rounded-lg text-xs transition-colors flex items-center justify-between ${selectedBranch === null
-                          ? 'bg-[#5C3FE0]/20 text-[#5C3FE0] font-semibold'
-                          : 'text-gray-300 hover:bg-white/5'
+                        ? 'bg-[#5C3FE0]/20 text-[#5C3FE0] font-semibold'
+                        : 'text-gray-300 hover:bg-white/5'
                         }`}
                     >
                       <span>All Branches</span>
@@ -342,8 +342,8 @@ export const Header: React.FC = () => {
                               setIsBranchOpen(false);
                             }}
                             className={`w-full text-left px-2.5 py-1.5 rounded-lg text-xs transition-colors flex items-center justify-between ${isSelected
-                                ? 'bg-[#5C3FE0]/20 text-[#5C3FE0] font-semibold'
-                                : 'text-gray-300 hover:bg-white/5'
+                              ? 'bg-[#5C3FE0]/20 text-[#5C3FE0] font-semibold'
+                              : 'text-gray-300 hover:bg-white/5'
                               }`}
                           >
                             <div className="min-w-0">
@@ -376,26 +376,30 @@ export const Header: React.FC = () => {
       <div className="flex items-center gap-1.5 sm:gap-2.5 md:gap-3">
 
         {/* Quick Action: Log Work */}
-        <button
-          onClick={() => setIsWorkLogModalOpen(true)}
-          className="hidden sm:flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-purple-500/15 hover:bg-purple-500/25 border border-purple-500/30 text-purple-200 text-xs font-semibold transition-all cursor-pointer"
-        >
-          <PhoneCall className="w-3.5 h-3.5 text-purple-400" />
-          <span className="hidden md:inline">+ Log Today's Work</span>
-          <span className="md:hidden">Log Work</span>
-        </button>
+        {!isSuperAdmin && (
+          <button
+            onClick={() => setIsWorkLogModalOpen(true)}
+            className="hidden sm:flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-purple-500/15 hover:bg-purple-500/25 border border-purple-500/30 text-purple-200 text-xs font-semibold transition-all cursor-pointer"
+          >
+            <PhoneCall className="w-3.5 h-3.5 text-purple-400" />
+            <span className="hidden md:inline">+ Log Today's Work</span>
+            <span className="md:hidden">Log Work</span>
+          </button>
+        )}
 
         {/* Quick Action: Customer Deposit Slip */}
-        <button
-          onClick={() => setIsCreateReceiptModalOpen(true)}
-          className="hidden md:flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-emerald-500/15 hover:bg-emerald-500/25 border border-emerald-500/30 text-emerald-200 text-xs font-semibold transition-all cursor-pointer"
-        >
-          <Receipt className="w-3.5 h-3.5 text-emerald-400" />
-          <span>+ Customer Deposit Slip</span>
-        </button>
+        {!isSuperAdmin && (
+          <button
+            onClick={() => setIsCreateReceiptModalOpen(true)}
+            className="hidden md:flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-emerald-500/15 hover:bg-emerald-500/25 border border-emerald-500/30 text-emerald-200 text-xs font-semibold transition-all cursor-pointer"
+          >
+            <Receipt className="w-3.5 h-3.5 text-emerald-400" />
+            <span>+ Customer Deposit Slip</span>
+          </button>
+        )}
 
         {/* HR Quick Action: Biometric Excel */}
-        {isHR && (
+        {isHR || !isSuperAdmin && (
           <button
             onClick={() => setIsBatchUploadOpen(true)}
             className="hidden lg:flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 text-gray-300 text-xs font-semibold transition-all cursor-pointer"
@@ -406,64 +410,30 @@ export const Header: React.FC = () => {
         )}
 
         {/* Global Search */}
-        <button
-          onClick={() => setIsSearchOpen(true)}
-          className="p-2 sm:px-3 sm:py-1.5 rounded-xl bg-[#09081E] hover:bg-white/5 border border-white/10 text-xs text-gray-400 transition-colors flex items-center gap-2 cursor-pointer"
-          aria-label="Search"
-        >
-          <Search className="w-3.5 h-3.5 text-gray-400" />
-          <span className="hidden xl:inline text-xs">Search staff, slips, slabs...</span>
-        </button>
+        {!isSuperAdmin && (
+          <button
+            onClick={() => setIsSearchOpen(true)}
+            className="p-2 sm:px-3 sm:py-1.5 rounded-xl bg-[#09081E] hover:bg-white/5 border border-white/10 text-xs text-gray-400 transition-colors flex items-center gap-2 cursor-pointer"
+            aria-label="Search"
+          >
+            <Search className="w-3.5 h-3.5 text-gray-400" />
+            <span className="hidden xl:inline text-xs">Search staff, slips, slabs...</span>
+          </button>
+        )}
 
         {/* Role Switcher Pill */}
-        <div className="relative" ref={roleRef}>
-          <button
-            onClick={() => setIsRoleOpen(!isRoleOpen)}
-            className={`flex items-center gap-1.5 sm:gap-2 px-2.5 sm:px-3 py-1.5 rounded-xl border text-xs font-semibold transition-all cursor-pointer ${roleLabels[currentUser.roleName as Role]?.color || 'bg-white/10 text-white'}`}
-          >
-            {roleLabels[currentUser.roleName]?.icon}
-            <span className="hidden md:inline">{roleLabels[currentUser.roleName]?.title || currentUser.roleName}</span>
-            <ChevronDown className={`w-3.5 h-3.5 transition-transform ${isRoleOpen ? 'rotate-180' : ''}`} />
-          </button>
+        {/* Current Role */}
+        <div
+          className={`flex items-center gap-1.5 sm:gap-2 px-2.5 sm:px-3 py-1.5 rounded-xl border text-xs font-semibold ${roleLabels[currentUser.roleName as Role]?.color ||
+            'bg-white/10 text-white border-white/10'
+            }`}
+        >
+          {roleLabels[currentUser.roleName as Role]?.icon}
 
-          {isRoleOpen && (
-            <div className="absolute right-0 mt-2 w-80 bg-[#09081E] border border-white/15 rounded-2xl shadow-2xl p-2 z-50 animate-in fade-in zoom-in-95 duration-100">
-              <div className="px-3 py-1.5 text-[10px] font-bold tracking-widest text-gray-400 uppercase flex items-center justify-between">
-                <span>Switch Role Perspective</span>
-                <span className="text-[10px] text-[#5C3FE0] font-normal">EMS Roles</span>
-              </div>
-              <div className="space-y-1 mt-1">
-                {(Object.keys(roleLabels) as Role[]).map((r) => {
-                  const info = roleLabels[r];
-                  const isActive = currentUser.roleName === r;
-                  return (
-                    <button
-                      key={r}
-                      onClick={() => {
-                        switchRole(r);
-                        setIsRoleOpen(false);
-                      }}
-                      className={`w-full text-left px-3 py-2 rounded-xl flex items-start gap-2.5 transition-colors cursor-pointer ${isActive
-                        ? 'bg-[#5C3FE0]/20 text-[#5C3FE0] border border-[#5C3FE0]/40'
-                        : 'hover:bg-white/5 text-gray-300'
-                        }`}
-                    >
-                      <div className="p-1.5 rounded-lg bg-black/40 shrink-0 mt-0.5 border border-white/5">
-                        {info.icon}
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <div className="text-xs font-semibold text-white flex items-center justify-between">
-                          <span>{info.title}</span>
-                          {isActive && <span className="text-[9px] text-emerald-400 font-mono">ACTIVE</span>}
-                        </div>
-                        <div className="text-[11px] text-gray-400 truncate">{info.desc}</div>
-                      </div>
-                    </button>
-                  );
-                })}
-              </div>
-            </div>
-          )}
+          <span className="hidden md:inline">
+            {roleLabels[currentUser.roleName as Role]?.title ||
+              currentUser.roleName}
+          </span>
         </div>
 
         {/* Notifications Bell */}
