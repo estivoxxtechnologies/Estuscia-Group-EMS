@@ -53,6 +53,7 @@ export const Sidebar: React.FC = () => {
     'dashboard',
     'tenants',
     'branch_management',
+    'tenant_payment',
     'knowledge_hub',
   ];
   // ---------------------------------------------------------
@@ -234,6 +235,15 @@ export const Sidebar: React.FC = () => {
         label: 'Branch Management',
         icon: (
           <GitBranch className="w-4 h-4" />
+        ),
+        section: 'leadership_gov',
+        superAdminOnly: true,
+      },
+      {
+        id: 'tenant_payment',
+        label: 'Tenant Payment',
+        icon: (
+          <CreditCard className="w-4 h-4" />
         ),
         section: 'leadership_gov',
         superAdminOnly: true,

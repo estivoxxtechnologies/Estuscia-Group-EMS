@@ -33,6 +33,8 @@ import { Navigate, Route, Routes } from 'react-router-dom';
 import ProtectedRoute from './ProtectedRoute';
 import PublicRoute from './PublicRoute';
 import { SuperAdminDashboard } from './components/SuperAdminDashboard';
+import TenantPaymentView from './components/TenantPaymentView';
+
 
 const AppContent: React.FC = () => {
   const { activeTab, setActiveTab, currentUser } = useApp();
@@ -65,6 +67,8 @@ const AppContent: React.FC = () => {
         return <TenantView />;
       case 'branch_management':
         return <BranchManagementView />;
+      case 'tenant_payment':
+        return <TenantPaymentView />;
       default:
         return <DashboardView />;
     }

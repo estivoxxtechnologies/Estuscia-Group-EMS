@@ -61,7 +61,8 @@ export type AppTab =
   | 'slabs'
   | 'lms_academy'
   | 'tenants'
-  | 'branch_management';
+  | 'branch_management'
+  | 'tenant_payment';
 
 export type ViewMode = 'portal' | 'public_web';
 
