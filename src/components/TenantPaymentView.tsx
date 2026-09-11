@@ -22,6 +22,8 @@ import {
   updateTenantPayment,
   deleteTenantPayment,
   TenantPaymentListItem,
+  getCurrentTenantPayments,
+  CurrentTenantPayment,
 } from '../api/tenantPayments';
 
 import {
@@ -136,7 +138,7 @@ export default function TenantPaymentView({
   const [pageMode, setPageMode] = useState<PageMode>('list');
 
   const [tenants, setTenants] = useState<BackendTenant[]>([]);
-  const [payments, setPayments] = useState<TenantPaymentListItem[]>([]);
+  const [payments, setPayments] = useState<CurrentTenantPayment[]>([]);
   const [tenantHistory, setTenantHistory] = useState<TenantPaymentListItem[]>(
     []
   );
@@ -189,9 +191,8 @@ export default function TenantPaymentView({
       setLoading(true);
       setError('');
 
-      const data = await getTenantPayments();
-
-      setPayments(data.items);
+      const data = await getCurrentTenantPayments();
+      setPayments(data);
     } catch (err) {
       console.error(err);
       setError('Unable to load tenant payment records.');
@@ -224,14 +225,14 @@ export default function TenantPaymentView({
    * ------------------------------------------------------------
    */
 
-  const years = useMemo(
-    () =>
-      Array.from(
-        { length: 2999 - 1900 + 1 },
-        (_, index) => 1900 + index
-      ),
-    []
-  );
+  const years = useMemo(() => {
+    const currentYear = new Date().getFullYear();
+
+    return Array.from(
+      { length: 21 },
+      (_, index) => currentYear - 10 + index
+    );
+  }, []);
 
   /*
    * ------------------------------------------------------------
@@ -252,28 +253,11 @@ export default function TenantPaymentView({
         paymentStatusFilter === 'All' ||
         payment.paymentStatus === paymentStatusFilter;
 
-      const paymentYear = payment.paymentDateUtc
-        ? new Date(payment.paymentDateUtc).getFullYear()
-        : payment.validFromUtc
-          ? new Date(payment.validFromUtc).getFullYear()
-          : null;
-
-      const matchesYear =
-        paymentYear !== null &&
-        paymentYear >= fromYear &&
-        paymentYear <= toYear;
-
-      return (
-        matchesSearch &&
-        matchesStatus &&
-        matchesYear
-      );
+      return matchesSearch && matchesStatus;
     });
   }, [
     payments,
     search,
-    fromYear,
-    toYear,
     paymentStatusFilter,
   ]);
   /*
@@ -774,7 +758,7 @@ function PaymentListPage({
   onAdd,
   onTenantClick,
 }: {
-  payments: TenantPaymentListItem[];
+  payments: CurrentTenantPayment[];
   years: number[];
   fromYear: number;
   toYear: number;
@@ -824,7 +808,7 @@ function PaymentListPage({
           />
         </div>
 
-        <span className="text-sm text-gray-500">
+        {/* <span className="text-sm text-gray-500">
           From
         </span>
 
@@ -862,7 +846,7 @@ function PaymentListPage({
           </select>
 
           <ChevronDown className="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-500" />
-        </div>
+        </div> */}
         <div className="relative">
           <select
             value={paymentStatusFilter}
@@ -918,7 +902,7 @@ function PaymentListPage({
               ) : (
                 payments.map((payment) => (
                   <tr
-                    key={payment.id}
+                    key={payment.tenantId}
                     onClick={() => onTenantClick(payment.tenantId)}
                     className="cursor-pointer transition hover:bg-white/[0.03]"
                   >

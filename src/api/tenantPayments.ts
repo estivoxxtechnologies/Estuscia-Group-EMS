@@ -11,6 +11,28 @@ export interface TenantPaymentListItem extends TenantPayment {
   tenantCode: string;
 }
 
+export interface CurrentTenantPayment {
+  tenantId: number;
+  tenantName: string;
+  tenantCode: string;
+  tenantCurrency: string;
+
+  paymentId: number | null;
+
+  totalBranches: number;
+
+  paymentMode: PaymentMode | null;
+  amount: number;
+  paymentStatus: PaymentStatus;
+
+  paymentDateUtc: string | null;
+  validFromUtc: string | null;
+  validUntilUtc: string | null;
+
+  registrationStatus: boolean;
+  notes: string | null;
+}
+
 export interface TenantPaymentListResponse {
   items: TenantPaymentListItem[];
   totalCount: number;
@@ -83,6 +105,28 @@ interface BackendTenantPaymentListResponse {
   totalPages: number;
 }
 
+interface BackendCurrentTenantPayment {
+  tenantId: number;
+  tenantName: string;
+  tenantCode: string;
+  tenantCurrency: string;
+
+  paymentId: number | null;
+
+  totalBranches: number;
+
+  paymentMode: number | string | null;
+  amount: number;
+  paymentStatus: number | string;
+
+  paymentDateUtc: string | null;
+  validFromUtc: string | null;
+  validUntilUtc: string | null;
+
+  registrationStatus: boolean;
+  notes: string | null;
+}
+
 /* ============================================================
    ENUM MAPPERS
 ============================================================ */
@@ -145,6 +189,37 @@ function mapTenantPayment(
   };
 }
 
+function mapCurrentTenantPayment(
+  payment: BackendCurrentTenantPayment
+): CurrentTenantPayment {
+  return {
+    tenantId: payment.tenantId,
+    tenantName: payment.tenantName,
+    tenantCode: payment.tenantCode,
+    tenantCurrency: payment.tenantCurrency,
+
+    paymentId: payment.paymentId,
+
+    totalBranches: payment.totalBranches,
+
+    paymentMode:
+      payment.paymentMode === null
+        ? null
+        : mapPaymentMode(payment.paymentMode),
+
+    amount: payment.amount,
+
+    paymentStatus: mapPaymentStatus(payment.paymentStatus),
+
+    paymentDateUtc: payment.paymentDateUtc,
+    validFromUtc: payment.validFromUtc,
+    validUntilUtc: payment.validUntilUtc,
+
+    registrationStatus: payment.registrationStatus,
+    notes: payment.notes,
+  };
+}
+
 /**
  * All payment records.
  */
@@ -161,6 +236,23 @@ export async function getTenantPayments(): Promise<TenantPaymentListResponse> {
     ...data,
     items: data.items.map(mapTenantPayment),
   };
+}
+
+/**
+ * Current/latest payment status for each tenant.
+ * Returns only one row per tenant.
+ */
+export async function getCurrentTenantPayments(): Promise<
+  CurrentTenantPayment[]
+> {
+  const data = await apiRequest<BackendCurrentTenantPayment[]>(
+    '/TenantPayments/current',
+    {
+      method: 'GET',
+    }
+  );
+
+  return data.map(mapCurrentTenantPayment);
 }
 
 /**
