@@ -34,6 +34,7 @@ import ProtectedRoute from './ProtectedRoute';
 import PublicRoute from './PublicRoute';
 import { SuperAdminDashboard } from './components/SuperAdminDashboard';
 import TenantPaymentView from './components/TenantPaymentView';
+import ProfileView from './components/ProfileView';
 
 
 const AppContent: React.FC = () => {
@@ -42,9 +43,9 @@ const AppContent: React.FC = () => {
   const renderActiveView = () => {
     switch (activeTab) {
       case 'dashboard':
-  if (currentUser?.roleName?.toLowerCase() === 'super_admin') {
-    return <SuperAdminDashboard />;
-  }
+        if (currentUser?.roleName?.toLowerCase() === 'super_admin') {
+          return <SuperAdminDashboard />;
+        }
       case 'daily_work':
         return <DailyWorkView />;
       case 'attendance':
@@ -69,6 +70,8 @@ const AppContent: React.FC = () => {
         return <BranchManagementView />;
       case 'tenant_payment':
         return <TenantPaymentView />;
+      case 'profile':
+        return <ProfileView />;
       default:
         return <DashboardView />;
     }

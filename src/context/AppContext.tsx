@@ -62,7 +62,8 @@ export type AppTab =
   | 'lms_academy'
   | 'tenants'
   | 'branch_management'
-  | 'tenant_payment';
+  | 'tenant_payment'
+  | 'profile';
 
 export type ViewMode = 'portal' | 'public_web';
 
@@ -386,6 +387,11 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const isTabAllowed = (tab: AppTab): boolean => {
     if (!currentUser) {
       return false;
+    }
+
+    // Every authenticated user can access their own profile
+    if (tab === 'profile') {
+      return true;
     }
 
     // Super admin and company admin have universal access

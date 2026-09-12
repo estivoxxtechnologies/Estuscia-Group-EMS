@@ -25,6 +25,7 @@ import {
   Menu,
   X,
   MapPin,
+  UserCircle,
 } from 'lucide-react';
 import { useApp } from '../context/AppContext';
 import { EstusciaLogo } from './EstusciaLogo';
@@ -199,7 +200,7 @@ export const Header: React.FC = () => {
         </button>
 
         {/* Tenant Scope Control */}
-        {!isSuperAdmin &&  (
+        {!isSuperAdmin && (
           // Super Admin can switch across all customer tenants
           // <div className="relative" ref={tenantRef}>
           //   <button
@@ -254,7 +255,7 @@ export const Header: React.FC = () => {
           //     </div>
           //   )}
           // </div>
-        // ) : (
+          // ) : (
           // Non-superadmin: Tenant is locked, Branch selector is available
           <div className="flex items-center gap-1.5 sm:gap-2">
             <div className="bg-[#09081E] px-2.5 sm:px-3 py-1.5 rounded-xl border border-white/10 flex items-center gap-1.5">
@@ -520,6 +521,17 @@ export const Header: React.FC = () => {
               </div>
 
               <div className="py-2 space-y-1 text-xs">
+                {/* My Profile */}
+                <button
+                  onClick={() => {
+                    setActiveTab('profile');
+                    setIsUserMenuOpen(false);
+                  }}
+                  className="w-full text-left px-2.5 py-1.5 rounded-lg text-gray-300 hover:bg-white/5 flex items-center justify-between cursor-pointer"
+                >
+                  <span>My Profile</span>
+                  <UserCircle className="w-3.5 h-3.5 text-[#A78BFA]" />
+                </button>
                 <button
                   onClick={() => {
                     setActiveTab('daily_work');
