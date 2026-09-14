@@ -4,6 +4,7 @@ import React, {
     useRef,
     useState,
 } from 'react';
+import Cropper, { Area } from 'react-easy-crop';
 
 import {
     ArrowLeft,
@@ -19,6 +20,7 @@ import {
     ShieldCheck,
     User,
     UserCircle,
+    X,
 } from 'lucide-react';
 
 import { toast } from 'react-toastify';
@@ -32,12 +34,14 @@ import {
 } from '../api/profile';
 
 import { useApp } from '../context/AppContext';
+import { getFileUrl } from '../utils/fileUrl';
 
 type ProfileTab = 'profile' | 'password';
 
 export const ProfileView: React.FC = () => {
     const {
         currentUser,
+        setCurrentUser,
         setActiveTab,
     } = useApp();
 
@@ -57,12 +61,9 @@ export const ProfileView: React.FC = () => {
     const [isChangingPassword, setIsChangingPassword] =
         useState(false);
 
-    const [isUploadingAvatar, setIsUploadingAvatar] =
-        useState(false);
-
     const [profileTab, setProfileTab] =
-        useState<ProfileTab>('profile');    
-    
+        useState<ProfileTab>('profile');
+
     const [fullName, setFullName] =
         useState('');
 
@@ -87,9 +88,127 @@ export const ProfileView: React.FC = () => {
     const [showConfirmPassword, setShowConfirmPassword] =
         useState(false);
 
+    const [selectedAvatar, setSelectedAvatar] =
+        useState<File | null>(null);
+
+    const [avatarPreview, setAvatarPreview] =
+        useState<string | null>(null);
+
     const fileInputRef =
         useRef<HTMLInputElement | null>(null);
 
+    const [isCropModalOpen, setIsCropModalOpen] = useState(false);
+
+    const [cropSource, setCropSource] = useState<string | null>(null);
+
+    const [crop, setCrop] = useState({
+        x: 0,
+        y: 0,
+    });
+
+    const [zoom, setZoom] = useState(1);
+
+    const [croppedAreaPixels, setCroppedAreaPixels] =
+        useState<Area | null>(null);
+
+    const [isCropping, setIsCropping] = useState(false);
+
+    const [isAvatarPreviewOpen, setIsAvatarPreviewOpen] = useState(false);
+
+    const [selectedAvatarType, setSelectedAvatarType] =
+        useState<string>('image/jpeg');
+
+    //=================================================================================================//
+
+    const createCroppedImage = (
+        imageSrc: string,
+        pixelCrop: Area,
+        outputType: string = 'image/jpeg'
+    ): Promise<File> => {
+        return new Promise((resolve, reject) => {
+            const image = new Image();
+
+            image.onload = () => {
+                const canvas = document.createElement('canvas');
+
+                // Standard profile avatar size.
+                // This prevents users from uploading unnecessarily huge images.
+                const outputSize = 800;
+
+                canvas.width = outputSize;
+                canvas.height = outputSize;
+
+                const ctx = canvas.getContext('2d');
+
+                if (!ctx) {
+                    reject(new Error('Unable to create image canvas.'));
+                    return;
+                }
+
+                ctx.imageSmoothingEnabled = true;
+                ctx.imageSmoothingQuality = 'high';
+
+                ctx.drawImage(
+                    image,
+                    pixelCrop.x,
+                    pixelCrop.y,
+                    pixelCrop.width,
+                    pixelCrop.height,
+                    0,
+                    0,
+                    outputSize,
+                    outputSize
+                );
+
+                canvas.toBlob(
+                    (blob) => {
+                        if (!blob) {
+                            reject(new Error('Unable to create cropped image.'));
+                            return;
+                        }
+
+                        const extension =
+                            outputType === 'image/png'
+                                ? 'png'
+                                : outputType === 'image/webp'
+                                    ? 'webp'
+                                    : 'jpg';
+
+                        const file = new File(
+                            [blob],
+                            `profile-avatar-${Date.now()}.${extension}`,
+                            {
+                                type: outputType,
+                                lastModified: Date.now(),
+                            }
+                        );
+
+                        resolve(file);
+                    },
+                    outputType,
+                    0.9
+                );
+            };
+
+            image.onerror = () => {
+                reject(new Error('Unable to load image.'));
+            };
+
+            image.src = imageSrc;
+        });
+    };
+
+    useEffect(() => {
+        return () => {
+            if (avatarPreview?.startsWith('blob:')) {
+                URL.revokeObjectURL(avatarPreview);
+            }
+
+            if (cropSource?.startsWith('blob:')) {
+                URL.revokeObjectURL(cropSource);
+            }
+        };
+    }, [avatarPreview, cropSource]);
     // ============================================================
     // LOAD PROFILE
     // ============================================================
@@ -125,30 +244,7 @@ export const ProfileView: React.FC = () => {
     // AVATAR URL
     // ============================================================
 
-    const getAvatarUrl = (
-        avatarUrl?: string | null
-    ) => {
-        if (!avatarUrl) {
-            return null;
-        }
-
-        if (
-            avatarUrl.startsWith('http://') ||
-            avatarUrl.startsWith('https://')
-        ) {
-            return avatarUrl;
-        }
-
-        const apiUrl =
-            import.meta.env.VITE_API_URL || '';
-
-        const apiOrigin = apiUrl.replace(
-            /\/api\/?$/,
-            ''
-        );
-
-        return `${apiOrigin}${avatarUrl}`;
-    };
+    const avatarUrl = avatarPreview || getFileUrl(profile?.avatarUrl);
 
     // ============================================================
     // INITIALS
@@ -189,35 +285,73 @@ export const ProfileView: React.FC = () => {
         try {
             setIsSavingProfile(true);
 
-            await updateMyProfile({
-                fullName: fullName.trim(),
-                email: email.trim(),
-            });
+            // --------------------------------------------------------
+            // SAVE PROFILE INFORMATION
+            // --------------------------------------------------------
+
+            const updatedProfile =
+                await updateMyProfile({
+                    fullName: fullName.trim(),
+                    email: email.trim(),
+                });
+
+            // --------------------------------------------------------
+            // UPLOAD AVATAR ONLY IF A NEW ONE WAS SELECTED
+            // --------------------------------------------------------
+
+            let finalAvatarUrl =
+                profile?.avatarUrl || '';
+
+            if (selectedAvatar) {
+                const avatarResult =
+                    await uploadMyAvatar(selectedAvatar);
+
+                finalAvatarUrl =
+                    avatarResult.avatarUrl;
+
+                setCurrentUser((previous) =>
+                    previous
+                        ? {
+                            ...previous,
+                            avatarUrl: finalAvatarUrl,
+                        }
+                        : previous
+                );
+            }
+
+            // --------------------------------------------------------
+            // UPDATE LOCAL PROFILE
+            // --------------------------------------------------------
 
             setProfile((previous) =>
                 previous
                     ? {
                         ...previous,
+                        ...updatedProfile,
                         fullName: fullName.trim(),
                         email: email.trim(),
+                        avatarUrl: finalAvatarUrl,
                     }
                     : previous
             );
 
+            setAvatarPreview(null);
+            setSelectedAvatar(null);
+
             toast.success(
                 'Profile updated successfully.'
             );
+
         } catch (error: any) {
             console.error(
                 'Failed to update profile:',
                 error
             );
 
-            const message =
-                error?.response?.data?.message ||
-                'Failed to update profile.';
-
-            toast.error(message);
+            toast.error(
+                error?.message ||
+                'Failed to update profile.'
+            );
         } finally {
             setIsSavingProfile(false);
         }
@@ -292,11 +426,8 @@ export const ProfileView: React.FC = () => {
     // AVATAR UPLOAD
     // ============================================================
 
-    const handleAvatarChange = async (
-        event: ChangeEvent<HTMLInputElement>
-    ) => {
-        const file =
-            event.target.files?.[0];
+    const handleAvatarChange = (event: ChangeEvent<HTMLInputElement>) => {
+        const file = event.target.files?.[0];
 
         if (!file) {
             return;
@@ -309,58 +440,91 @@ export const ProfileView: React.FC = () => {
         ];
 
         if (!allowedTypes.includes(file.type)) {
-            toast.error(
-                'Only JPG, PNG and WEBP images are allowed.'
-            );
-
+            toast.error('Please select a JPG, PNG, or WEBP image.');
             event.target.value = '';
             return;
         }
 
         if (file.size > 5 * 1024 * 1024) {
-            toast.error(
-                'Profile image must be smaller than 5 MB.'
-            );
-
+            toast.error('Image size must be less than 5 MB.');
             event.target.value = '';
             return;
         }
 
-        try {
-            setIsUploadingAvatar(true);
+        const sourceUrl = URL.createObjectURL(file);
 
-            const result =
-                await uploadMyAvatar(file);
+        setCropSource(sourceUrl);
+        setSelectedAvatarType(
+            file.type === 'image/png'
+                ? 'image/png'
+                : file.type === 'image/webp'
+                    ? 'image/webp'
+                    : 'image/jpeg'
+        );
 
-            setProfile((previous) =>
-                previous
-                    ? {
-                        ...previous,
-                        avatarUrl:
-                            result.avatarUrl,
-                    }
-                    : previous
-            );
+        setCrop({
+            x: 0,
+            y: 0,
+        });
 
-            toast.success(
-                'Profile photo updated successfully.'
-            );
-        } catch (error: any) {
-            console.error(
-                'Failed to upload avatar:',
-                error
-            );
+        setZoom(1);
 
-            const message =
-                error?.response?.data?.message ||
-                'Failed to upload profile photo.';
+        setCroppedAreaPixels(null);
 
-            toast.error(message);
-        } finally {
-            setIsUploadingAvatar(false);
+        setIsCropModalOpen(true);
 
-            event.target.value = '';
+        // Allows selecting the same file again later.
+        event.target.value = '';
+    };
+
+    const handleCropComplete = (
+        _croppedArea: Area,
+        croppedAreaPixels: Area
+    ) => {
+        setCroppedAreaPixels(croppedAreaPixels);
+    };
+
+    const handleCropConfirm = async () => {
+        if (!cropSource || !croppedAreaPixels) {
+            toast.error('Please select a crop area.');
+            return;
         }
+
+        try {
+            setIsCropping(true);
+
+            const croppedFile = await createCroppedImage(
+                cropSource,
+                croppedAreaPixels,
+                selectedAvatarType
+            );
+
+            const previewUrl = URL.createObjectURL(croppedFile);
+
+            setSelectedAvatar(croppedFile);
+            setAvatarPreview(previewUrl);
+
+            setIsCropModalOpen(false);
+            setCropSource(null);
+
+            toast.success('Image cropped successfully.');
+        } catch (error) {
+            console.error('Avatar crop error:', error);
+            toast.error('Unable to crop image.');
+        } finally {
+            setIsCropping(false);
+        }
+    };
+
+    const handleCropCancel = () => {
+        setIsCropModalOpen(false);
+        setCropSource(null);
+        setCroppedAreaPixels(null);
+        setZoom(1);
+        setCrop({
+            x: 0,
+            y: 0,
+        });
     };
 
     // ============================================================
@@ -398,9 +562,6 @@ export const ProfileView: React.FC = () => {
             </div>
         );
     }
-
-    const avatarUrl =
-        getAvatarUrl(profile.avatarUrl);
 
     // ============================================================
     // UI
@@ -467,43 +628,97 @@ export const ProfileView: React.FC = () => {
 
                     <div className="relative shrink-0">
 
-                        <div
-                            className="
-                w-28
-                h-28
-                rounded-full
-                overflow-hidden
-                border-4
-                border-[#5C3FE0]/40
-                bg-[#120d31]
-                flex
-                items-center
-                justify-center
-              "
-                        >
-                            {avatarUrl ? (
+                        {avatarUrl ? (
+                            <button
+                                type="button"
+                                onClick={() => setIsAvatarPreviewOpen(true)}
+                                className="
+            group
+            relative
+            w-28
+            h-28
+            rounded-full
+            overflow-hidden
+            border-4
+            border-[#5C3FE0]/40
+            bg-[#120d31]
+            flex
+            items-center
+            justify-center
+            cursor-pointer
+            focus:outline-none
+            focus:ring-2
+            focus:ring-[#A78BFA]/60
+            focus:ring-offset-2
+            focus:ring-offset-[#09071e]
+        "
+                                aria-label="View profile picture"
+                            >
                                 <img
                                     src={avatarUrl}
                                     alt={profile.fullName}
                                     className="
-                    w-full
-                    h-full
-                    object-cover
-                  "
+                w-full
+                h-full
+                object-cover
+                transition-transform
+                duration-300
+                group-hover:scale-105
+            "
                                 />
-                            ) : (
+
+                                {/* Hover overlay */}
+                                <div
+                                    className="
+                absolute
+                inset-0
+                flex
+                items-center
+                justify-center
+                bg-black/0
+                group-hover:bg-black/40
+                transition
+            "
+                                >
+                                    <Eye
+                                        className="
+                    w-6
+                    h-6
+                    text-white
+                    opacity-0
+                    group-hover:opacity-100
+                    transition
+                "
+                                    />
+                                </div>
+                            </button>
+                        ) : (
+                            <div
+                                className="
+            w-28
+            h-28
+            rounded-full
+            overflow-hidden
+            border-4
+            border-[#5C3FE0]/40
+            bg-[#120d31]
+            flex
+            items-center
+            justify-center
+        "
+                            >
                                 <span className="text-3xl font-bold text-[#A78BFA]">
                                     {getInitials(profile.fullName)}
                                 </span>
-                            )}
-                        </div>
+                            </div>
+                        )}
 
                         <button
                             type="button"
                             onClick={() =>
                                 fileInputRef.current?.click()
                             }
-                            disabled={isUploadingAvatar}
+                            disabled={isSavingProfile}
                             className="
                 absolute
                 bottom-0
@@ -524,11 +739,11 @@ export const ProfileView: React.FC = () => {
               "
                             title="Change profile photo"
                         >
-                            {isUploadingAvatar ? (
+                            {/* {isSavingProfile ? (
                                 <Loader2 className="w-4 h-4 animate-spin" />
-                            ) : (
-                                <Camera className="w-4 h-4" />
-                            )}
+                            ) : ( */}
+                            <Camera className="w-4 h-4" />
+                            {/* )} */}
                         </button>
 
                         <input
@@ -710,7 +925,7 @@ export const ProfileView: React.FC = () => {
             text-sm
             font-medium
             transition
-            ${profileTab  === 'password'
+            ${profileTab === 'password'
                             ? 'bg-[#5C3FE0] text-white shadow-lg shadow-[#5C3FE0]/20'
                             : 'text-slate-400 hover:text-white'
                         }
@@ -726,7 +941,7 @@ export const ProfileView: React.FC = () => {
           PROFILE TAB
       ======================================================== */}
 
-            {profileTab  === 'profile' && (
+            {profileTab === 'profile' && (
                 <div className="space-y-6">
 
                     {/* PERSONAL INFORMATION */}
@@ -968,7 +1183,7 @@ export const ProfileView: React.FC = () => {
           PASSWORD TAB
       ======================================================== */}
 
-            {profileTab  === 'password' && (
+            {profileTab === 'password' && (
                 <div className="space-y-6">
 
                     <div
@@ -1171,6 +1386,318 @@ export const ProfileView: React.FC = () => {
                 </div>
             )}
 
+
+            {/* ========================================================
+    AVATAR CROP MODAL
+======================================================== */}
+
+            {isCropModalOpen && cropSource && (
+                <div
+                    className="
+            fixed
+            inset-0
+            z-[100]
+            flex
+            items-center
+            justify-center
+            bg-black/80
+            backdrop-blur-sm
+            p-4
+        "
+                >
+                    <div
+                        className="
+                w-full
+                max-w-2xl
+                overflow-hidden
+                rounded-2xl
+                border
+                border-white/10
+                bg-[#09071e]
+                shadow-2xl
+            "
+                    >
+
+                        {/* HEADER */}
+
+                        <div
+                            className="
+                    flex
+                    items-center
+                    justify-between
+                    px-5
+                    py-4
+                    border-b
+                    border-white/10
+                "
+                        >
+                            <div>
+                                <h2 className="text-lg font-semibold text-white">
+                                    Crop Profile Picture
+                                </h2>
+
+                                <p className="text-sm text-slate-500 mt-1">
+                                    Adjust your photo inside the square.
+                                </p>
+                            </div>
+
+                            <button
+                                type="button"
+                                onClick={handleCropCancel}
+                                disabled={isCropping}
+                                className="
+                        w-9
+                        h-9
+                        rounded-lg
+                        flex
+                        items-center
+                        justify-center
+                        text-slate-400
+                        hover:text-white
+                        hover:bg-white/10
+                        transition
+                        disabled:opacity-50
+                    "
+                                aria-label="Close crop modal"
+                            >
+                                <X className="w-5 h-5" />
+                            </button>
+                        </div>
+
+                        {/* CROPPER */}
+
+                        <div
+                            className="
+                    relative
+                    w-full
+                    h-[420px]
+                    bg-black
+                "
+                        >
+                            <Cropper
+                                image={cropSource}
+                                crop={crop}
+                                zoom={zoom}
+                                aspect={1}
+                                cropShape="rect"
+                                showGrid={true}
+                                restrictPosition={false}
+                                onCropChange={setCrop}
+                                onZoomChange={setZoom}
+                                onCropComplete={handleCropComplete}
+                            />
+                        </div>
+
+                        {/* ZOOM */}
+
+                        <div className="px-6 py-5">
+
+                            <div className="flex items-center justify-between mb-2">
+
+                                <span className="text-sm font-medium text-slate-300">
+                                    Zoom
+                                </span>
+
+                                <span className="text-xs text-slate-500">
+                                    {zoom.toFixed(1)}x
+                                </span>
+
+                            </div>
+
+                            <input
+                                type="range"
+                                min={1}
+                                max={3}
+                                step={0.1}
+                                value={zoom}
+                                onChange={(event) =>
+                                    setZoom(
+                                        Number(event.target.value)
+                                    )
+                                }
+                                className="
+                        w-full
+                        accent-[#5C3FE0]
+                        cursor-pointer
+                    "
+                            />
+
+                        </div>
+
+                        {/* FOOTER */}
+
+                        <div
+                            className="
+                    flex
+                    justify-end
+                    gap-3
+                    px-5
+                    py-4
+                    border-t
+                    border-white/10
+                "
+                        >
+
+                            <button
+                                type="button"
+                                onClick={handleCropCancel}
+                                disabled={isCropping}
+                                className="
+                        px-4
+                        py-2.5
+                        rounded-xl
+                        border
+                        border-white/10
+                        text-sm
+                        font-medium
+                        text-slate-300
+                        hover:bg-white/5
+                        transition
+                        disabled:opacity-50
+                    "
+                            >
+                                Cancel
+                            </button>
+
+                            <button
+                                type="button"
+                                onClick={handleCropConfirm}
+                                disabled={
+                                    isCropping ||
+                                    !croppedAreaPixels
+                                }
+                                className="
+                        inline-flex
+                        items-center
+                        gap-2
+                        px-5
+                        py-2.5
+                        rounded-xl
+                        bg-[#5C3FE0]
+                        hover:bg-[#6d50ed]
+                        text-white
+                        text-sm
+                        font-medium
+                        transition
+                        disabled:opacity-50
+                        disabled:cursor-not-allowed
+                    "
+                            >
+                                {isCropping ? (
+                                    <>
+                                        <Loader2 className="w-4 h-4 animate-spin" />
+                                        Cropping...
+                                    </>
+                                ) : (
+                                    <>
+                                        <CheckCircle2 className="w-4 h-4" />
+                                        Crop & Continue
+                                    </>
+                                )}
+                            </button>
+
+                        </div>
+
+                    </div>
+                </div>
+            )}
+
+            {/* ========================================================
+    AVATAR IMAGE PREVIEW MODAL
+======================================================== */}
+
+            {isAvatarPreviewOpen && avatarUrl && (
+                <div
+                    className="
+            fixed
+            inset-0
+            z-[110]
+            flex
+            items-center
+            justify-center
+            bg-black/85
+            backdrop-blur-sm
+            p-4
+        "
+                    onMouseDown={(event) => {
+                        if (
+                            event.target ===
+                            event.currentTarget
+                        ) {
+                            setIsAvatarPreviewOpen(false);
+                        }
+                    }}
+                >
+
+                    <div
+                        className="
+                relative
+                max-w-4xl
+                max-h-[90vh]
+            "
+                    >
+
+                        {/* CLOSE BUTTON */}
+
+                        <button
+                            type="button"
+                            onClick={() =>
+                                setIsAvatarPreviewOpen(false)
+                            }
+                            className="
+                    absolute
+                    -right-3
+                    -top-3
+                    z-10
+                    w-10
+                    h-10
+                    rounded-full
+                    bg-[#0e0b2e]
+                    border
+                    border-white/10
+                    flex
+                    items-center
+                    justify-center
+                    text-slate-300
+                    hover:bg-[#5C3FE0]
+                    hover:text-white
+                    transition
+                    shadow-xl
+                "
+                            aria-label="Close image preview"
+                        >
+                            <X className="w-5 h-5" />
+                        </button>
+
+                        {/* IMAGE */}
+
+                        <div
+                            className="
+                    rounded-2xl
+                    bg-[#09071e]
+                    border
+                    border-white/10
+                    p-2
+                    shadow-2xl
+                    overflow-hidden
+                "
+                        >
+                            <img
+                                src={avatarUrl}
+                                alt={profile.fullName}
+                                className="
+                        max-h-[80vh]
+                        max-w-[80vw]
+                        rounded-xl
+                        object-contain
+                    "
+                            />
+                        </div>
+
+                    </div>
+
+                </div>
+            )}
         </div>
     );
 };
@@ -1308,6 +1835,7 @@ const PasswordField: React.FC<
                     </button>
 
                 </div>
+
 
             </div>
         );

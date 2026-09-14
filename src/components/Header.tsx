@@ -30,6 +30,7 @@ import {
 import { useApp } from '../context/AppContext';
 import { EstusciaLogo } from './EstusciaLogo';
 import { Role } from '../types';
+import { getFileUrl } from '../utils/fileUrl';
 
 export const Header: React.FC = () => {
   const {
@@ -105,6 +106,7 @@ export const Header: React.FC = () => {
 
   const isSuperAdmin = currentUser.roleName === 'super_admin';
   const unreadNotifs = notifications.filter((n) => !n.isRead);
+  const avatarUrl = getFileUrl(currentUser.avatarUrl);
 
   // Close dropdowns on outside click
   useEffect(() => {
@@ -486,9 +488,9 @@ export const Header: React.FC = () => {
             className="flex items-center gap-2 p-1 rounded-xl hover:bg-white/5 transition-colors cursor-pointer"
             aria-label="User profile menu"
           >
-            {currentUser.avatarUrl ? (
+            {avatarUrl ? (
               <img
-                src={currentUser.avatarUrl}
+                src={avatarUrl}
                 alt={currentUser.username}
                 className="w-9 h-9 rounded-full object-cover border border-white/15 shrink-0"
               />
@@ -502,9 +504,9 @@ export const Header: React.FC = () => {
           {isUserMenuOpen && (
             <div className="absolute right-0 mt-2 w-64 bg-[#09081E] border border-white/15 rounded-2xl shadow-2xl p-3 z-50 animate-in fade-in zoom-in-95 duration-100">
               <div className="flex items-center gap-3 pb-3 border-b border-white/10">
-                {currentUser.avatarUrl ? (
+                {avatarUrl ? (
                   <img
-                    src={currentUser.avatarUrl}
+                    src={avatarUrl}
                     alt={currentUser.username}
                     className="w-9 h-9 rounded-full object-cover border border-white/15 shrink-0"
                   />

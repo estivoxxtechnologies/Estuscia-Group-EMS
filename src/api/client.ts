@@ -10,7 +10,14 @@ export async function apiRequest<T>(
 
   const headers = new Headers(options.headers);
 
-  headers.set('Content-Type', 'application/json');
+  // ------------------------------------------------------------ // CONTENT TYPE // ------------------------------------------------------------ 
+  // // JSON requests need application/json.
+  //  // FormData requests MUST NOT manually set Content-Type. 
+  // // The browser automatically sets: // multipart/form-data; boundary=...
+  
+  if (!(options.body instanceof FormData)) {
+    headers.set('Content-Type', 'application/json');
+  }
 
   if (token) {
     headers.set('Authorization', `Bearer ${token}`);

@@ -74,13 +74,16 @@ export async function changeMyPassword(
 
 export async function uploadMyAvatar(
   file: File
-): Promise<MyProfile> {
+): Promise<{ message: string; avatarUrl: string }> {
   const formData = new FormData();
 
   formData.append('file', file);
 
-  return apiRequest<MyProfile>('/Profile/me/avatar', {
-    method: 'POST',
-    body: formData,
-  });
+  return apiRequest<{ message: string; avatarUrl: string }>(
+    '/Profile/me/avatar',
+    {
+      method: 'POST',
+      body: formData,
+    }
+  );
 }
