@@ -23,11 +23,21 @@ export interface BackendUser {
   branchName: string | null;
 
   avatarUrl: string;
+
+  tenantCurrency: BackendCurrency;
+  branchCurrency: BackendCurrency | null;
 }
 export interface AuthResponse {
   accessToken: string;
   refreshToken: string;
   user: BackendUser;
+}
+
+export interface BackendCurrency {
+  id: number;
+  code: string;
+  name: string;
+  symbol: string;
 }
 
 export async function loginUser(

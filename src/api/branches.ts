@@ -4,12 +4,14 @@ import { Branch } from '../types/branch';
 export interface CreateBranchRequest {
   branchName: string;
   city: string | null;
+  currencyId: number;
 }
 
 export interface UpdateBranchRequest {
   branchName: string;
   city: string | null;
   isActive: boolean;
+  currencyId: number; 
 }
 
 /**

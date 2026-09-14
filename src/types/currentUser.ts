@@ -1,3 +1,5 @@
+import { CurrentUserCurrency } from "./currentCurrency";
+
 export interface CurrentUser {
   userId: number;
   username: string;
@@ -13,4 +15,8 @@ export interface CurrentUser {
   roleName: string;
   designation: string;
   avatarUrl: string;
+  tenantCurrency: CurrentUserCurrency;
+  branchCurrency: CurrentUserCurrency | null;
+
+  currency: CurrentUserCurrency;
 }

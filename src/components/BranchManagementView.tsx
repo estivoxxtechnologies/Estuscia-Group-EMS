@@ -12,10 +12,16 @@ import {
   X,
   Save,
   Loader2,
+  Coins,
 } from 'lucide-react';
 
 import { useApp } from '../context/AppContext';
-import { getTenants, BackendTenant } from '../api/tenants';
+
+import {
+  getTenants,
+  BackendTenant,
+} from '../api/tenants';
+
 import {
   getBranchesByTenant,
   createBranch,
@@ -23,7 +29,13 @@ import {
   toggleBranchStatus,
 } from '../api/branches';
 
+import {
+  getCurrencies,
+  BackendCurrency,
+} from '../api/currencies';
+
 import { Branch } from '../types/branch';
+
 import { toast } from 'react-toastify';
 
 
@@ -42,7 +54,9 @@ export const BranchManagementView: React.FC = () => {
   // TENANTS
   // =========================================================
 
-  const [tenants, setTenants] = useState<BackendTenant[]>([]);
+  const [tenants, setTenants] =
+    useState<BackendTenant[]>([]);
+
   const [isLoadingTenants, setIsLoadingTenants] =
     useState(false);
 
@@ -58,6 +72,19 @@ export const BranchManagementView: React.FC = () => {
 
   const [selectedTenant, setSelectedTenant] =
     useState<BackendTenant | null>(null);
+
+  // =========================================================
+  // CURRENCIES
+  // =========================================================
+
+  const [currencies, setCurrencies] =
+    useState<BackendCurrency[]>([]);
+
+  const [isLoadingCurrencies, setIsLoadingCurrencies] =
+    useState(false);
+
+  const [currencyError, setCurrencyError] =
+    useState<string | null>(null);
 
   // =========================================================
   // BRANCHES
@@ -94,17 +121,34 @@ export const BranchManagementView: React.FC = () => {
   const [isActive, setIsActive] =
     useState(true);
 
+  const [currencyId, setCurrencyId] =
+    useState<number | null>(null);
+
+  const [useTenantDefaultCurrency, setUseTenantDefaultCurrency] =
+    useState(false);
+
   const [isSaving, setIsSaving] =
     useState(false);
 
   const [formError, setFormError] =
     useState<string | null>(null);
 
+  // =========================================================
+  // STATUS TOGGLE
+  // =========================================================
+
   const [branchToToggle, setBranchToToggle] =
     useState<Branch | null>(null);
 
   const [isTogglingStatus, setIsTogglingStatus] =
     useState(false);
+
+  // =========================================================
+  // TENANT DEFAULT CURRENCY
+  // =========================================================
+
+  const tenantDefaultCurrency =
+    selectedTenant?.defaultCurrency;
 
   // =========================================================
   // LOAD TENANTS
@@ -140,6 +184,50 @@ export const BranchManagementView: React.FC = () => {
     };
 
     loadTenants();
+  }, [isSuperAdmin]);
+
+  // =========================================================
+  // LOAD CURRENCIES
+  // =========================================================
+
+  useEffect(() => {
+    if (!isSuperAdmin) {
+      return;
+    }
+
+    const loadCurrencies = async () => {
+      try {
+        setIsLoadingCurrencies(true);
+        setCurrencyError(null);
+
+        const data = await getCurrencies();
+
+        const activeCurrencies =
+          data.filter(
+            (currency) => currency.isActive
+          );
+
+        setCurrencies(activeCurrencies);
+      } catch (error) {
+        console.error(
+          'Failed to load currencies:',
+          error
+        );
+
+        const message =
+          error instanceof Error
+            ? error.message
+            : 'Failed to load currencies.';
+
+        setCurrencyError(message);
+
+        toast.error(message);
+      } finally {
+        setIsLoadingCurrencies(false);
+      }
+    };
+
+    loadCurrencies();
   }, [isSuperAdmin]);
 
   // =========================================================
@@ -225,6 +313,12 @@ export const BranchManagementView: React.FC = () => {
         .includes(search) ||
       (branch.city ?? '')
         .toLowerCase()
+        .includes(search) ||
+      (branch.currency?.code ?? '')
+        .toLowerCase()
+        .includes(search) ||
+      (branch.currency?.name ?? '')
+        .toLowerCase()
         .includes(search)
     );
   }, [branches, branchSearch]);
@@ -235,9 +329,19 @@ export const BranchManagementView: React.FC = () => {
 
   const handleAddBranch = () => {
     setEditingBranch(null);
+
     setBranchName('');
     setCity('');
     setIsActive(true);
+
+    // New branches use tenant default currency
+    // by default.
+    setUseTenantDefaultCurrency(true);
+
+    setCurrencyId(
+      selectedTenant?.defaultCurrencyId ?? null
+    );
+
     setFormError(null);
 
     setIsBranchModalOpen(true);
@@ -264,14 +368,56 @@ export const BranchManagementView: React.FC = () => {
       branch.isActive
     );
 
+    // Compare the actual branch currency
+    // with the selected tenant's default currency.
+    const isTenantDefault =
+      branch.currencyId ===
+      selectedTenant?.defaultCurrencyId;
+
+    setUseTenantDefaultCurrency(
+      isTenantDefault
+    );
+
+    setCurrencyId(
+      branch.currencyId
+    );
+
     setFormError(null);
 
     setIsBranchModalOpen(true);
   };
 
   // =========================================================
-  // SAVE BRANCH
+  // TENANT DEFAULT CURRENCY CHECKBOX
   // =========================================================
+
+  const handleTenantDefaultCurrencyChange = (
+    checked: boolean
+  ) => {
+    setUseTenantDefaultCurrency(
+      checked
+    );
+
+    if (checked) {
+      setCurrencyId(
+        selectedTenant?.defaultCurrencyId ?? null
+      );
+    }
+  };
+
+  // =========================================================
+  // CLOSE BRANCH MODAL
+  // =========================================================
+
+  const closeBranchModal = () => {
+    if (isSaving) {
+      return;
+    }
+
+    setIsBranchModalOpen(false);
+    setEditingBranch(null);
+    setFormError(null);
+  };
 
   // =========================================================
   // SAVE BRANCH
@@ -282,11 +428,27 @@ export const BranchManagementView: React.FC = () => {
       return;
     }
 
-    const trimmedName = branchName.trim();
-    const trimmedCity = city.trim();
+    const trimmedName =
+      branchName.trim();
+
+    const trimmedCity =
+      city.trim();
+
+    // -------------------------------------------------------
+    // VALIDATION
+    // -------------------------------------------------------
 
     if (!trimmedName) {
-      setFormError('Branch name is required.');
+      setFormError(
+        'Branch name is required.'
+      );
+      return;
+    }
+
+    if (!currencyId) {
+      setFormError(
+        'Please select a branch currency.'
+      );
       return;
     }
 
@@ -294,19 +456,31 @@ export const BranchManagementView: React.FC = () => {
       setIsSaving(true);
       setFormError(null);
 
+      // -----------------------------------------------------
+      // UPDATE
+      // -----------------------------------------------------
+
       if (editingBranch) {
-        const updated = await updateBranch(
-          editingBranch.id,
-          {
-            branchName: trimmedName,
-            city: trimmedCity || null,
-            isActive,
-          }
-        );
+        const updated =
+          await updateBranch(
+            editingBranch.id,
+            {
+              branchName:
+                trimmedName,
+
+              city:
+                trimmedCity || null,
+
+              currencyId,
+
+              isActive,
+            }
+          );
 
         setBranches((current) =>
           current.map((branch) =>
-            branch.id === editingBranch.id
+            branch.id ===
+              editingBranch.id
               ? updated
               : branch
           )
@@ -315,14 +489,26 @@ export const BranchManagementView: React.FC = () => {
         toast.success(
           `Branch "${updated.branchName}" updated successfully.`
         );
-      } else {
-        const created = await createBranch(
-          selectedTenant.id,
-          {
-            branchName: trimmedName,
-            city: trimmedCity || null,
-          }
-        );
+      }
+
+      // -----------------------------------------------------
+      // CREATE
+      // -----------------------------------------------------
+
+      else {
+        const created =
+          await createBranch(
+            selectedTenant.id,
+            {
+              branchName:
+                trimmedName,
+
+              city:
+                trimmedCity || null,
+
+              currencyId,
+            }
+          );
 
         setBranches((current) => [
           ...current,
@@ -334,8 +520,7 @@ export const BranchManagementView: React.FC = () => {
         );
       }
 
-      setIsBranchModalOpen(false);
-      setEditingBranch(null);
+      closeBranchModal();
 
     } catch (error) {
       console.error(
@@ -349,6 +534,7 @@ export const BranchManagementView: React.FC = () => {
           : 'Failed to save branch.';
 
       setFormError(message);
+
       toast.error(message);
 
     } finally {
@@ -360,7 +546,9 @@ export const BranchManagementView: React.FC = () => {
   // REQUEST STATUS CHANGE
   // =========================================================
 
-  const handleToggleStatus = (branch: Branch) => {
+  const handleToggleStatus = (
+    branch: Branch
+  ) => {
     setBranchToToggle(branch);
   };
 
@@ -377,23 +565,28 @@ export const BranchManagementView: React.FC = () => {
       setIsTogglingStatus(true);
       setBranchError(null);
 
-      const newStatus = !branchToToggle.isActive;
+      const newStatus =
+        !branchToToggle.isActive;
 
-      const updated = await toggleBranchStatus(
-        branchToToggle.id,
-        newStatus
-      );
+      const updated =
+        await toggleBranchStatus(
+          branchToToggle.id,
+          newStatus
+        );
 
       setBranches((current) =>
         current.map((item) =>
-          item.id === branchToToggle.id
+          item.id ===
+            branchToToggle.id
             ? updated
             : item
         )
       );
 
       toast.success(
-        `Branch "${updated.branchName}" ${newStatus ? 'enabled' : 'disabled'
+        `Branch "${updated.branchName}" ${newStatus
+          ? 'enabled'
+          : 'disabled'
         } successfully.`
       );
 
@@ -411,49 +604,13 @@ export const BranchManagementView: React.FC = () => {
           : 'Failed to update branch status.';
 
       setBranchError(message);
+
       toast.error(message);
 
     } finally {
       setIsTogglingStatus(false);
     }
   };
-
-
-  // =========================================================
-  // TOGGLE STATUS
-  // =========================================================
-
-  // const handleToggleStatus = async (
-  //   branch: Branch
-  // ) => {
-  //   try {
-  //     const updated =
-  //       await toggleBranchStatus(
-  //         branch.id,
-  //         !branch.isActive
-  //       );
-
-  //     setBranches((current) =>
-  //       current.map((item) =>
-  //         item.id === branch.id
-  //           ? updated
-  //           : item
-  //       )
-  //     );
-  //     toast.success("Branch status updated successfully")
-  //   } catch (error) {
-  //     console.error(
-  //       'Failed to update branch status:',
-  //       error
-  //     );
-
-  //     setBranchError(
-  //       error instanceof Error
-  //         ? error.message
-  //         : 'Failed to update branch status.'
-  //     );
-  //   }
-  // };
 
   // =========================================================
   // ACCESS DENIED
@@ -462,9 +619,13 @@ export const BranchManagementView: React.FC = () => {
   if (!isSuperAdmin) {
     return (
       <div className="flex items-center justify-center min-h-[400px]">
+
         <div className="w-full max-w-md p-8 rounded-2xl bg-[#09071e] border border-red-900/50 text-center">
+
           <div className="w-14 h-14 mx-auto mb-4 rounded-full bg-red-950/40 border border-red-900/50 flex items-center justify-center">
+
             <ShieldCheck className="w-7 h-7 text-red-400" />
+
           </div>
 
           <h2 className="text-lg font-bold text-white">
@@ -475,7 +636,9 @@ export const BranchManagementView: React.FC = () => {
             Branch management is available only
             to Super Administrators.
           </p>
+
         </div>
+
       </div>
     );
   }
@@ -497,10 +660,13 @@ export const BranchManagementView: React.FC = () => {
             <div className="flex items-center gap-3">
 
               <div className="p-2.5 rounded-lg bg-[#5C3FE0]/20 text-[#A78BFA] border border-[#5C3FE0]/30">
+
                 <GitBranch className="w-5 h-5" />
+
               </div>
 
               <div>
+
                 <h1 className="text-xl font-bold text-white">
                   Branch Management
                 </h1>
@@ -509,11 +675,13 @@ export const BranchManagementView: React.FC = () => {
                   Select an organization to manage
                   its branches.
                 </p>
+
               </div>
 
             </div>
 
             <div className="px-4 py-2 rounded-xl bg-[#0e0b2e] border border-[#231e54]">
+
               <span className="text-[10px] text-slate-500 uppercase block">
                 Organizations
               </span>
@@ -521,6 +689,7 @@ export const BranchManagementView: React.FC = () => {
               <span className="text-sm font-bold text-white">
                 {tenants.length}
               </span>
+
             </div>
 
           </div>
@@ -554,8 +723,11 @@ export const BranchManagementView: React.FC = () => {
 
         {isLoadingTenants && (
           <div className="p-8 rounded-2xl bg-[#09071e] border border-[#231e54] flex items-center justify-center gap-2 text-sm text-slate-400">
+
             <Loader2 className="w-4 h-4 animate-spin" />
+
             Loading organizations...
+
           </div>
         )}
 
@@ -589,7 +761,9 @@ export const BranchManagementView: React.FC = () => {
                     <div className="flex items-start gap-3">
 
                       <div className="w-12 h-12 rounded-xl bg-[#1a144b] border border-[#2d2770] flex items-center justify-center text-[#A78BFA] shrink-0">
+
                         <Building2 className="w-6 h-6" />
+
                       </div>
 
                       <div className="min-w-0 flex-1">
@@ -620,6 +794,25 @@ export const BranchManagementView: React.FC = () => {
                           </span>
 
                         </div>
+
+                        {/* Tenant Currency */}
+
+                        {tenant.defaultCurrency && (
+                          <div className="flex items-center gap-1.5 mt-2 text-[11px]">
+
+                            <Coins className="w-3 h-3 text-[#A78BFA]" />
+
+                            <span className="text-slate-500">
+                              Default:
+                            </span>
+
+                            <span className="text-[#A78BFA] font-semibold">
+                              {tenant.defaultCurrency.symbol}{' '}
+                              {tenant.defaultCurrency.code}
+                            </span>
+
+                          </div>
+                        )}
 
                       </div>
 
@@ -686,14 +879,19 @@ export const BranchManagementView: React.FC = () => {
               }}
               className="flex items-center gap-1.5 text-xs text-slate-400 hover:text-white mb-4 transition-colors"
             >
+
               <ArrowLeft className="w-3.5 h-3.5" />
+
               Back to Organizations
+
             </button>
 
             <div className="flex items-center gap-3">
 
               <div className="p-2.5 rounded-lg bg-[#5C3FE0]/20 text-[#A78BFA] border border-[#5C3FE0]/30">
+
                 <Building2 className="w-5 h-5" />
+
               </div>
 
               <div>
@@ -703,11 +901,17 @@ export const BranchManagementView: React.FC = () => {
                 </h1>
 
                 <p className="text-xs text-slate-400 mt-1">
+
                   Branch Management
-                  <span className="mx-2">•</span>
+
+                  <span className="mx-2">
+                    •
+                  </span>
+
                   <span className="font-mono">
                     {selectedTenant.code}
                   </span>
+
                 </p>
 
               </div>
@@ -721,13 +925,59 @@ export const BranchManagementView: React.FC = () => {
             onClick={handleAddBranch}
             className="flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-[#5C3FE0] hover:bg-[#6d51ec] text-white text-xs font-bold shadow-lg shadow-[#5C3FE0]/20 transition-all"
           >
+
             <Plus className="w-4 h-4" />
+
             Add Branch
+
           </button>
 
         </div>
 
       </div>
+
+      {/* Tenant Currency Information */}
+
+      {tenantDefaultCurrency && (
+        <div className="p-4 rounded-2xl bg-[#09071e] border border-[#231e54]">
+
+          <div className="flex items-center justify-between gap-4">
+
+            <div className="flex items-center gap-3">
+
+              <div className="w-9 h-9 rounded-lg bg-[#5C3FE0]/20 border border-[#5C3FE0]/30 flex items-center justify-center">
+
+                <Coins className="w-4 h-4 text-[#A78BFA]" />
+
+              </div>
+
+              <div>
+
+                <p className="text-[10px] text-slate-500 uppercase tracking-wider font-bold">
+                  Tenant Default Currency
+                </p>
+
+                <p className="text-xs text-white font-semibold mt-0.5">
+                  {tenantDefaultCurrency.symbol}{' '}
+                  {tenantDefaultCurrency.code}
+                  <span className="text-slate-500 font-normal">
+                    {' — '}
+                    {tenantDefaultCurrency.name}
+                  </span>
+                </p>
+
+              </div>
+
+            </div>
+
+            <span className="text-[10px] text-slate-500">
+              New branches use this by default
+            </span>
+
+          </div>
+
+        </div>
+      )}
 
       {/* Statistics */}
 
@@ -794,7 +1044,7 @@ export const BranchManagementView: React.FC = () => {
                 e.target.value
               )
             }
-            placeholder="Search branch or city..."
+            placeholder="Search branch, city or currency..."
             className="w-full pl-9 pr-3 py-2.5 rounded-xl bg-[#0e0b2e] border border-[#2d2770] text-white text-xs placeholder-slate-500 focus:outline-none focus:border-[#5C3FE0]"
           />
 
@@ -810,12 +1060,23 @@ export const BranchManagementView: React.FC = () => {
         </div>
       )}
 
+      {/* Currency Error */}
+
+      {currencyError && (
+        <div className="p-4 rounded-2xl bg-red-950/30 border border-red-900/50 text-sm text-red-400">
+          {currencyError}
+        </div>
+      )}
+
       {/* Loading */}
 
       {isLoadingBranches && (
         <div className="p-8 rounded-2xl bg-[#09071e] border border-[#231e54] flex items-center justify-center gap-2 text-sm text-slate-400">
+
           <Loader2 className="w-4 h-4 animate-spin" />
+
           Loading branches...
+
         </div>
       )}
 
@@ -824,6 +1085,7 @@ export const BranchManagementView: React.FC = () => {
       {!isLoadingBranches && (
         <>
           {filteredBranches.length === 0 ? (
+
             <div className="p-10 rounded-2xl bg-[#09071e] border border-[#231e54] text-center">
 
               <GitBranch className="w-10 h-10 mx-auto text-slate-500 mb-3" />
@@ -842,27 +1104,37 @@ export const BranchManagementView: React.FC = () => {
                 onClick={handleAddBranch}
                 className="mt-4 inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-[#5C3FE0] text-white text-xs font-bold"
               >
+
                 <Plus className="w-4 h-4" />
+
                 Add Branch
+
               </button>
 
             </div>
+
           ) : (
+
             <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
 
               {filteredBranches.map(
                 (branch) => (
+
                   <div
                     key={branch.id}
                     className="p-5 rounded-2xl bg-[#09071e] border border-[#2d2770]/80 hover:border-[#5C3FE0]/70 transition-all"
                   >
+
+                    {/* Branch Header */}
 
                     <div className="flex items-start justify-between gap-3">
 
                       <div className="flex items-center gap-3 min-w-0">
 
                         <div className="w-11 h-11 rounded-xl bg-[#1a144b] border border-[#2d2770] flex items-center justify-center text-[#A78BFA] shrink-0">
+
                           <GitBranch className="w-5 h-5" />
+
                         </div>
 
                         <div className="min-w-0">
@@ -872,9 +1144,12 @@ export const BranchManagementView: React.FC = () => {
                           </h3>
 
                           <div className="flex items-center gap-1 mt-1 text-[11px] text-slate-400">
+
                             <MapPin className="w-3 h-3" />
+
                             {branch.city ||
                               'No city'}
+
                           </div>
 
                         </div>
@@ -888,14 +1163,20 @@ export const BranchManagementView: React.FC = () => {
                             : 'px-2 py-0.5 rounded text-[9px] font-bold bg-red-950/40 text-red-400 border border-red-900/50'
                         }
                       >
+
                         {branch.isActive
                           ? 'ACTIVE'
                           : 'INACTIVE'}
+
                       </span>
 
                     </div>
 
-                    <div className="mt-4 p-3 rounded-xl bg-[#0e0b2e] border border-[#231e54]">
+                    {/* Branch Information */}
+
+                    <div className="mt-4 p-3 rounded-xl bg-[#0e0b2e] border border-[#231e54] space-y-2.5">
+
+                      {/* Branch ID */}
 
                       <div className="flex items-center justify-between text-xs">
 
@@ -909,7 +1190,62 @@ export const BranchManagementView: React.FC = () => {
 
                       </div>
 
+                      {/* Currency */}
+
+                      <div className="flex items-center justify-between text-xs">
+
+                        <span className="text-slate-500">
+                          Currency
+                        </span>
+
+                        <span className="flex items-center gap-1.5 text-white font-semibold">
+
+                          {branch.currency ? (
+                            <>
+                              <span className="text-[#A78BFA]">
+                                {branch.currency.symbol}
+                              </span>
+
+                              <span>
+                                {branch.currency.code}
+                              </span>
+
+                              {branch.currencyId ===
+                                selectedTenant.defaultCurrencyId && (
+                                  <span className="ml-1 text-[8px] px-1.5 py-0.5 rounded bg-[#5C3FE0]/20 text-[#A78BFA] border border-[#5C3FE0]/30">
+                                    DEFAULT
+                                  </span>
+                                )}
+                            </>
+                          ) : (
+                            <span className="text-red-400">
+                              Not configured
+                            </span>
+                          )}
+
+                        </span>
+
+                      </div>
+
+                      {/* Currency Name */}
+
+                      {branch.currency && (
+                        <div className="flex items-center justify-between text-[10px]">
+
+                          <span className="text-slate-500">
+                            Currency Name
+                          </span>
+
+                          <span className="text-slate-300">
+                            {branch.currency.name}
+                          </span>
+
+                        </div>
+                      )}
+
                     </div>
+
+                    {/* Actions */}
 
                     <div className="mt-4 pt-3 border-t border-[#1e1950] flex items-center gap-2">
 
@@ -922,8 +1258,11 @@ export const BranchManagementView: React.FC = () => {
                         }
                         className="flex-1 flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg bg-white/5 hover:bg-[#5C3FE0]/20 text-slate-300 hover:text-white border border-white/10 text-xs font-semibold transition-colors"
                       >
+
                         <Pencil className="w-3.5 h-3.5" />
+
                         Edit
+
                       </button>
 
                       <button
@@ -939,20 +1278,24 @@ export const BranchManagementView: React.FC = () => {
                             : 'flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-300 border border-emerald-500/20 text-xs font-semibold'
                         }
                       >
+
                         <Power className="w-3.5 h-3.5" />
 
                         {branch.isActive
                           ? 'Disable'
                           : 'Enable'}
+
                       </button>
 
                     </div>
 
                   </div>
+
                 )
               )}
 
             </div>
+
           )}
         </>
       )}
@@ -973,15 +1316,19 @@ export const BranchManagementView: React.FC = () => {
               <div className="flex items-center gap-3">
 
                 <div className="p-2 rounded-lg bg-[#5C3FE0]/20 text-[#A78BFA]">
+
                   <GitBranch className="w-5 h-5" />
+
                 </div>
 
                 <div>
 
                   <h2 className="text-base font-bold text-white">
+
                     {editingBranch
                       ? 'Edit Branch'
                       : 'Add Branch'}
+
                   </h2>
 
                   <p className="text-[11px] text-slate-400">
@@ -994,12 +1341,13 @@ export const BranchManagementView: React.FC = () => {
 
               <button
                 type="button"
-                onClick={() =>
-                  setIsBranchModalOpen(false)
-                }
-                className="p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-white/10"
+                onClick={closeBranchModal}
+                disabled={isSaving}
+                className="p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-white/10 disabled:opacity-50"
               >
+
                 <X className="w-5 h-5" />
+
               </button>
 
             </div>
@@ -1016,8 +1364,23 @@ export const BranchManagementView: React.FC = () => {
                   Organization
                 </label>
 
-                <div className="mt-1.5 px-3 py-2.5 rounded-xl bg-[#0e0b2e] border border-[#231e54] text-xs text-slate-300">
-                  {selectedTenant.name}
+                <div className="mt-1.5 px-3 py-2.5 rounded-xl bg-[#0e0b2e] border border-[#231e54] text-xs text-slate-300 flex items-center justify-between">
+
+                  <span>
+                    {selectedTenant.name}
+                  </span>
+
+                  {tenantDefaultCurrency && (
+                    <span className="flex items-center gap-1 text-[#A78BFA]">
+
+                      <Coins className="w-3 h-3" />
+
+                      {tenantDefaultCurrency.symbol}{' '}
+                      {tenantDefaultCurrency.code}
+
+                    </span>
+                  )}
+
                 </div>
 
               </div>
@@ -1038,7 +1401,8 @@ export const BranchManagementView: React.FC = () => {
                     )
                   }
                   placeholder="e.g. Kochi Branch"
-                  className="mt-1.5 w-full px-3 py-2.5 rounded-xl bg-[#0e0b2e] border border-[#2d2770] text-white text-xs placeholder-slate-500 focus:outline-none focus:border-[#5C3FE0]"
+                  disabled={isSaving}
+                  className="mt-1.5 w-full px-3 py-2.5 rounded-xl bg-[#0e0b2e] border border-[#2d2770] text-white text-xs placeholder-slate-500 focus:outline-none focus:border-[#5C3FE0] disabled:opacity-50"
                 />
 
               </div>
@@ -1054,11 +1418,193 @@ export const BranchManagementView: React.FC = () => {
                 <input
                   value={city}
                   onChange={(e) =>
-                    setCity(e.target.value)
+                    setCity(
+                      e.target.value
+                    )
                   }
                   placeholder="e.g. Kochi"
-                  className="mt-1.5 w-full px-3 py-2.5 rounded-xl bg-[#0e0b2e] border border-[#2d2770] text-white text-xs placeholder-slate-500 focus:outline-none focus:border-[#5C3FE0]"
+                  disabled={isSaving}
+                  className="mt-1.5 w-full px-3 py-2.5 rounded-xl bg-[#0e0b2e] border border-[#2d2770] text-white text-xs placeholder-slate-500 focus:outline-none focus:border-[#5C3FE0] disabled:opacity-50"
                 />
+
+              </div>
+
+              {/* =================================================
+                  BRANCH CURRENCY
+              ================================================= */}
+
+              <div>
+
+                <label className="text-[10px] uppercase tracking-wider text-slate-500 font-bold">
+                  Branch Currency
+                </label>
+
+                {/* Tenant Default Checkbox */}
+
+                <label
+                  className={`mt-2 flex items-center gap-3 p-3 rounded-xl bg-[#0e0b2e] border border-[#231e54] ${isSaving
+                    ? 'opacity-60 cursor-not-allowed'
+                    : 'cursor-pointer'
+                    }`}
+                >
+
+                  <input
+                    type="checkbox"
+                    checked={useTenantDefaultCurrency}
+                    onChange={(e) =>
+                      handleTenantDefaultCurrencyChange(
+                        e.target.checked
+                      )
+                    }
+                    disabled={
+                      isSaving ||
+                      selectedTenant?.defaultCurrencyId == null
+                    }
+                    className="w-4 h-4 accent-[#5C3FE0]"
+                  />
+
+                  <div className="flex-1">
+
+                    <div className="text-xs font-semibold text-white">
+
+                      Use Tenant Default Currency
+
+                    </div>
+
+                    <div className="text-[10px] text-slate-500 mt-0.5">
+
+                      Automatically use the currency
+                      configured for this organization.
+
+                    </div>
+
+                  </div>
+
+                  {tenantDefaultCurrency && (
+                    <span className="text-[10px] text-[#A78BFA] font-semibold">
+
+                      {tenantDefaultCurrency.symbol}{' '}
+                      {tenantDefaultCurrency.code}
+
+                    </span>
+                  )}
+
+                </label>
+
+                {/* Currency Dropdown */}
+
+                <div className="relative mt-2">
+
+                  <Coins className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[#A78BFA] pointer-events-none z-10" />
+
+                  <select
+                    value={
+                      currencyId ?? ''
+                    }
+                    onChange={(e) =>
+                      setCurrencyId(
+                        e.target.value
+                          ? Number(
+                            e.target.value
+                          )
+                          : null
+                      )
+                    }
+                    disabled={
+                      useTenantDefaultCurrency ||
+                      isLoadingCurrencies ||
+                      isSaving
+                    }
+                    className={`
+                      w-full
+                      pl-9
+                      pr-3
+                      py-2.5
+                      rounded-xl
+                      bg-[#0e0b2e]
+                      border
+                      border-[#2d2770]
+                      text-xs
+                      focus:outline-none
+                      focus:border-[#5C3FE0]
+                      appearance-none
+                      ${useTenantDefaultCurrency
+                        ? 'text-slate-400 cursor-not-allowed opacity-70'
+                        : 'text-white'
+                      }
+                    `}
+                  >
+
+                    <option value="">
+
+                      {isLoadingCurrencies
+                        ? 'Loading currencies...'
+                        : 'Select currency'}
+
+                    </option>
+
+                    {currencies.map(
+                      (currency) => (
+                        <option
+                          key={currency.id}
+                          value={currency.id}
+                        >
+                          {currency.code} —{' '}
+                          {currency.name} (
+                          {currency.symbol})
+                        </option>
+                      )
+                    )}
+
+                  </select>
+
+                </div>
+
+                {/* Selected Currency Information */}
+
+                {currencyId && (
+                  <div className="mt-2 flex items-center justify-between text-[10px]">
+
+                    <span className="text-slate-500">
+                      Selected Currency
+                    </span>
+
+                    {(() => {
+                      const selectedCurrency =
+                        currencies.find(
+                          (currency) =>
+                            currency.id ===
+                            currencyId
+                        ) ??
+                        (
+                          tenantDefaultCurrency?.id ===
+                            currencyId
+                            ? tenantDefaultCurrency
+                            : null
+                        );
+
+                      if (!selectedCurrency) {
+                        return (
+                          <span className="text-slate-400">
+                            Currency #{currencyId}
+                          </span>
+                        );
+                      }
+
+                      return (
+                        <span className="text-[#A78BFA] font-semibold">
+
+                          {selectedCurrency.symbol}{' '}
+                          {selectedCurrency.code}
+                          {' — '}
+                          {selectedCurrency.name}
+
+                        </span>
+                      );
+                    })()}
+
+                  </div>
+                )}
 
               </div>
 
@@ -1088,6 +1634,7 @@ export const BranchManagementView: React.FC = () => {
                         e.target.checked
                       )
                     }
+                    disabled={isSaving}
                     className="w-4 h-4 accent-[#5C3FE0]"
                   />
 
@@ -1110,11 +1657,9 @@ export const BranchManagementView: React.FC = () => {
 
               <button
                 type="button"
-                onClick={() =>
-                  setIsBranchModalOpen(false)
-                }
+                onClick={closeBranchModal}
                 disabled={isSaving}
-                className="px-4 py-2 rounded-xl bg-white/5 hover:bg-white/10 text-slate-300 text-xs font-semibold border border-white/10"
+                className="px-4 py-2 rounded-xl bg-white/5 hover:bg-white/10 text-slate-300 text-xs font-semibold border border-white/10 disabled:opacity-50"
               >
                 Cancel
               </button>
@@ -1122,7 +1667,11 @@ export const BranchManagementView: React.FC = () => {
               <button
                 type="button"
                 onClick={handleSaveBranch}
-                disabled={isSaving}
+                disabled={
+                  isSaving ||
+                  isLoadingCurrencies ||
+                  !currencyId
+                }
                 className="flex items-center gap-2 px-4 py-2 rounded-xl bg-[#5C3FE0] hover:bg-[#6d51ec] disabled:opacity-50 text-white text-xs font-bold"
               >
 
@@ -1146,8 +1695,8 @@ export const BranchManagementView: React.FC = () => {
       )}
 
       {/* =====================================================
-    STATUS CONFIRMATION MODAL
-===================================================== */}
+          STATUS CONFIRMATION MODAL
+      ===================================================== */}
 
       {branchToToggle && (
         <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/80 backdrop-blur-md">
@@ -1167,6 +1716,7 @@ export const BranchManagementView: React.FC = () => {
                       : 'w-10 h-10 rounded-xl bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center'
                   }
                 >
+
                   <Power
                     className={
                       branchToToggle.isActive
@@ -1174,14 +1724,17 @@ export const BranchManagementView: React.FC = () => {
                         : 'w-5 h-5 text-emerald-400'
                     }
                   />
+
                 </div>
 
                 <div>
 
                   <h2 className="text-base font-bold text-white">
+
                     {branchToToggle.isActive
                       ? 'Disable Branch'
                       : 'Enable Branch'}
+
                   </h2>
 
                   <p className="text-[11px] text-slate-400 mt-0.5">
@@ -1209,16 +1762,21 @@ export const BranchManagementView: React.FC = () => {
                       : 'font-bold text-emerald-400'
                   }
                 >
+
                   {branchToToggle.isActive
                     ? 'disable'
                     : 'enable'}
+
                 </span>{' '}
 
                 the branch{' '}
 
                 <span className="font-bold text-white">
+
                   "{branchToToggle.branchName}"
+
                 </span>
+
                 ?
 
               </p>
@@ -1226,6 +1784,8 @@ export const BranchManagementView: React.FC = () => {
               {/* Branch Information */}
 
               <div className="mt-4 p-3 rounded-xl bg-[#0e0b2e] border border-[#231e54]">
+
+                {/* Organization */}
 
                 <div className="flex items-center justify-between text-xs">
 
@@ -1239,6 +1799,8 @@ export const BranchManagementView: React.FC = () => {
 
                 </div>
 
+                {/* Branch */}
+
                 <div className="flex items-center justify-between text-xs mt-2">
 
                   <span className="text-slate-500">
@@ -1250,6 +1812,27 @@ export const BranchManagementView: React.FC = () => {
                   </span>
 
                 </div>
+
+                {/* Currency */}
+
+                {branchToToggle.currency && (
+                  <div className="flex items-center justify-between text-xs mt-2">
+
+                    <span className="text-slate-500">
+                      Currency
+                    </span>
+
+                    <span className="text-[#A78BFA] font-semibold">
+
+                      {branchToToggle.currency.symbol}{' '}
+                      {branchToToggle.currency.code}
+
+                    </span>
+
+                  </div>
+                )}
+
+                {/* Current Status */}
 
                 <div className="flex items-center justify-between text-xs mt-2">
 
@@ -1264,12 +1847,16 @@ export const BranchManagementView: React.FC = () => {
                         : 'text-red-400 font-semibold'
                     }
                   >
+
                     {branchToToggle.isActive
                       ? 'Active'
                       : 'Inactive'}
+
                   </span>
 
                 </div>
+
+                {/* New Status */}
 
                 <div className="flex items-center justify-between text-xs mt-2">
 
@@ -1284,9 +1871,11 @@ export const BranchManagementView: React.FC = () => {
                         : 'text-emerald-400 font-semibold'
                     }
                   >
+
                     {branchToToggle.isActive
                       ? 'Inactive'
                       : 'Active'}
+
                   </span>
 
                 </div>
@@ -1297,9 +1886,11 @@ export const BranchManagementView: React.FC = () => {
 
               {branchToToggle.isActive && (
                 <p className="mt-4 text-[11px] text-slate-500 leading-relaxed">
+
                   Disabling this branch will prevent it from
                   being assigned to employees until it is
                   enabled again.
+
                 </p>
               )}
 
@@ -1321,7 +1912,9 @@ export const BranchManagementView: React.FC = () => {
                 disabled={isTogglingStatus}
                 className="px-4 py-2 rounded-xl bg-white/5 hover:bg-white/10 text-slate-300 text-xs font-semibold border border-white/10 disabled:opacity-50 transition-colors"
               >
+
                 Cancel
+
               </button>
 
               {/* Confirm */}

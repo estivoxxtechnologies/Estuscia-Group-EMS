@@ -348,6 +348,14 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const mapBackendUserToCurrentUser = (
     backendUser: BackendUser
   ): CurrentUser => {
+    const isCompanyAdmin =
+      backendUser.roleName === 'company_admin';
+
+    const effectiveCurrency =
+      isCompanyAdmin
+        ? backendUser.tenantCurrency
+        : backendUser.branchCurrency ?? backendUser.tenantCurrency;
+
     return {
       userId: backendUser.userId,
       username: backendUser.username,
@@ -365,6 +373,10 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       branchName: backendUser.branchName,
 
       avatarUrl: backendUser.avatarUrl,
+      tenantCurrency: backendUser.tenantCurrency,
+      branchCurrency: backendUser.branchCurrency,
+
+      currency: effectiveCurrency,
     };
   };
 

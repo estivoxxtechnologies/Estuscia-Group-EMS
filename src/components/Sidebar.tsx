@@ -18,6 +18,7 @@ import {
 
 import { useApp, AppTab } from '../context/AppContext';
 import { EstusciaLogo } from './EstusciaLogo';
+import { getFileUrl } from '../utils/fileUrl';
 
 export const Sidebar: React.FC = () => {
   const {
@@ -48,6 +49,7 @@ export const Sidebar: React.FC = () => {
     '';
 
   const isSuperAdmin = normalizedRole === 'super_admin';
+  const avatarUrl = getFileUrl(currentUser.avatarUrl);
 
   const superAdminAllowedTabs: AppTab[] = [
     'dashboard',
@@ -473,10 +475,10 @@ export const Sidebar: React.FC = () => {
 
         <div className="flex items-center gap-2.5">
 
-          {currentUser.avatarUrl ? (
+          {avatarUrl ? (
 
             <img
-              src={currentUser.avatarUrl}
+              src={avatarUrl}
               alt={currentUser.username}
               className="w-9 h-9 rounded-full object-cover border border-white/15 shrink-0"
             />

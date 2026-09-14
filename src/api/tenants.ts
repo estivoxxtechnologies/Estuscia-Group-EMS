@@ -6,11 +6,19 @@ export interface BackendTenant {
   code: string;
   domain: string;
   plan: string;
-  currency: string;
   isActive: boolean;
   createdAtUtc: string;
   updatedAtUtc: string | null;
   createdByUserId: number | null;
+
+  defaultCurrencyId: number;
+
+  defaultCurrency: {
+    id: number;
+    code: string;
+    name: string;
+    symbol: string;
+  };
 }
 
 export interface CreateTenantRequest {
