@@ -93,16 +93,10 @@ function formatDate(value?: string | null) {
   });
 }
 
-const formatAmount = (
-  amount: number,
-  currency = 'INR'
-) => {
-  const currencyCode =
-    currency?.split(' ')[0]?.toUpperCase() || 'INR';
-
+const formatAmount = (amount: number) => {
   return new Intl.NumberFormat('en-IN', {
     style: 'currency',
-    currency: currencyCode,
+    currency: 'INR',
     minimumFractionDigits: 2,
     maximumFractionDigits: 2,
   }).format(amount);
@@ -874,7 +868,7 @@ function PaymentListPage({
                 <th className="px-5 py-4">Tenant</th>
                 <th className="px-5 py-4">Code</th>
                 <th className="px-5 py-4">Payment Date</th>
-                <th className="px-5 py-4">Amount</th>
+                {/* <th className="px-5 py-4">Amount</th> */}
                 <th className="px-5 py-4">Mode</th>
                 <th className="px-5 py-4">Status</th>
                 <th className="px-5 py-4">Valid Until</th>
@@ -920,9 +914,9 @@ function PaymentListPage({
                       {formatDate(payment.paymentDateUtc)}
                     </td>
 
-                    <td className="px-5 py-4 text-sm font-medium">
+                    {/* <td className="px-5 py-4 text-sm font-medium">
                       {formatAmount(payment.amount)}
-                    </td>
+                    </td> */}
 
                     <td className="px-5 py-4 text-sm text-gray-300">
                       {payment.paymentMode}
@@ -1023,7 +1017,7 @@ function PaymentHistoryPage({
               </h1>
 
               <p className="mt-1 text-sm text-gray-400">
-                {tenant.code} · {tenant.plan} · {tenant.currency}
+                {tenant.code} · {tenant.plan} · ₹ INR
               </p>
             </div>
           </div>
@@ -1183,7 +1177,7 @@ function PaymentHistoryPage({
                   </td>
 
                   <td className="px-5 py-4 text-sm font-medium">
-                    {formatAmount(payment.amount, tenant.currency)}
+                    {formatAmount(payment.amount)}
                   </td>
 
                   <td className="px-5 py-4 text-sm text-gray-300">
@@ -1289,7 +1283,7 @@ function PaymentDetailsPage({
             <DetailItem label="Tenant Code" value={tenant.code} />
             <DetailItem label="Domain" value={tenant.domain || '—'} />
             <DetailItem label="Plan" value={tenant.plan} />
-            <DetailItem label="Currency" value={tenant.currency} />
+            <DetailItem label="Currency" value="INR (₹)" />
 
             <div>
               <p className="mb-1 text-xs text-gray-500">
@@ -1327,8 +1321,7 @@ function PaymentDetailsPage({
             <DetailItem
               label="Amount"
               value={formatAmount(
-                payment.amount,
-                tenant.currency
+                payment.amount
               )}
             />
 
@@ -1557,7 +1550,7 @@ function PaymentModal({
 
               <DetailItem
                 label="Currency"
-                value={selectedTenant.currency}
+                value="INR (₹)"
               />
             </div>
           )}
@@ -1574,7 +1567,7 @@ function PaymentModal({
             />
 
             <FormNumber
-              label="Amount"
+              label="Amount (₹ INR)"
               value={form.amount}
               onChange={(value) =>
                 updateField('amount', value)

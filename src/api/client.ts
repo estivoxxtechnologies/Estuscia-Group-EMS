@@ -14,7 +14,7 @@ export async function apiRequest<T>(
   // // JSON requests need application/json.
   //  // FormData requests MUST NOT manually set Content-Type. 
   // // The browser automatically sets: // multipart/form-data; boundary=...
-  
+
   if (!(options.body instanceof FormData)) {
     headers.set('Content-Type', 'application/json');
   }
@@ -31,12 +31,45 @@ export async function apiRequest<T>(
   const data = await response.json().catch(() => null);
 
   if (!response.ok) {
+    console.error('API Error:', {
+      endpoint,
+      status: response.status,
+      statusText: response.statusText,
+      response: data,
+    });
+
+    // ------------------------------------------------------------
+    // ASP.NET CORE VALIDATION ERRORS
+    // ------------------------------------------------------------
+
+    if (data?.errors) {
+      const validationMessages = Object.entries(data.errors)
+        .flatMap(([field, messages]) => {
+          if (Array.isArray(messages)) {
+            return messages.map(
+              (message) => `${field}: ${message}`
+            );
+          }
+
+          return [`${field}: ${String(messages)}`];
+        });
+
+      if (validationMessages.length > 0) {
+        throw new Error(validationMessages.join('\n'));
+      }
+    }
+
+    // ------------------------------------------------------------
+    // NORMAL API ERROR
+    // ------------------------------------------------------------
+
     throw new Error(
       data?.message ||
       data?.title ||
       'Something went wrong. Please try again.'
     );
   }
+
 
   return data as T;
 }

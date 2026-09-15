@@ -26,7 +26,8 @@ export interface CreateTenantRequest {
   code: string;
   domain: string;
   plan: string;
-  currency: string;
+  defaultCurrencyId: number;
+  isActive: boolean;
 }
 
 export interface UpdateTenantRequest {
@@ -34,7 +35,7 @@ export interface UpdateTenantRequest {
   code: string;
   domain: string;
   plan: string;
-  currency: string;
+  defaultCurrencyId: number;
   isActive: boolean;
 }
 

@@ -14,6 +14,10 @@ import {
 } from 'lucide-react';
 
 import { useApp } from '../context/AppContext';
+import {
+    BackendCurrency,
+    getCurrencies,
+} from '../api/currencies';
 
 import {
     BackendTenant,
@@ -62,8 +66,11 @@ export const TenantView: React.FC = () => {
     const [tenantPlan, setTenantPlan] =
         useState('Enterprise Pro');
 
-    const [tenantCurrency, setTenantCurrency] =
-        useState('INR');
+    const [currencies, setCurrencies] =
+        useState<BackendCurrency[]>([]);
+
+    const [tenantCurrencyId, setTenantCurrencyId] =
+        useState<number>(2); // INR fallback
 
     const [tenantIsActive, setTenantIsActive] =
         useState(true);
@@ -74,6 +81,42 @@ export const TenantView: React.FC = () => {
 
     const isSuperAdmin =
         currentUser?.roleName?.toLowerCase() === 'super_admin';
+
+    useEffect(() => {
+        if (!isSuperAdmin) {
+            return;
+        }
+
+        const loadCurrencies = async () => {
+            try {
+                const data = await getCurrencies();
+
+                setCurrencies(data);
+
+                // Default to INR when creating a tenant
+                if (data.length > 0) {
+                    const inr = data.find(
+                        (currency) => currency.code === 'INR'
+                    );
+
+                    setTenantCurrencyId(
+                        inr?.id ?? data[0].id
+                    );
+                }
+            } catch (error) {
+                console.error(
+                    'Failed to load currencies:',
+                    error
+                );
+
+                toast.error(
+                    'Failed to load currencies.'
+                );
+            }
+        };
+
+        loadCurrencies();
+    }, [isSuperAdmin]);
 
 
     // ---------------------------------------------------------
@@ -195,7 +238,11 @@ export const TenantView: React.FC = () => {
         setTenantCode('');
         setTenantDomain('');
         setTenantPlan('Enterprise Pro');
-        setTenantCurrency('INR');
+        const inr = currencies.find(
+            (currency) => currency.code === 'INR'
+        );
+
+        setTenantCurrencyId(inr?.id ?? 2);
         setTenantIsActive(true);
 
         setIsTenantFormOpen(true);
@@ -208,11 +255,17 @@ export const TenantView: React.FC = () => {
     const handleEditTenant = (tenant: BackendTenant) => {
         setIsEditingTenant(true);
 
+        setSelectedTenant(tenant);
+
         setTenantName(tenant.name);
         setTenantCode(tenant.code);
         setTenantDomain(tenant.domain);
         setTenantPlan(tenant.plan);
-        setTenantCurrency(tenant.currency);
+
+        setTenantCurrencyId(
+            tenant.defaultCurrencyId
+        );
+
         setTenantIsActive(tenant.isActive);
 
         setIsTenantFormOpen(true);
@@ -254,7 +307,7 @@ export const TenantView: React.FC = () => {
             return;
         }
 
-        if (!tenantCurrency.trim()) {
+        if (!tenantCurrencyId) {
             toast.error('Currency is required.');
             return;
         }
@@ -270,7 +323,7 @@ export const TenantView: React.FC = () => {
                         code: tenantCode.trim(),
                         domain: tenantDomain.trim(),
                         plan: tenantPlan.trim(),
-                        currency: tenantCurrency.trim(),
+                        defaultCurrencyId: tenantCurrencyId,
                         isActive: tenantIsActive,
                     }
                 );
@@ -294,7 +347,8 @@ export const TenantView: React.FC = () => {
                     code: tenantCode.trim(),
                     domain: tenantDomain.trim(),
                     plan: tenantPlan.trim(),
-                    currency: tenantCurrency.trim(),
+                    defaultCurrencyId: tenantCurrencyId,
+                    isActive: true,
                 });
 
                 setTenants((previous) =>
@@ -1027,35 +1081,26 @@ export const TenantView: React.FC = () => {
 
                                     <select
                                         required
-                                        value={tenantCurrency}
+                                        value={tenantCurrencyId}
                                         onChange={(e) =>
-                                            setTenantCurrency(
-                                                e.target.value
+                                            setTenantCurrencyId(
+                                                Number(e.target.value)
                                             )
                                         }
-                                        disabled={isSavingTenant}
+                                        disabled={
+                                            isSavingTenant ||
+                                            currencies.length === 0
+                                        }
                                         className="w-full px-3 py-2.5 rounded-xl bg-[#0e0b2e] border border-[#2d2770] text-white focus:outline-none focus:border-[#5C3FE0] disabled:opacity-50"
                                     >
-                                        <option value="INR">
-                                            INR — Indian Rupee
-                                        </option>
-
-                                        <option value="USD">
-                                            USD — US Dollar
-                                        </option>
-
-                                        <option value="AED">
-                                            AED — UAE Dirham
-                                        </option>
-
-                                        <option value="GBP">
-                                            GBP — British Pound
-                                        </option>
-
-                                        <option value="EUR">
-                                            EUR — Euro
-                                        </option>
-
+                                        {currencies.map((currency) => (
+                                            <option
+                                                key={currency.id}
+                                                value={currency.id}
+                                            >
+                                                {currency.code} — {currency.name}
+                                            </option>
+                                        ))}
                                     </select>
 
                                 </div>
