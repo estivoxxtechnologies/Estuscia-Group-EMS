@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { getBranches } from '../api/branches';
-import { Branch } from '../types/branch';
+// import { getBranches } from '../api/branches';
+// import { Branch } from '../types/branch';
 import {
   Building2,
   ChevronDown,
@@ -26,6 +26,7 @@ import {
   X,
   MapPin,
   UserCircle,
+  Loader2,
 } from 'lucide-react';
 import { useApp } from '../context/AppContext';
 import { EstusciaLogo } from './EstusciaLogo';
@@ -46,6 +47,12 @@ export const Header: React.FC = () => {
     logout,
     isMobileMenuOpen,
     setIsMobileMenuOpen,
+    branches,
+    selectedBranch,
+    selectedBranchId,
+    setSelectedBranchId,
+    isBranchesLoading,
+    isBranchSelectionRestoring,
   } = useApp();
   if (!currentUser) {
     return null;
@@ -58,45 +65,45 @@ export const Header: React.FC = () => {
   const [isRoleOpen, setIsRoleOpen] = useState(false);
   const [isNotifsOpen, setIsNotifsOpen] = useState(false);
   const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
-  const [branches, setBranches] = useState<Branch[]>([]);
-  const [selectedBranch, setSelectedBranch] = useState<Branch | null>(null);
-  const [isBranchesLoading, setIsBranchesLoading] = useState(false);
+  // const [branches, setBranches] = useState<Branch[]>([]);
+  // const [selectedBranch, setSelectedBranch] = useState<Branch | null>(null);
+  // const [isBranchesLoading, setIsBranchesLoading] = useState(false);
 
-  useEffect(() => {
-    const loadBranches = async () => {
-      if (!currentUser) {
-        setBranches([]);
-        setSelectedBranch(null);
-        return;
-      }
+  // useEffect(() => {
+  //   const loadBranches = async () => {
+  //     if (!currentUser) {
+  //       setBranches([]);
+  //       setSelectedBranch(null);
+  //       return;
+  //     }
 
-      try {
-        setIsBranchesLoading(true);
+  //     try {
+  //       setIsBranchesLoading(true);
 
-        const data = await getBranches();
+  //       const data = await getBranches();
 
-        setBranches(data);
+  //       setBranches(data);
 
-        // Select the user's current/assigned branch
-        if (currentUser.branchId !== null) {
-          const userBranch = data.find(
-            (branch) => branch.id === currentUser.branchId
-          );
+  //       // Select the user's current/assigned branch
+  //       if (currentUser.branchId !== null) {
+  //         const userBranch = data.find(
+  //           (branch) => branch.id === currentUser.branchId
+  //         );
 
-          setSelectedBranch(userBranch ?? null);
-        }
-      } catch (error) {
-        console.error('Failed to load branches:', error);
+  //         setSelectedBranch(userBranch ?? null);
+  //       }
+  //     } catch (error) {
+  //       console.error('Failed to load branches:', error);
 
-        setBranches([]);
-        setSelectedBranch(null);
-      } finally {
-        setIsBranchesLoading(false);
-      }
-    };
+  //       setBranches([]);
+  //       setSelectedBranch(null);
+  //     } finally {
+  //       setIsBranchesLoading(false);
+  //     }
+  //   };
 
-    loadBranches();
-  }, [currentUser]);
+  //   loadBranches();
+  // }, [currentUser]);
 
   const tenantRef = useRef<HTMLDivElement>(null);
   const branchRef = useRef<HTMLDivElement>(null);
@@ -107,6 +114,21 @@ export const Header: React.FC = () => {
   const isSuperAdmin = currentUser.roleName === 'super_admin';
   const unreadNotifs = notifications.filter((n) => !n.isRead);
   const avatarUrl = getFileUrl(currentUser.avatarUrl);
+  const normalizedRole = currentUser.roleName?.trim().toLowerCase();
+
+  const isCompanyAdmin = normalizedRole === 'company_admin';
+  const isHrOps = normalizedRole === 'hr_ops';
+
+  const hasFixedHrBranch =
+    isHrOps && currentUser.branchId !== null;
+
+  const canSelectBranch =
+    isCompanyAdmin ||
+    isHrOps;
+
+  const branchDropdownDisabled =
+    isBranchSelectionRestoring ||
+    hasFixedHrBranch;
 
   // Close dropdowns on outside click
   useEffect(() => {
@@ -184,8 +206,8 @@ export const Header: React.FC = () => {
 
   const isHR =
     currentUser.roleName === 'hr_ops' ||
-    currentUser.roleName === 'company_admin' ||
-    currentUser.roleName === 'super_admin';
+    currentUser.roleName === 'company_admin'
+  // currentUser.roleName === 'super_admin';
 
   return (
     <header className="h-16 border-b border-white/10 bg-[#040312]/80 backdrop-blur-md flex items-center justify-between px-3 sm:px-4 lg:px-8 select-none shrink-0 sticky top-0 z-40">
@@ -274,103 +296,144 @@ export const Header: React.FC = () => {
 
             {/* Branch Selector for Company Managers / Admins */}
             {/* Branch Selector */}
-            <div className="relative" ref={branchRef}>
-              <button
-                onClick={() => setIsBranchOpen(!isBranchOpen)}
-                className="bg-[#09081E] px-2.5 sm:px-3 py-1.5 rounded-xl border border-white/10 flex items-center gap-1.5 hover:border-[#5C3FE0]/50 transition-colors cursor-pointer"
-              >
-                <MapPin className="w-3.5 h-3.5 text-cyan-400 shrink-0" />
+            {canSelectBranch && (
+              <div className="relative" ref={branchRef}>
+                <button
+                  disabled={isBranchSelectionRestoring}
+                  onClick={() => {
+                    if (isBranchSelectionRestoring) {
+                      return;
+                    }
 
-                <span className="text-xs font-medium text-gray-200 max-w-[90px] sm:max-w-[130px] truncate">
-                  {selectedBranch?.branchName ?? 'All Branches'}
-                </span>
-
-                <ChevronDown
-                  className={`w-3 h-3 text-gray-400 transition-transform ${isBranchOpen ? 'rotate-180' : ''
+                    setIsBranchOpen(!isBranchOpen);
+                  }}
+                  className={`bg-[#09081E] px-2.5 sm:px-3 py-1.5 rounded-xl border border-white/10 flex items-center gap-1.5 transition-colors ${branchDropdownDisabled
+                      ? 'opacity-70 cursor-not-allowed'
+                      : 'hover:border-[#5C3FE0]/50 cursor-pointer'
                     }`}
-                />
-              </button>
+                >
+                  <MapPin className="w-3.5 h-3.5 text-cyan-400 shrink-0" />
 
-              {isBranchOpen && (
-                <div className="absolute left-0 mt-2 w-64 bg-[#09081E] border border-white/15 rounded-xl shadow-2xl p-2 z-50">
-                  <div className="px-2.5 py-1 text-[10px] font-bold tracking-wider text-gray-400 uppercase">
-                    Select Branch Scope
+                  <div className="text-left min-w-0">
+                    {isBranchSelectionRestoring ? (
+                      <div className="flex items-center gap-1.5 text-xs text-gray-400">
+                        <Loader2 className="w-3 h-3 animate-spin" />
+                        <span>Loading...</span>
+                      </div>
+                    ) : (
+                      <>
+                        <div className="text-xs font-medium text-gray-200 max-w-[90px] sm:max-w-[130px] truncate">
+                          {hasFixedHrBranch
+                            ? currentUser.branchName ?? 'Assigned Branch'
+                            : selectedBranch?.branchName ?? 'All Branches'}
+                        </div>
+
+                        {hasFixedHrBranch ? (
+                          currentUser.currency && (
+                            <div className="text-[9px] text-cyan-400 font-medium">
+                              {currentUser.currency.code}{' '}
+                              {currentUser.currency.symbol}
+                            </div>
+                          )
+                        ) : (
+                          selectedBranch?.currency && (
+                            <div className="text-[9px] text-cyan-400 font-medium">
+                              {selectedBranch.currency.code}{' '}
+                              {selectedBranch.currency.symbol}
+                            </div>
+                          )
+                        )}
+                      </>
+                    )}
                   </div>
 
-                  <div className="space-y-1 mt-1">
+                  <ChevronDown
+                    className={`w-3 h-3 text-gray-400 transition-transform ${isBranchOpen ? 'rotate-180' : ''
+                      }`}
+                  />
+                </button>
 
-                    {/* All Branches */}
-                    <button
-                      onClick={() => {
-                        setSelectedBranch(null);
-                        setIsBranchOpen(false);
-                      }}
-                      className={`w-full text-left px-2.5 py-1.5 rounded-lg text-xs transition-colors flex items-center justify-between ${selectedBranch === null
-                        ? 'bg-[#5C3FE0]/20 text-[#5C3FE0] font-semibold'
-                        : 'text-gray-300 hover:bg-white/5'
-                        }`}
-                    >
-                      <span>All Branches</span>
+                {isBranchOpen &&  !hasFixedHrBranch && (
+                  <div className="absolute left-0 mt-2 w-64 bg-[#09081E] border border-white/15 rounded-xl shadow-2xl p-2 z-50">
+                    <div className="px-2.5 py-1 text-[10px] font-bold tracking-wider text-gray-400 uppercase">
+                      Select Branch Scope
+                    </div>
 
-                      {selectedBranch === null && (
-                        <CheckCircle2 className="w-3.5 h-3.5 text-[#5C3FE0]" />
+                    <div className="space-y-1 mt-1">
+
+                      {/* All Branches */}
+                      <button
+                        onClick={() => {
+                          setSelectedBranchId(null);
+                          setIsBranchOpen(false);
+                        }}
+                        className={`w-full text-left px-2.5 py-1.5 rounded-lg text-xs transition-colors flex items-center justify-between ${selectedBranch === null
+                          ? 'bg-[#5C3FE0]/20 text-[#5C3FE0] font-semibold'
+                          : 'text-gray-300 hover:bg-white/5'
+                          }`}
+                      >
+                        <span>All Branches</span>
+
+                        {selectedBranch === null && (
+                          <CheckCircle2 className="w-3.5 h-3.5 text-[#5C3FE0]" />
+                        )}
+                      </button>
+
+                      {/* Loading */}
+                      {isBranchesLoading && (
+                        <div className="px-2.5 py-2 text-xs text-gray-500">
+                          Loading branches...
+                        </div>
                       )}
-                    </button>
 
-                    {/* Loading */}
-                    {isBranchesLoading && (
-                      <div className="px-2.5 py-2 text-xs text-gray-500">
-                        Loading branches...
-                      </div>
-                    )}
+                      {/* Empty */}
+                      {!isBranchesLoading && branches.length === 0 && (
+                        <div className="px-2.5 py-2 text-xs text-gray-500">
+                          No branches available
+                        </div>
+                      )}
 
-                    {/* Empty */}
-                    {!isBranchesLoading && branches.length === 0 && (
-                      <div className="px-2.5 py-2 text-xs text-gray-500">
-                        No branches available
-                      </div>
-                    )}
+                      {/* Branches */}
+                      {!isBranchesLoading &&
+                        branches.map((branch) => {
+                          const isSelected =
+                            selectedBranch?.id === branch.id;
 
-                    {/* Branches */}
-                    {!isBranchesLoading &&
-                      branches.map((branch) => {
-                        const isSelected =
-                          selectedBranch?.id === branch.id;
+                          return (
+                            <button
+                              key={branch.id}
+                              onClick={() => {
+                                setSelectedBranchId(branch.id);
+                                setIsBranchOpen(false);
+                              }}
+                              className={`w-full text-left px-2.5 py-1.5 rounded-lg text-xs transition-colors flex items-center justify-between ${isSelected
+                                ? 'bg-[#5C3FE0]/20 text-[#5C3FE0] font-semibold'
+                                : 'text-gray-300 hover:bg-white/5'
+                                }`}
+                            >
+                              <div className="min-w-0">
+                                <div className="truncate">
+                                  {branch.branchName}
+                                </div>
 
-                        return (
-                          <button
-                            key={branch.id}
-                            onClick={() => {
-                              setSelectedBranch(branch);
-                              setIsBranchOpen(false);
-                            }}
-                            className={`w-full text-left px-2.5 py-1.5 rounded-lg text-xs transition-colors flex items-center justify-between ${isSelected
-                              ? 'bg-[#5C3FE0]/20 text-[#5C3FE0] font-semibold'
-                              : 'text-gray-300 hover:bg-white/5'
-                              }`}
-                          >
-                            <div className="min-w-0">
-                              <div className="truncate">
-                                {branch.branchName}
+                                {branch.city && (
+                                  <div className="text-[10px] text-gray-500 truncate">
+                                    {branch.city}
+                                  </div>
+                                )}
                               </div>
 
-                              {branch.city && (
-                                <div className="text-[10px] text-gray-500 truncate">
-                                  {branch.city}
-                                </div>
+                              {isSelected && (
+                                <CheckCircle2 className="w-3.5 h-3.5 text-[#5C3FE0] shrink-0" />
                               )}
-                            </div>
-
-                            {isSelected && (
-                              <CheckCircle2 className="w-3.5 h-3.5 text-[#5C3FE0] shrink-0" />
-                            )}
-                          </button>
-                        );
-                      })}
+                            </button>
+                          );
+                        })}
+                    </div>
                   </div>
-                </div>
-              )}
-            </div>
+                )}
+              </div>
+            )}
           </div>
         )}
       </div>

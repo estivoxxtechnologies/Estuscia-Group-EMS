@@ -1,5 +1,33 @@
 import { apiRequest } from './client';
 
+const API_ROOT = import.meta.env.VITE_API_URL.replace(/\/api\/?$/, '');
+
+function normalizeAvatarUrl(
+    avatarUrl?: string | null
+): string {
+    if (!avatarUrl) {
+        return '';
+    }
+
+    // Already an absolute URL
+    if (
+        avatarUrl.startsWith('http://') ||
+        avatarUrl.startsWith('https://')
+    ) {
+        return avatarUrl;
+    }
+
+    // Backend returns something like:
+    // /uploads/avatars/user-123.jpg
+    if (avatarUrl.startsWith('/')) {
+        return `${API_ROOT}${avatarUrl}`;
+    }
+
+    // Backend returns something like:
+    // uploads/avatars/user-123.jpg
+    return `${API_ROOT}/${avatarUrl}`;
+}
+
 export interface BackendUser {
     id: number;
 
@@ -54,9 +82,14 @@ export interface UpdateUserRequest {
 }
 
 export async function getUsers(): Promise<BackendUser[]> {
-    return apiRequest<BackendUser[]>('/Users', {
+    const users = await apiRequest<BackendUser[]>('/Users', {
         method: 'GET',
     });
+
+    return users.map((user) => ({
+        ...user,
+        avatarUrl: normalizeAvatarUrl(user.avatarUrl),
+    }));
 }
 
 export async function createUser(
@@ -72,8 +105,13 @@ export async function updateUser(
     id: number,
     request: UpdateUserRequest
 ): Promise<BackendUser> {
-    return apiRequest<BackendUser>(`/Users/${id}`, {
+    const user = await apiRequest<BackendUser>(`/Users/${id}`, {
         method: 'PUT',
         body: JSON.stringify(request),
     });
+
+    return {
+        ...user,
+        avatarUrl: normalizeAvatarUrl(user.avatarUrl),
+    };
 }

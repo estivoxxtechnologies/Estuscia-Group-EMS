@@ -7,25 +7,27 @@ export interface LoginRequest {
 
 export interface BackendUser {
   userId: number;
-
   username: string;
   email: string;
 
   roleId: number;
   roleName: string;
-
   designation: string;
 
-  tenantId: number;
-  tenantName: string;
+  tenantId: number | null;
+  tenantName: string | null;
 
   branchId: number | null;
   branchName: string | null;
 
   avatarUrl: string;
 
-  tenantCurrency: BackendCurrency;
-  branchCurrency: BackendCurrency | null;
+  currency: {
+    id: number;
+    code: string;
+    name: string;
+    symbol: string;
+  } | null;
 }
 export interface AuthResponse {
   accessToken: string;

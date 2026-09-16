@@ -15,8 +15,11 @@ export interface CurrentUser {
   roleName: string;
   designation: string;
   avatarUrl: string;
-  tenantCurrency: CurrentUserCurrency;
-  branchCurrency: CurrentUserCurrency | null;
+  currency: {
+    id: number;
+    code: string;
+    name: string;
+    symbol: string;
+  } | null;
 
-  currency: CurrentUserCurrency;
 }

@@ -101,6 +101,10 @@ interface AppContextType {
   branches: Branch[];
   selectedBranch: Branch | null;
   setSelectedBranch: (branch: Branch | null) => void;
+  selectedBranchId: number | null;
+  setSelectedBranchId: (branchId: number | null) => void;
+  isBranchesLoading: boolean;
+  isBranchSelectionRestoring: boolean;
   loadBranches: () => Promise<void>;
 
   switchRole: (role: Role) => void;
@@ -213,7 +217,12 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const [branches, setBranches] = useState<Branch[]>([]);
   const [selectedBranch, setSelectedBranch] =
     useState<Branch | null>(null);
-
+  const [selectedBranchId, setSelectedBranchId] =
+    useState<number | null>(null);
+  const [isBranchesLoading, setIsBranchesLoading] =
+    useState(false);
+  const [isBranchSelectionRestoring, setIsBranchSelectionRestoring] =
+    useState(true);
 
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState<boolean>(false);
 
@@ -283,6 +292,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const [selectedCourseForPlayer, setSelectedCourseForPlayer] = useState<Course | null>(null);
   const [selectedCertificateForView, setSelectedCertificateForView] = useState<Certificate | null>(null);
   const [selectedPayslipForView, setSelectedPayslipForView] = useState<Payslip | null>(null);
+  const getBranchStorageKey = (user: CurrentUser) => {
+    return `selectedBranchId_${user.tenantId}_${user.userId}`;
+  };
 
   useEffect(() => {
     const restoreSession = async () => {
@@ -333,29 +345,136 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   }, []);
 
   const loadBranches = async () => {
+    if (!currentUser) {
+      setBranches([]);
+      setSelectedBranch(null);
+      setSelectedBranchId(null);
+      setIsBranchSelectionRestoring(false);
+      return;
+    }
+
+    const role = currentUser.roleName?.trim().toLowerCase();
+
+    // ============================================================
+    // SUPER ADMIN
+    // ============================================================
+    if (role === 'super_admin') {
+      setBranches([]);
+      setSelectedBranch(null);
+      setSelectedBranchId(null);
+      setIsBranchSelectionRestoring(false);
+      return;
+    }
+
     try {
+      setIsBranchesLoading(true);
+      setIsBranchSelectionRestoring(true);
+
       const data = await getBranches();
 
       setBranches(data);
 
-      console.log('Branches loaded:', data);
+      // ============================================================
+      // COMPANY ADMIN / HR OPS
+      // Restore previously selected branch from localStorage
+      // ============================================================
+      if (
+        role === 'company_admin' ||
+        role === 'hr_ops'
+      ) {
+        const storageKey = getBranchStorageKey(currentUser);
+
+        const savedBranchId = localStorage.getItem(storageKey);
+
+        // No saved branch = All Branches
+        if (!savedBranchId) {
+          setSelectedBranch(null);
+          setSelectedBranchId(null);
+
+          return;
+        }
+
+        const branchId = Number(savedBranchId);
+
+        const savedBranch = data.find(
+          (branch) => branch.id === branchId
+        );
+
+        if (savedBranch) {
+          // Restore selected branch
+          setSelectedBranch(savedBranch);
+          setSelectedBranchId(savedBranch.id);
+        } else {
+          // Saved branch no longer exists or is inaccessible
+          localStorage.removeItem(storageKey);
+
+          setSelectedBranch(null);
+          setSelectedBranchId(null);
+        }
+
+        return;
+      }
+
+      // ============================================================
+      // OTHER USERS
+      // Their branch comes from Auth / backend
+      // ============================================================
+      if (currentUser.branchId !== null) {
+        const userBranch = data.find(
+          (branch) => branch.id === currentUser.branchId
+        );
+
+        if (userBranch) {
+          setSelectedBranch(userBranch);
+          setSelectedBranchId(userBranch.id);
+        } else {
+          setSelectedBranch(null);
+          setSelectedBranchId(null);
+        }
+      } else {
+        setSelectedBranch(null);
+        setSelectedBranchId(null);
+      }
+
     } catch (error) {
       console.error('Failed to load branches:', error);
+
       setBranches([]);
+      setSelectedBranch(null);
+      setSelectedBranchId(null);
+
+    } finally {
+      setIsBranchesLoading(false);
+      setIsBranchSelectionRestoring(false);
     }
   };
+
+  useEffect(() => {
+    if (!currentUser) {
+      setBranches([]);
+      setSelectedBranch(null);
+      setSelectedBranchId(null);
+      setIsBranchSelectionRestoring(false);
+      return;
+    }
+
+    const role = currentUser.roleName?.trim().toLowerCase();
+
+    if (
+      role === 'company_admin' ||
+      role === 'hr_ops'
+    ) {
+      // Important:
+      // Set restoring BEFORE API request starts.
+      setIsBranchSelectionRestoring(true);
+    }
+
+    loadBranches();
+  }, [currentUser]);
 
   const mapBackendUserToCurrentUser = (
     backendUser: BackendUser
   ): CurrentUser => {
-    const isCompanyAdmin =
-      backendUser.roleName === 'company_admin';
-
-    const effectiveCurrency =
-      isCompanyAdmin
-        ? backendUser.tenantCurrency
-        : backendUser.branchCurrency ?? backendUser.tenantCurrency;
-
     return {
       userId: backendUser.userId,
       username: backendUser.username,
@@ -373,10 +492,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       branchName: backendUser.branchName,
 
       avatarUrl: backendUser.avatarUrl,
-      tenantCurrency: backendUser.tenantCurrency,
-      branchCurrency: backendUser.branchCurrency,
 
-      currency: effectiveCurrency,
+      // Backend already resolves the effective currency.
+      currency: backendUser.currency,
     };
   };
 
@@ -390,6 +508,68 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     console.log('MAPPED CURRENT USER:', currentUser);
 
     return currentUser;
+  };
+
+  const handleSetSelectedBranch = (branch: Branch | null) => {
+    setSelectedBranch(branch);
+    setSelectedBranchId(branch?.id ?? null);
+
+    if (!currentUser) {
+      return;
+    }
+
+    const role = currentUser.roleName?.trim().toLowerCase();
+
+    if (
+      role === 'company_admin' ||
+      role === 'hr_ops'
+    ) {
+      const storageKey = getBranchStorageKey(currentUser);
+
+      if (branch) {
+        localStorage.setItem(
+          storageKey,
+          branch.id.toString()
+        );
+      } else {
+        localStorage.removeItem(storageKey);
+      }
+    }
+  };
+
+  const handleSetSelectedBranchId = (branchId: number | null) => {
+    setSelectedBranchId(branchId);
+
+    if (!currentUser) {
+      setSelectedBranch(null);
+      return;
+    }
+
+    const role = currentUser.roleName?.trim().toLowerCase();
+
+    if (
+      role === 'company_admin' ||
+      role === 'hr_ops'
+    ) {
+      const storageKey = getBranchStorageKey(currentUser);
+
+      if (branchId === null) {
+        localStorage.removeItem(storageKey);
+        setSelectedBranch(null);
+        return;
+      }
+
+      localStorage.setItem(
+        storageKey,
+        branchId.toString()
+      );
+    }
+
+    const branch = branches.find(
+      (b) => b.id === branchId
+    ) ?? null;
+
+    setSelectedBranch(branch);
   };
 
   // Active Slab Version derived helper
@@ -784,7 +964,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     const newBatch: AttendanceBatch = {
       id: batchId,
       tenantId: currentUser.tenantId,
-      uploadedBy: currentUser.id,
+      uploadedBy: currentUser.userId,
       uploadedByName: currentUser.username,
       uploadedAt: new Date().toISOString().replace('T', ' ').substring(0, 19),
       fileName,
@@ -1215,7 +1395,11 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         setCurrentUser,
         branches,
         selectedBranch,
-        setSelectedBranch,
+        setSelectedBranch: handleSetSelectedBranch,
+        selectedBranchId,
+        setSelectedBranchId: handleSetSelectedBranchId,
+        isBranchesLoading,
+        isBranchSelectionRestoring,
         loadBranches,
         switchRole,
         switchUserById,

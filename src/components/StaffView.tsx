@@ -16,6 +16,8 @@ export const StaffView: React.FC = () => {
   const {
     setIsAddEmployeeOpen,
     currentUser,
+    selectedBranch,
+    selectedBranchId
   } = useApp();
 
   const [users, setUsers] = useState<BackendUser[]>([]);
@@ -84,19 +86,30 @@ export const StaffView: React.FC = () => {
     currentUser?.roleName?.toLowerCase() ?? ''
   );
 
-  console.log(canManageEmployees,"Mnaging employees")
-  console.log(users?.roleName,"rolesssss")
-  console.log(users,"usssssssssssssssssssssssssssssssssssssssssssssssssss");
-  
-
-  // Count unique branches represented by users
-  const branchCount = new Set(
-    users
-      .map((user) => user.branchId)
-      .filter((id): id is number => id !== null)
-  ).size;
+  console.log(canManageEmployees, "Mnaging employees")
+  console.log(users?.roleName, "rolesssss")
+  console.log(users, "usssssssssssssssssssssssssssssssssssssssssssssssssss");
 
   // Search + role filter
+  const role = currentUser?.roleName?.trim().toLowerCase();
+
+  const isCompanyAdmin = role === 'company_admin';
+  const isHrOps = role === 'hr_ops';
+
+  const hasFixedHrBranch =
+    isHrOps && currentUser?.branchId !== null;
+
+  const displayedBranchName = hasFixedHrBranch
+    ? currentUser?.branchName ?? 'Assigned Branch'
+    : selectedBranch?.branchName ?? 'All Branches';
+
+  const effectiveBranchId =
+    isCompanyAdmin
+      ? selectedBranchId
+      : isHrOps
+        ? currentUser?.branchId ?? selectedBranchId
+        : currentUser?.branchId ?? null;
+
   const filteredUsers = users.filter((user) => {
     const search = searchQuery.toLowerCase().trim();
 
@@ -110,8 +123,23 @@ export const StaffView: React.FC = () => {
       selectedRole === 'all' ||
       user.roleId === Number(selectedRole);
 
-    return matchesSearch && matchesRole;
+    const matchesBranch =
+      effectiveBranchId === null ||
+      user.branchId === effectiveBranchId;
+
+    return (
+      matchesSearch &&
+      matchesRole &&
+      matchesBranch
+    );
   });
+
+  // Count unique branches represented by users
+  const branchCount = new Set(
+    filteredUsers
+      .map((user) => user.branchId)
+      .filter((id): id is number => id !== null)
+  ).size;
 
   return (
     <div className="space-y-6 pb-12">
@@ -124,16 +152,19 @@ export const StaffView: React.FC = () => {
               <Users className="w-5 h-5" />
             </div>
 
-            <div>
+            <div className="flex items-center gap-2">
               <h1 className="text-xl font-bold text-white leading-tight">
                 Staff & Workforce Directory
               </h1>
 
-              <p className="text-xs text-slate-400">
-                Manage employees, roles, salary information, and workforce
-                across {branchCount} branches
-              </p>
+              <span className="px-2 py-0.5 rounded-md bg-[#5C3FE0]/15 border border-[#5C3FE0]/30 text-[10px] font-semibold text-[#A78BFA]">
+                {displayedBranchName}
+              </span>
             </div>
+            <p className="text-xs text-slate-400">
+              Manage employees, roles, salary information, and workforce
+              across {branchCount} {branchCount === 1 ? 'branch' : 'branches'}
+            </p>
           </div>
         </div>
 
