@@ -76,7 +76,7 @@ export interface UpdateUserRequest {
     designation: string;
     department: string;
     salaryBase: number;
-    branchId: number;
+    branchId: number | null;
     avatarUrl?: string;
     isActive: boolean;
 }
