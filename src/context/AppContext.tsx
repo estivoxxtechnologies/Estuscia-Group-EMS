@@ -42,6 +42,12 @@ import { CurrentUser } from '../types/currentUser';
 import {
   getBranches,
 } from '../api/branches';
+import {
+  getDailyWorkLogs,
+  submitDailyWorkLog as submitBackendDailyWorkLog,
+  reviewDailyWorkLog as reviewDailyWorkLogBackend,
+  BackendDailyWorkLog,
+} from '../api/dailyWork';
 
 import {
   Branch,
@@ -63,7 +69,8 @@ export type AppTab =
   | 'tenants'
   | 'branch_management'
   | 'tenant_payment'
-  | 'profile';
+  | 'profile'
+  | 'sales_leads';
 
 export type ViewMode = 'portal' | 'public_web';
 
@@ -111,9 +118,23 @@ interface AppContextType {
   switchUserById: (userId: string) => void;
 
   // Daily Work & Call Submissions
-  dailyWorkLogs: DailyWorkLog[];
-  submitDailyWorkLog: (log: Omit<DailyWorkLog, 'id' | 'submittedAt' | 'status'>) => void;
-  reviewDailyWorkLog: (id: string, feedback: string, status: 'Reviewed' | 'Acknowledged') => void;
+  dailyWorkLogs: BackendDailyWorkLog[];
+  submitDailyWorkLog: (
+    request: {
+      workDate?: string;
+      workType: 0;
+      narration: string;
+      callsMade?: number;
+      callsConnected?: number;
+      leadsRespondedWell?: number;
+      followUpsScheduled?: number;
+    }
+  ) => Promise<BackendDailyWorkLog>;
+  reviewDailyWorkLog: (
+    id: string,
+    feedback: string,
+    status: 'Reviewed' | 'Rejected'
+  ) => Promise<BackendDailyWorkLog>;
   isWorkLogModalOpen: boolean;
   setIsWorkLogModalOpen: (open: boolean) => void;
 
@@ -227,7 +248,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState<boolean>(false);
 
   // Daily Work & Call Submissions
-  const [dailyWorkLogs, setDailyWorkLogs] = useState<DailyWorkLog[]>([]);
+  const [dailyWorkLogs, setDailyWorkLogs] = useState<BackendDailyWorkLog[]>([]);
   const [isWorkLogModalOpen, setIsWorkLogModalOpen] = useState<boolean>(false);
 
   // Customer Payment Receipts
@@ -292,8 +313,61 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const [selectedCourseForPlayer, setSelectedCourseForPlayer] = useState<Course | null>(null);
   const [selectedCertificateForView, setSelectedCertificateForView] = useState<Certificate | null>(null);
   const [selectedPayslipForView, setSelectedPayslipForView] = useState<Payslip | null>(null);
+
   const getBranchStorageKey = (user: CurrentUser) => {
     return `selectedBranchId_${user.tenantId}_${user.userId}`;
+  };
+
+  const loadDailyWorkLogs = async () => {
+    if (!currentUser) {
+      setDailyWorkLogs([]);
+      return;
+    }
+
+    const role = currentUser.roleName
+      ?.trim()
+      .toLowerCase();
+
+    // Super admin has no Daily Work access
+    if (role === 'super_admin') {
+      setDailyWorkLogs([]);
+      return;
+    }
+
+    try {
+      const params: {
+        workType: 0;
+        branchId?: number;
+      } = {
+        workType: 0,
+      };
+
+      // HR / Company Admin can optionally filter
+      // by selected branch.
+      if (
+        (role === 'hr_ops' ||
+          role === 'company_admin') &&
+        selectedBranchId !== null
+      ) {
+        params.branchId = selectedBranchId;
+      }
+
+      const data = await getDailyWorkLogs(params);
+
+      setDailyWorkLogs(data);
+
+      console.log(
+        'DAILY WORK LOADED:',
+        data
+      );
+    } catch (error) {
+      console.error(
+        'Failed to load Daily Work:',
+        error
+      );
+
+      setDailyWorkLogs([]);
+    }
   };
 
   useEffect(() => {
@@ -343,6 +417,41 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
     restoreSession();
   }, []);
+
+  useEffect(() => {
+    if (!currentUser) {
+      setBranches([]);
+      setSelectedBranch(null);
+      setSelectedBranchId(null);
+      setIsBranchSelectionRestoring(false);
+      return;
+    }
+
+    const role = currentUser.roleName?.trim().toLowerCase();
+
+    if (
+      role === 'company_admin' ||
+      role === 'hr_ops'
+    ) {
+      // Important:
+      // Set restoring BEFORE API request starts.
+      setIsBranchSelectionRestoring(true);
+    }
+
+    loadBranches();
+  }, [currentUser]);
+
+  useEffect(() => {
+    if (!currentUser) {
+      setDailyWorkLogs([]);
+      return;
+    }
+
+    loadDailyWorkLogs();
+  }, [
+    currentUser,
+    selectedBranchId,
+  ]);
 
   const loadBranches = async () => {
     if (!currentUser) {
@@ -449,29 +558,6 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }
   };
 
-  useEffect(() => {
-    if (!currentUser) {
-      setBranches([]);
-      setSelectedBranch(null);
-      setSelectedBranchId(null);
-      setIsBranchSelectionRestoring(false);
-      return;
-    }
-
-    const role = currentUser.roleName?.trim().toLowerCase();
-
-    if (
-      role === 'company_admin' ||
-      role === 'hr_ops'
-    ) {
-      // Important:
-      // Set restoring BEFORE API request starts.
-      setIsBranchSelectionRestoring(true);
-    }
-
-    loadBranches();
-  }, [currentUser]);
-
   const mapBackendUserToCurrentUser = (
     backendUser: BackendUser
   ): CurrentUser => {
@@ -576,42 +662,74 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const activeSlabVersion = slabVersions.find((sv) => sv.status === 'active') || slabVersions[0];
 
   // Role tab authorization check
+  // Role tab authorization check
   const isTabAllowed = (tab: AppTab): boolean => {
     if (!currentUser) {
       return false;
     }
 
+    // ---------------------------------------------------------
     // Every authenticated user can access their own profile
+    // ---------------------------------------------------------
     if (tab === 'profile') {
       return true;
     }
 
-    // Super admin and company admin have universal access
-    if (
-      currentUser.roleName === 'super_admin' ||
-      currentUser.roleName === 'company_admin'
-    ) {
+    const role = currentUser.roleName
+      ?.trim()
+      .toLowerCase();
+
+    // ---------------------------------------------------------
+    // SUPER ADMIN
+    // Sidebar handles the actual super-admin navigation.
+    // ---------------------------------------------------------
+    if (role === 'super_admin') {
+      return [
+        'dashboard',
+        'tenants',
+        'branch_management',
+        'tenant_payment',
+        'knowledge_hub',
+      ].includes(tab);
+    }
+
+    // ---------------------------------------------------------
+    // COMPANY ADMIN
+    // ---------------------------------------------------------
+    if (role === 'company_admin') {
       return true;
     }
 
-    // Check designation permission configuration if defined
+    // ---------------------------------------------------------
+    // DESIGNATION PERMISSIONS
+    // ---------------------------------------------------------
+    const designation =
+      currentUser.designation
+        ?.trim()
+        .toLowerCase() || '';
+
     const matchedPerm = designationPermissions.find(
       (p) =>
-        p.designation.toLowerCase() ===
-        currentUser.designation.toLowerCase()
+        p.designation
+          ?.trim()
+          .toLowerCase() === designation
     );
 
     if (matchedPerm) {
       if (
         tab === 'slabs' &&
-        matchedPerm.allowedTabs.includes('receipts_slabs')
+        matchedPerm.allowedTabs.includes(
+          'receipts_slabs'
+        )
       ) {
         return true;
       }
 
       if (
         tab === 'lms_academy' &&
-        matchedPerm.allowedTabs.includes('knowledge_hub')
+        matchedPerm.allowedTabs.includes(
+          'knowledge_hub'
+        )
       ) {
         return true;
       }
@@ -619,8 +737,10 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       return matchedPerm.allowedTabs.includes(tab);
     }
 
-    // Role defaults
-    if (currentUser.roleName === 'hr_ops') {
+    // ---------------------------------------------------------
+    // HR OPS
+    // ---------------------------------------------------------
+    if (role === 'hr_ops') {
       return [
         'dashboard',
         'staff',
@@ -628,24 +748,51 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         'attendance',
         'payroll',
         'receipts_slabs',
+        'sales_leads',
         'knowledge_hub',
       ].includes(tab);
     }
 
-    if (currentUser.roleName === 'branch_manager') {
+    // ---------------------------------------------------------
+    // BRANCH MANAGER
+    // ---------------------------------------------------------
+    if (role === 'branch_manager') {
       return [
         'dashboard',
         'staff',
         'daily_work',
         'attendance',
         'targets_incentives',
+        'sales_leads',
         'receipts_slabs',
         'payroll',
         'knowledge_hub',
       ].includes(tab);
     }
 
-    if (currentUser.roleName === 'developer') {
+    // ---------------------------------------------------------
+    // SALES STAFF
+    // Both Senior and Junior Sales can access Sales Leads.
+    // Backend decides whether they can manage or only view
+    // their own assigned leads.
+    // ---------------------------------------------------------
+    if (role === 'sales_staff') {
+      return [
+        'dashboard',
+        'daily_work',
+        'attendance',
+        'targets_incentives',
+        'sales_leads',
+        'receipts_slabs',
+        'knowledge_hub',
+        'payroll',
+      ].includes(tab);
+    }
+
+    // ---------------------------------------------------------
+    // DEVELOPER
+    // ---------------------------------------------------------
+    if (role === 'developer') {
       return [
         'dashboard',
         'daily_work',
@@ -655,7 +802,10 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       ].includes(tab);
     }
 
-    if (currentUser.roleName === 'support_staff') {
+    // ---------------------------------------------------------
+    // SUPPORT STAFF
+    // ---------------------------------------------------------
+    if (role === 'support_staff') {
       return [
         'dashboard',
         'daily_work',
@@ -666,16 +816,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       ].includes(tab);
     }
 
-    // Sales / Staff default
-    return [
-      'dashboard',
-      'daily_work',
-      'attendance',
-      'targets_incentives',
-      'receipts_slabs',
-      'knowledge_hub',
-      'payroll',
-    ].includes(tab);
+    return false;
   };
 
   // Auth methods
@@ -844,36 +985,58 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   };
 
   // Daily Work & Call Submissions
-  const submitDailyWorkLog = (logData: Omit<DailyWorkLog, 'id' | 'submittedAt' | 'status'>) => {
-    const newLog: DailyWorkLog = {
-      ...logData,
-      id: `work-log-${Date.now()}`,
-      submittedAt: new Date().toISOString().replace('T', ' ').substring(0, 19),
-      status: 'Submitted',
-    };
+  const submitDailyWorkLog = async (
+    request: {
+      workDate?: string;
+      workType: 0;
+      narration: string;
+      callsMade?: number;
+      callsConnected?: number;
+      leadsRespondedWell?: number;
+      followUpsScheduled?: number;
+    }
+  ) => {
+    const createdLog = await submitBackendDailyWorkLog(request);
 
-    setDailyWorkLogs((prev) => [newLog, ...prev]);
-    logAuditEvent('SUBMIT_DAILY_WORK_LOG', `Submitted daily work record for ${logData.userName} (${logData.workType})`);
-
-    setNotifications((prev) => [
-      {
-        id: `notif-${Date.now()}`,
-        title: 'Daily Work Report Submitted',
-        message: `Your daily summary for ${logData.date} has been submitted for management review.`,
-        type: 'success',
-        timestamp: 'Just now',
-        isRead: false,
-        tag: 'Work Log',
-      },
+    setDailyWorkLogs((prev) => [
+      createdLog,
       ...prev,
     ]);
+
+    return createdLog;
   };
 
-  const reviewDailyWorkLog = (id: string, feedback: string, status: 'Reviewed' | 'Acknowledged') => {
-    setDailyWorkLogs((prev) =>
-      prev.map((log) => (log.id === id ? { ...log, managerFeedback: feedback, status } : log))
-    );
-    logAuditEvent('REVIEW_DAILY_WORK_LOG', `Manager feedback added to work log #${id}`);
+  const reviewDailyWorkLog = async (
+    id: string,
+    feedback: string,
+    status: 'Reviewed' | 'Rejected'
+  ) => {
+    try {
+      const updatedLog = await reviewDailyWorkLogBackend(
+        Number(id),
+        {
+          managerNotes: feedback,
+          status,
+        }
+      );
+
+      setDailyWorkLogs((prev) =>
+        prev.map((log) =>
+          log.id === Number(id)
+            ? updatedLog
+            : log
+        )
+      );
+
+      return updatedLog;
+    } catch (error) {
+      console.error(
+        'Failed to review Daily Work:',
+        error
+      );
+
+      throw error;
+    }
   };
 
   // Customer Payment Receipts

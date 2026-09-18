@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import {
   TrendingUp,
   Target,
@@ -17,12 +17,13 @@ import {
   Plus,
   Play,
   ChevronRight,
-  ShieldCheck,
-  Building2,
   Code2,
   Receipt,
   UserCheck,
+  Building2,
+  RefreshCw,
 } from 'lucide-react';
+
 import { useApp } from '../context/AppContext';
 
 export const DashboardView: React.FC = () => {
@@ -44,468 +45,1345 @@ export const DashboardView: React.FC = () => {
     setSelectedReceiptForView,
   } = useApp();
 
-  console.log(currentUser,"erfffffffffffffffffffffffffffffffffffff")
-
-  console.log(currentTenant,"tenaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaant")
-
   if (!currentUser || !currentTenant) {
-  return (
-    <div className="flex items-center justify-center min-h-[400px]">
-      <div className="text-center">
-        <div className="w-8 h-8 border-2 border-purple-500 border-t-transparent rounded-full animate-spin mx-auto mb-3" />
-        <p className="text-sm text-gray-400">
-          Loading your workspace...
-        </p>
+    return (
+      <div className="flex min-h-[400px] items-center justify-center">
+        <div className="text-center">
+          <div className="mx-auto mb-3 h-8 w-8 animate-spin rounded-full border-2 border-purple-500 border-t-transparent" />
+          <p className="text-sm text-gray-400">
+            Loading your workspace...
+          </p>
+        </div>
       </div>
-    </div>
-  );
-}
+    );
+  }
 
-  const isStaff = currentUser.role === 'support_staff';
-  const isDeveloper = currentUser.role === 'developer';
-  const isHR = currentUser.role === 'hr_ops';
-  const isManager = currentUser.role === 'branch_manager';
-  const isAdmin = currentUser.role === 'super_admin' || currentUser.role === 'company_admin';
+  /*
+   * ============================================================
+   * ROLE
+   * ============================================================
+   */
 
-  // Metrics
+  const role = (
+    currentUser.roleName ||
+    currentUser.role ||
+    ''
+  ).toLowerCase();
+
+  const isSalesStaff = role === 'sales_staff';
+  const isSupportStaff = role === 'support_staff';
+  const isDeveloper = role === 'developer';
+  const isHR = role === 'hr_ops';
+  const isManager = role === 'branch_manager';
+  const isCompanyAdmin = role === 'company_admin';
+  const isSuperAdmin = role === 'super_admin';
+
+  /*
+   * SuperAdmin has a completely separate dashboard.
+   *
+   * App.tsx already routes SuperAdminDashboard for super_admin.
+   * This guard is intentionally kept here as a second safety layer.
+   */
+
+  if (isSuperAdmin) {
+    return null;
+  }
+
+  const isManagement =
+    isManager ||
+    isCompanyAdmin ||
+    isHR;
+
+  /*
+   * ============================================================
+   * CURRENT USER ID
+   * ============================================================
+   *
+   * Existing AppContext versions have used both `id` and
+   * `userId`, so support both safely.
+   */
+
+  const currentUserId =
+    currentUser.id ??
+    currentUser.userId;
+
+  /*
+   * ============================================================
+   * TODAY
+   * ============================================================
+   */
+
+  const today =
+    new Date()
+      .toISOString()
+      .substring(0, 10);
+
+  /*
+   * ============================================================
+   * DAILY WORK
+   * ============================================================
+   *
+   * The current backend DailyWorkLog supports Sales metrics:
+   *
+   * CallsMade
+   * CallsConnected
+   * LeadsRespondedWell
+   * FollowUpsScheduled
+   *
+   * No dealsPitched / closingInvestmentAmount are used here.
+   */
+
+  const salesWorkLogs = useMemo(() => {
+    return dailyWorkLogs.filter((log: any) => {
+      const workType = log.workType;
+
+      return (
+        workType === 0 ||
+        workType === 'Sales' ||
+        workType === 'sales'
+      );
+    });
+  }, [dailyWorkLogs]);
+
+  const todaySalesLogs = useMemo(() => {
+    return salesWorkLogs.filter((log: any) => {
+      const workDate =
+        log.workDate ??
+        log.date;
+
+      return workDate === today;
+    });
+  }, [salesWorkLogs, today]);
+
+  const todayUserLog = useMemo(() => {
+    return salesWorkLogs.find((log: any) => {
+      const userId =
+        log.userId ??
+        log.user?.id;
+
+      const workDate =
+        log.workDate ??
+        log.date;
+
+      return (
+        userId === currentUserId &&
+        workDate === today
+      );
+    });
+  }, [
+    salesWorkLogs,
+    currentUserId,
+    today,
+  ]);
+
+  /*
+   * ============================================================
+   * SALES METRICS
+   * ============================================================
+   */
+
+  const totalCallsToday = useMemo(() => {
+    return todaySalesLogs.reduce(
+      (total: number, log: any) =>
+        total +
+        (log.callsMade ?? 0),
+      0
+    );
+  }, [todaySalesLogs]);
+
+  const totalConnectedToday = useMemo(() => {
+    return todaySalesLogs.reduce(
+      (total: number, log: any) =>
+        total +
+        (log.callsConnected ?? 0),
+      0
+    );
+  }, [todaySalesLogs]);
+
+  const totalHotLeadsToday = useMemo(() => {
+    return todaySalesLogs.reduce(
+      (total: number, log: any) =>
+        total +
+        (log.leadsRespondedWell ?? 0),
+      0
+    );
+  }, [todaySalesLogs]);
+
+  const totalFollowUpsToday = useMemo(() => {
+    return todaySalesLogs.reduce(
+      (total: number, log: any) =>
+        total +
+        (log.followUpsScheduled ?? 0),
+      0
+    );
+  }, [todaySalesLogs]);
+
+  /*
+   * ============================================================
+   * PERSONAL TARGET
+   * ============================================================
+   */
+
   const staffTarget =
-    staffTargets.find((st) => st.userId === currentUser.id) ??
-    staffTargets[0] ??
+    staffTargets.find(
+      (target: any) =>
+        target.userId === currentUserId
+    ) ??
+    (isSalesStaff
+      ? staffTargets[0]
+      : null) ??
     null;
 
-  const targetPercent = staffTarget
-    ? Math.min(
-      100,
-      Math.round(
-        (staffTarget.achievedAmount / staffTarget.targetAmount) * 100
-      )
-    )
-    : 0;
+  const targetPercent =
+    staffTarget &&
+    Number(staffTarget.targetAmount) > 0
+      ? Math.min(
+          100,
+          Math.round(
+            (Number(
+              staffTarget.achievedAmount
+            ) /
+              Number(
+                staffTarget.targetAmount
+              )) *
+              100
+          )
+        )
+      : 0;
+
+  /*
+   * ============================================================
+   * ATTENDANCE
+   * ============================================================
+   */
 
   const userTodayAttendance =
-    attendanceRecords.find((r) => r.userId === currentUser.id) ?? null;
-  const todayUserLog = dailyWorkLogs.find((d) => d.userId === currentUser.id && d.date === new Date().toISOString().substring(0, 10));
+    attendanceRecords.find(
+      (record: any) =>
+        record.userId === currentUserId &&
+        (
+          record.date === today ||
+          record.attendanceDate === today
+        )
+    ) ??
+    attendanceRecords.find(
+      (record: any) =>
+        record.userId === currentUserId
+    ) ??
+    null;
 
-  const pendingLeaves = leaveRequests.filter((l) => l.status === 'Pending');
-  const pendingDeals = incentiveTransactions.filter((t) => t.status === 'Pending_Manager' || t.status === 'Verified_Manager');
+  /*
+   * ============================================================
+   * HR / LEAVE
+   * ============================================================
+   */
 
-  const totalDepositAmount = customerReceipts.reduce((acc, r) => acc + r.depositAmount, 0);
-  const totalCallsToday = dailyWorkLogs.reduce((acc, l) => acc + (l.callsMade || 0), 0);
-  const totalHotLeads = dailyWorkLogs.reduce((acc, l) => acc + (l.leadsRespondedWell || 0), 0);
+  const pendingLeaves =
+    leaveRequests.filter(
+      (leave: any) =>
+        leave.status === 'Pending'
+    );
+
+  /*
+   * ============================================================
+   * INCENTIVES
+   * ============================================================
+   */
+
+  const pendingDeals =
+    incentiveTransactions.filter(
+      (transaction: any) =>
+        transaction.status ===
+          'Pending_Manager' ||
+        transaction.status ===
+          'Verified_Manager'
+    );
+
+  /*
+   * ============================================================
+   * RECEIPTS
+   * ============================================================
+   */
+
+  const totalDepositAmount =
+    customerReceipts.reduce(
+      (total: number, receipt: any) =>
+        total +
+        Number(
+          receipt.depositAmount ?? 0
+        ),
+      0
+    );
+
+  /*
+   * ============================================================
+   * RECENT SALES WORK
+   * ============================================================
+   */
+
+  const recentSalesLogs =
+    salesWorkLogs.slice(0, 3);
+
+  /*
+   * ============================================================
+   * HELPER
+   * ============================================================
+   */
+
+  const getUserName = (log: any) =>
+    log.user?.fullName ??
+    log.userName ??
+    'Unknown Employee';
+
+  const getUserDesignation = (
+    log: any
+  ) =>
+    log.user?.designation ??
+    log.designation ??
+    'Sales Staff';
+
+  const getAvatarUrl = (log: any) =>
+    log.user?.avatarUrl ??
+    log.userAvatar ??
+    '';
+
+  const getWorkDate = (log: any) =>
+    log.workDate ??
+    log.date ??
+    '—';
+
+  /*
+   * ============================================================
+   * RENDER
+   * ============================================================
+   */
 
   return (
     <div className="space-y-6 pb-12">
 
-      {/* Top Banner */}
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 pb-2 border-b border-white/5">
+      {/* ======================================================
+          TOP BANNER
+          ====================================================== */}
+
+      <div className="flex flex-col items-start justify-between gap-4 border-b border-white/5 pb-4 sm:flex-row sm:items-center">
+
         <div>
           <div className="flex items-center gap-2">
-            <h1 className="text-xl font-bold text-white tracking-tight">
-              Welcome back, {currentUser.name}
+            <h1 className="text-xl font-bold tracking-tight text-white">
+              Welcome back,{' '}
+              {currentUser.name ??
+                currentUser.fullName ??
+                currentUser.username}
             </h1>
-            <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-[#5C3FE0]/20 text-[#5C3FE0] border border-[#5C3FE0]/30">
-              {currentUser.designation}
-            </span>
+
+            {currentUser.designation && (
+              <span className="rounded-full border border-[#5C3FE0]/30 bg-[#5C3FE0]/20 px-2 py-0.5 text-[10px] font-bold text-[#A78BFA]">
+                {currentUser.designation}
+              </span>
+            )}
           </div>
-          <p className="text-xs text-gray-400 mt-0.5">
-            {isStaff && "Today's call goals, personal investment targets, customer slips & incentives."}
-            {isDeveloper && "Daily engineering sprint, task narrations, attendance & payslips."}
-            {isHR && "Biometric attendance sync, leave management & monthly payroll disbursement."}
-            {isManager && "Branch sales pipeline, daily outreach volume & deal approvals."}
-            {isAdmin && `Comprehensive operational oversight & governance for ${currentTenant.name}.`}
+
+          <p className="mt-0.5 text-xs text-gray-400">
+            {isSalesStaff &&
+              "Today's sales activity, outreach and personal performance."}
+
+            {isSupportStaff &&
+              "Daily operations, attendance, customer activity and support work."}
+
+            {isDeveloper &&
+              "Engineering activity, attendance, knowledge hub and payroll."}
+
+            {isHR &&
+              "Attendance, staff operations, leave management and payroll."}
+
+            {isManager &&
+              "Branch sales activity, team outreach and operational approvals."}
+
+            {isCompanyAdmin &&
+              `Operational overview for ${currentTenant.name}.`}
           </p>
         </div>
 
-        {/* Dynamic Action Buttons */}
-        <div className="flex items-center gap-2.5">
-          <button
-            onClick={() => setIsWorkLogModalOpen(true)}
-            className="px-3.5 py-2 rounded-xl bg-purple-600 hover:bg-purple-500 text-white text-xs font-bold shadow-lg shadow-purple-900/30 transition-all flex items-center gap-1.5"
-          >
-            <PhoneCall className="w-3.5 h-3.5" />
-            <span>+ Log Daily Work</span>
-          </button>
+        {/* ====================================================
+            ACTION BUTTONS
+            ==================================================== */}
 
-          {(isStaff || isManager || isAdmin) && (
+        <div className="flex flex-wrap items-center gap-2.5">
+
+          {/* Sales staff only */}
+          {isSalesStaff && (
             <button
-              onClick={() => setIsCreateReceiptModalOpen(true)}
-              className="px-3.5 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold shadow-lg shadow-emerald-950/30 transition-all flex items-center gap-1.5"
+              type="button"
+              onClick={() =>
+                setIsWorkLogModalOpen(true)
+              }
+              className="flex items-center gap-1.5 rounded-xl bg-purple-600 px-3.5 py-2 text-xs font-bold text-white shadow-lg shadow-purple-900/30 transition-all hover:bg-purple-500"
             >
-              <Receipt className="w-3.5 h-3.5" />
-              <span>+ Issue Customer Slip</span>
+              <PhoneCall className="h-3.5 w-3.5" />
+              <span>
+                + Log Daily Work
+              </span>
             </button>
           )}
 
+          {/* Customer receipt access */}
+          {(isSalesStaff ||
+            isManager ||
+            isCompanyAdmin) && (
+            <button
+              type="button"
+              onClick={() =>
+                setIsCreateReceiptModalOpen(
+                  true
+                )
+              }
+              className="flex items-center gap-1.5 rounded-xl bg-emerald-600 px-3.5 py-2 text-xs font-bold text-white shadow-lg shadow-emerald-950/30 transition-all hover:bg-emerald-500"
+            >
+              <Receipt className="h-3.5 w-3.5" />
+              <span>
+                + Issue Customer Slip
+              </span>
+            </button>
+          )}
+
+          {/* HR only */}
           {isHR && (
             <button
-              onClick={() => setIsBatchUploadOpen(true)}
-              className="px-3.5 py-2 rounded-xl bg-[#5C3FE0] hover:bg-[#6A4DF4] text-white text-xs font-bold shadow-lg transition-all flex items-center gap-1.5"
+              type="button"
+              onClick={() =>
+                setIsBatchUploadOpen(true)
+              }
+              className="flex items-center gap-1.5 rounded-xl bg-[#5C3FE0] px-3.5 py-2 text-xs font-bold text-white shadow-lg transition-all hover:bg-[#6A4DF4]"
             >
-              <FileSpreadsheet className="w-3.5 h-3.5" />
-              <span>Import Excel Attendance</span>
+              <FileSpreadsheet className="h-3.5 w-3.5" />
+              <span>
+                Import Excel Attendance
+              </span>
             </button>
           )}
         </div>
       </div>
 
-      {/* Role-Tailored Metric Grid */}
-      {/* 1. For Staff / Sales Advisors */}
-      {isStaff && (
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-          <div className="p-4 rounded-2xl bg-[#09081E] border border-white/10">
+      {/* ======================================================
+          SALES STAFF DASHBOARD
+          ====================================================== */}
+
+      {isSalesStaff && (
+        <>
+          <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
+
+            {/* Calls */}
+            <div className="rounded-2xl border border-white/10 bg-[#09081E] p-4">
+              <div className="flex items-center justify-between">
+                <span className="text-[11px] font-medium text-gray-400">
+                  My Calls Today
+                </span>
+
+                <div className="rounded-xl bg-purple-500/15 p-2 text-purple-300">
+                  <PhoneCall className="h-4 w-4" />
+                </div>
+              </div>
+
+              <h3 className="mt-1 text-2xl font-bold text-white">
+                {todayUserLog?.callsMade ??
+                  0}
+              </h3>
+
+              <span className="text-[10px] font-medium text-emerald-400">
+                {todayUserLog?.leadsRespondedWell ??
+                  0}{' '}
+                Responded Well
+              </span>
+            </div>
+
+            {/* Target */}
+            <div className="rounded-2xl border border-white/10 bg-[#09081E] p-4">
+              <div className="flex items-center justify-between">
+                <span className="text-[11px] font-medium text-gray-400">
+                  Personal Target
+                </span>
+
+                <div className="rounded-xl bg-[#5C3FE0]/15 p-2 text-[#A78BFA]">
+                  <Target className="h-4 w-4" />
+                </div>
+              </div>
+
+              <h3 className="mt-1 text-2xl font-bold text-white">
+                {targetPercent}%
+              </h3>
+
+              <span className="text-[10px] font-medium text-gray-400">
+                {staffTarget
+                  ? `${Number(
+                      staffTarget.achievedAmount
+                    ).toLocaleString()} / ${Number(
+                      staffTarget.targetAmount
+                    ).toLocaleString()}`
+                  : 'No target assigned'}
+              </span>
+            </div>
+
+            {/* Incentive */}
+            <div className="rounded-2xl border border-white/10 bg-[#09081E] p-4">
+              <div className="flex items-center justify-between">
+                <span className="text-[11px] font-medium text-gray-400">
+                  Incentive
+                </span>
+
+                <div className="rounded-xl bg-emerald-500/15 p-2 text-emerald-400">
+                  <DollarSign className="h-4 w-4" />
+                </div>
+              </div>
+
+              <h3 className="mt-1 text-2xl font-bold text-emerald-400">
+                {pendingDeals.filter(
+                  (item: any) =>
+                    item.userId ===
+                    currentUserId
+                ).length}
+              </h3>
+
+              <span className="text-[10px] font-medium text-emerald-500">
+                Pending verification
+              </span>
+            </div>
+
+            {/* Attendance */}
+            <div className="rounded-2xl border border-white/10 bg-[#09081E] p-4">
+              <div className="flex items-center justify-between">
+                <span className="text-[11px] font-medium text-gray-400">
+                  Today's Attendance
+                </span>
+
+                <div className="rounded-xl bg-cyan-500/15 p-2 text-cyan-400">
+                  <CalendarCheck className="h-4 w-4" />
+                </div>
+              </div>
+
+              <h3 className="mt-1 text-lg font-bold text-white">
+                {userTodayAttendance
+                  ? 'Checked In'
+                  : 'Not Checked In'}
+              </h3>
+
+              <span className="text-[10px] font-medium text-cyan-300">
+                {userTodayAttendance
+                  ? `In: ${
+                      userTodayAttendance.inTime ??
+                      userTodayAttendance.checkInTime ??
+                      'Recorded'
+                    }`
+                  : 'No attendance record'}
+              </span>
+            </div>
+          </div>
+        </>
+      )}
+
+      {/* ======================================================
+          SUPPORT STAFF DASHBOARD
+          ====================================================== */}
+
+      {isSupportStaff && (
+        <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
+
+          <div className="rounded-2xl border border-white/10 bg-[#09081E] p-4">
             <div className="flex items-center justify-between">
-              <span className="text-[11px] font-medium text-gray-400">My Calls Today</span>
-              <div className="p-2 rounded-xl bg-purple-500/15 text-purple-300">
-                <PhoneCall className="w-4 h-4" />
+              <span className="text-[11px] font-medium text-gray-400">
+                Today's Calls
+              </span>
+              <div className="rounded-xl bg-purple-500/15 p-2 text-purple-300">
+                <PhoneCall className="h-4 w-4" />
               </div>
             </div>
-            <h3 className="text-2xl font-bold text-white mt-1">
-              {todayUserLog?.callsMade || 35}
+
+            <h3 className="mt-1 text-2xl font-bold text-white">
+              {totalCallsToday}
             </h3>
-            <span className="text-[10px] text-emerald-400 font-medium">
-              {todayUserLog?.leadsRespondedWell || 8} Responded Well (Hot)
+
+            <span className="text-[10px] text-purple-300">
+              Sales activity
             </span>
           </div>
 
-          <div className="p-4 rounded-2xl bg-[#09081E] border border-white/10">
+          <div className="rounded-2xl border border-white/10 bg-[#09081E] p-4">
             <div className="flex items-center justify-between">
-              <span className="text-[11px] font-medium text-gray-400">Personal Target Progress</span>
-              <div className="p-2 rounded-xl bg-[#5C3FE0]/15 text-[#5C3FE0]">
-                <Target className="w-4 h-4" />
+              <span className="text-[11px] font-medium text-gray-400">
+                Positive Responses
+              </span>
+              <div className="rounded-xl bg-emerald-500/15 p-2 text-emerald-400">
+                <UserCheck className="h-4 w-4" />
               </div>
             </div>
-            <h3 className="text-2xl font-bold text-white mt-1">{targetPercent}%</h3>
-            <span className="text-[10px] text-gray-400 font-medium">
-              {staffTarget
-                ? `$${(staffTarget.achievedAmount / 1000).toFixed(0)}k of $${(
-                  staffTarget.targetAmount / 1000
-                ).toFixed(0)}k`
-                : 'No target assigned'}
+
+            <h3 className="mt-1 text-2xl font-bold text-emerald-400">
+              {totalHotLeadsToday}
+            </h3>
+
+            <span className="text-[10px] text-emerald-400">
+              Responded well
             </span>
           </div>
 
-          <div className="p-4 rounded-2xl bg-[#09081E] border border-white/10">
+          <div className="rounded-2xl border border-white/10 bg-[#09081E] p-4">
             <div className="flex items-center justify-between">
-              <span className="text-[11px] font-medium text-gray-400">Earned Incentive</span>
-              <div className="p-2 rounded-xl bg-emerald-500/15 text-emerald-400">
-                <DollarSign className="w-4 h-4" />
+              <span className="text-[11px] font-medium text-gray-400">
+                Follow-ups
+              </span>
+              <div className="rounded-xl bg-cyan-500/15 p-2 text-cyan-400">
+                <CalendarCheck className="h-4 w-4" />
               </div>
             </div>
-            <h3 className="text-2xl font-bold text-emerald-400 mt-1">$4,850</h3>
-            <span className="text-[10px] text-emerald-500 font-medium">Approved for next payroll</span>
+
+            <h3 className="mt-1 text-2xl font-bold text-white">
+              {totalFollowUpsToday}
+            </h3>
+
+            <span className="text-[10px] text-cyan-300">
+              Scheduled today
+            </span>
           </div>
 
-          <div className="p-4 rounded-2xl bg-[#09081E] border border-white/10">
+          <div className="rounded-2xl border border-white/10 bg-[#09081E] p-4">
             <div className="flex items-center justify-between">
-              <span className="text-[11px] font-medium text-gray-400">Today's Attendance</span>
-              <div className="p-2 rounded-xl bg-cyan-500/15 text-cyan-400">
-                <CalendarCheck className="w-4 h-4" />
+              <span className="text-[11px] font-medium text-gray-400">
+                Attendance
+              </span>
+              <div className="rounded-xl bg-blue-500/15 p-2 text-blue-300">
+                <Clock className="h-4 w-4" />
               </div>
             </div>
-            <h3 className="text-lg font-bold text-white mt-1">Checked In</h3>
-            <span className="text-[10px] text-cyan-300 font-medium">
+
+            <h3 className="mt-1 text-lg font-bold text-white">
               {userTodayAttendance
-                ? `In: ${userTodayAttendance.inTime} (Biometric Validated)`
-                : 'No attendance record for today'}
+                ? 'Present'
+                : 'Not Recorded'}
+            </h3>
+
+            <span className="text-[10px] text-gray-400">
+              Today's status
             </span>
           </div>
         </div>
       )}
 
-      {/* 2. For Software Developers */}
+      {/* ======================================================
+          DEVELOPER DASHBOARD
+          ====================================================== */}
+
       {isDeveloper && (
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-          <div className="p-4 rounded-2xl bg-[#09081E] border border-white/10">
+        <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
+
+          <div className="rounded-2xl border border-white/10 bg-[#09081E] p-4">
             <div className="flex items-center justify-between">
-              <span className="text-[11px] font-medium text-gray-400">Daily Work Log</span>
-              <div className="p-2 rounded-xl bg-blue-500/15 text-blue-300">
-                <Code2 className="w-4 h-4" />
+              <span className="text-[11px] font-medium text-gray-400">
+                Daily Work
+              </span>
+
+              <div className="rounded-xl bg-blue-500/15 p-2 text-blue-300">
+                <Code2 className="h-4 w-4" />
               </div>
             </div>
-            <h3 className="text-lg font-bold text-white mt-1">
-              {todayUserLog ? 'Submitted' : 'Pending Entry'}
+
+            <h3 className="mt-1 text-lg font-bold text-white">
+              Coming Soon
             </h3>
-            <span className="text-[10px] text-blue-400 font-medium">
-              {todayUserLog?.hoursSpent || 8} Hours logged today
+
+            <span className="text-[10px] font-medium text-blue-400">
+              Developer work-log module
             </span>
           </div>
 
-          <div className="p-4 rounded-2xl bg-[#09081E] border border-white/10">
+          <div className="rounded-2xl border border-white/10 bg-[#09081E] p-4">
             <div className="flex items-center justify-between">
-              <span className="text-[11px] font-medium text-gray-400">Attendance Status</span>
-              <div className="p-2 rounded-xl bg-emerald-500/15 text-emerald-400">
-                <CalendarCheck className="w-4 h-4" />
-              </div>
-            </div>
-            <h3 className="text-lg font-bold text-emerald-400 mt-1">Present (8.5 hrs)</h3>
-            <span className="text-[10px] text-gray-400 font-medium">Synced via office biometric</span>
-          </div>
+              <span className="text-[11px] font-medium text-gray-400">
+                Attendance
+              </span>
 
-          <div className="p-4 rounded-2xl bg-[#09081E] border border-white/10">
-            <div className="flex items-center justify-between">
-              <span className="text-[11px] font-medium text-gray-400">CEO Masterclasses</span>
-              <div className="p-2 rounded-xl bg-[#5C3FE0]/15 text-[#5C3FE0]">
-                <Video className="w-4 h-4" />
+              <div className="rounded-xl bg-emerald-500/15 p-2 text-emerald-400">
+                <CalendarCheck className="h-4 w-4" />
               </div>
             </div>
-            <h3 className="text-lg font-bold text-purple-300 mt-1">4 Videos Available</h3>
-            <span className="text-[10px] text-gray-400 font-medium">Slab economics & tech specs</span>
-          </div>
 
-          <div className="p-4 rounded-2xl bg-[#09081E] border border-white/10">
-            <div className="flex items-center justify-between">
-              <span className="text-[11px] font-medium text-gray-400">Monthly Basic & Net</span>
-              <div className="p-2 rounded-xl bg-cyan-500/15 text-cyan-400">
-                <CreditCard className="w-4 h-4" />
-              </div>
-            </div>
-            <h3 className="text-xl font-bold text-white mt-1">${currentUser.salaryBase.toLocaleString()}</h3>
-            <span className="text-[10px] text-cyan-300 font-medium">Payslip generated on time</span>
-          </div>
-        </div>
-      )}
-
-      {/* 3. For HR / Operations */}
-      {isHR && (
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-          <div className="p-4 rounded-2xl bg-[#09081E] border border-white/10">
-            <div className="flex items-center justify-between">
-              <span className="text-[11px] font-medium text-gray-400">Today's Present Staff</span>
-              <div className="p-2 rounded-xl bg-emerald-500/15 text-emerald-400">
-                <Users className="w-4 h-4" />
-              </div>
-            </div>
-            <h3 className="text-2xl font-bold text-white mt-1">94.2%</h3>
-            <span className="text-[10px] text-emerald-400 font-medium">Excel sync operational</span>
-          </div>
-
-          <div className="p-4 rounded-2xl bg-[#09081E] border border-white/10">
-            <div className="flex items-center justify-between">
-              <span className="text-[11px] font-medium text-gray-400">Pending Leave Requests</span>
-              <div className="p-2 rounded-xl bg-amber-500/15 text-amber-300">
-                <CalendarCheck className="w-4 h-4" />
-              </div>
-            </div>
-            <h3 className="text-2xl font-bold text-amber-400 mt-1">{pendingLeaves.length}</h3>
-            <span className="text-[10px] text-amber-300 font-medium">Awaiting HR review</span>
-          </div>
-
-          <div className="p-4 rounded-2xl bg-[#09081E] border border-white/10">
-            <div className="flex items-center justify-between">
-              <span className="text-[11px] font-medium text-gray-400">Work Logs Submitted</span>
-              <div className="p-2 rounded-xl bg-purple-500/15 text-purple-300">
-                <PhoneCall className="w-4 h-4" />
-              </div>
-            </div>
-            <h3 className="text-2xl font-bold text-white mt-1">{dailyWorkLogs.length}</h3>
-            <span className="text-[10px] text-purple-300 font-medium">Team outreach & narrations</span>
-          </div>
-
-          <div className="p-4 rounded-2xl bg-[#09081E] border border-white/10">
-            <div className="flex items-center justify-between">
-              <span className="text-[11px] font-medium text-gray-400">Monthly Payroll Status</span>
-              <div className="p-2 rounded-xl bg-cyan-500/15 text-cyan-400">
-                <CreditCard className="w-4 h-4" />
-              </div>
-            </div>
-            <h3 className="text-lg font-bold text-white mt-1">Draft Ready</h3>
-            <span className="text-[10px] text-cyan-300 font-medium">Automatic attendance deduction</span>
-          </div>
-        </div>
-      )}
-
-      {/* 4. For Management & Super Admins */}
-      {(isManager || isAdmin) && (
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-          <div className="p-4 rounded-2xl bg-[#09081E] border border-white/10">
-            <div className="flex items-center justify-between">
-              <span className="text-[11px] font-medium text-gray-400">Total Customer Custody</span>
-              <div className="p-2 rounded-xl bg-emerald-500/15 text-emerald-400">
-                <DollarSign className="w-4 h-4" />
-              </div>
-            </div>
-            <h3 className="text-2xl font-bold text-white mt-1">
-              ${(totalDepositAmount / 1000000).toFixed(2)}M
+            <h3 className="mt-1 text-lg font-bold text-emerald-400">
+              {userTodayAttendance
+                ? 'Present'
+                : 'Not Recorded'}
             </h3>
-            <span className="text-[10px] text-emerald-400 font-medium">{customerReceipts.length} Official Slips Issued</span>
+
+            <span className="text-[10px] text-gray-400">
+              Office attendance
+            </span>
           </div>
 
-          <div className="p-4 rounded-2xl bg-[#09081E] border border-white/10">
+          <div className="rounded-2xl border border-white/10 bg-[#09081E] p-4">
             <div className="flex items-center justify-between">
-              <span className="text-[11px] font-medium text-gray-400">Team Calls Today</span>
-              <div className="p-2 rounded-xl bg-purple-500/15 text-purple-300">
-                <PhoneCall className="w-4 h-4" />
+              <span className="text-[11px] font-medium text-gray-400">
+                Knowledge Hub
+              </span>
+
+              <div className="rounded-xl bg-[#5C3FE0]/15 p-2 text-[#A78BFA]">
+                <Video className="h-4 w-4" />
               </div>
             </div>
-            <h3 className="text-2xl font-bold text-white mt-1">{totalCallsToday}</h3>
-            <span className="text-[10px] text-emerald-400 font-medium">{totalHotLeads} Hot Leads Interested</span>
+
+            <h3 className="mt-1 text-lg font-bold text-purple-300">
+              Available
+            </h3>
+
+            <span className="text-[10px] text-gray-400">
+              CEO masterclasses
+            </span>
           </div>
 
-          <div className="p-4 rounded-2xl bg-[#09081E] border border-white/10">
+          <div className="rounded-2xl border border-white/10 bg-[#09081E] p-4">
             <div className="flex items-center justify-between">
-              <span className="text-[11px] font-medium text-gray-400">Pending Deal Approvals</span>
-              <div className="p-2 rounded-xl bg-amber-500/15 text-amber-300">
-                <Target className="w-4 h-4" />
-              </div>
-            </div>
-            <h3 className="text-2xl font-bold text-amber-400 mt-1">{pendingDeals.length}</h3>
-            <span className="text-[10px] text-amber-300 font-medium">Incentive verification required</span>
-          </div>
+              <span className="text-[11px] font-medium text-gray-400">
+                Salary Base
+              </span>
 
-          <div className="p-4 rounded-2xl bg-[#09081E] border border-white/10">
-            <div className="flex items-center justify-between">
-              <span className="text-[11px] font-medium text-gray-400">Active Slab Version</span>
-              <div className="p-2 rounded-xl bg-[#5C3FE0]/15 text-[#5C3FE0]">
-                <Sparkles className="w-4 h-4" />
+              <div className="rounded-xl bg-cyan-500/15 p-2 text-cyan-400">
+                <CreditCard className="h-4 w-4" />
               </div>
             </div>
-            <h3 className="text-lg font-bold text-purple-300 mt-1">{activeSlabVersion.versionCode}</h3>
-            <span className="text-[10px] text-gray-400 font-medium">Max 24.0% p.a. sovereign yield</span>
+
+            <h3 className="mt-1 text-xl font-bold text-white">
+              {Number(
+                currentUser.salaryBase ?? 0
+              ).toLocaleString()}
+            </h3>
+
+            <span className="text-[10px] text-cyan-300">
+              Current salary base
+            </span>
           </div>
         </div>
       )}
 
-      {/* Main Content Columns */}
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+      {/* ======================================================
+          HR DASHBOARD
+          ====================================================== */}
 
-        {/* Left 7 Columns: Daily Activity Feed / Call Summaries */}
-        <div className="lg:col-span-7 space-y-4">
-          <div className="p-5 rounded-2xl bg-[#09081E] border border-white/10 space-y-4">
-            <div className="flex items-center justify-between pb-3 border-b border-white/5">
-              <div className="flex items-center gap-2">
-                <PhoneCall className="w-4 h-4 text-purple-400" />
-                <h3 className="text-sm font-bold text-white">Recent Daily Work & Call Submissions</h3>
+      {isHR && (
+        <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
+
+          <div className="rounded-2xl border border-white/10 bg-[#09081E] p-4">
+            <div className="flex items-center justify-between">
+              <span className="text-[11px] font-medium text-gray-400">
+                Present Staff
+              </span>
+
+              <div className="rounded-xl bg-emerald-500/15 p-2 text-emerald-400">
+                <Users className="h-4 w-4" />
               </div>
+            </div>
+
+            <h3 className="mt-1 text-2xl font-bold text-white">
+              {attendanceRecords.length}
+            </h3>
+
+            <span className="text-[10px] text-emerald-400">
+              Attendance records loaded
+            </span>
+          </div>
+
+          <div className="rounded-2xl border border-white/10 bg-[#09081E] p-4">
+            <div className="flex items-center justify-between">
+              <span className="text-[11px] font-medium text-gray-400">
+                Pending Leave
+              </span>
+
+              <div className="rounded-xl bg-amber-500/15 p-2 text-amber-300">
+                <CalendarCheck className="h-4 w-4" />
+              </div>
+            </div>
+
+            <h3 className="mt-1 text-2xl font-bold text-amber-400">
+              {pendingLeaves.length}
+            </h3>
+
+            <span className="text-[10px] text-amber-300">
+              Awaiting HR review
+            </span>
+          </div>
+
+          <div className="rounded-2xl border border-white/10 bg-[#09081E] p-4">
+            <div className="flex items-center justify-between">
+              <span className="text-[11px] font-medium text-gray-400">
+                Sales Work Logs
+              </span>
+
+              <div className="rounded-xl bg-purple-500/15 p-2 text-purple-300">
+                <PhoneCall className="h-4 w-4" />
+              </div>
+            </div>
+
+            <h3 className="mt-1 text-2xl font-bold text-white">
+              {salesWorkLogs.length}
+            </h3>
+
+            <span className="text-[10px] text-purple-300">
+              Sales reports
+            </span>
+          </div>
+
+          <div className="rounded-2xl border border-white/10 bg-[#09081E] p-4">
+            <div className="flex items-center justify-between">
+              <span className="text-[11px] font-medium text-gray-400">
+                Payroll
+              </span>
+
+              <div className="rounded-xl bg-cyan-500/15 p-2 text-cyan-400">
+                <CreditCard className="h-4 w-4" />
+              </div>
+            </div>
+
+            <h3 className="mt-1 text-lg font-bold text-white">
+              Available
+            </h3>
+
+            <span className="text-[10px] text-cyan-300">
+              Open payroll module
+            </span>
+          </div>
+        </div>
+      )}
+
+      {/* ======================================================
+          MANAGER / COMPANY ADMIN
+          ====================================================== */}
+
+      {(isManager ||
+        isCompanyAdmin) && (
+        <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
+
+          {/* Customer custody */}
+          <div className="rounded-2xl border border-white/10 bg-[#09081E] p-4">
+            <div className="flex items-center justify-between">
+              <span className="text-[11px] font-medium text-gray-400">
+                Customer Receipts
+              </span>
+
+              <div className="rounded-xl bg-emerald-500/15 p-2 text-emerald-400">
+                <DollarSign className="h-4 w-4" />
+              </div>
+            </div>
+
+            <h3 className="mt-1 text-2xl font-bold text-white">
+              {customerReceipts.length}
+            </h3>
+
+            <span className="text-[10px] text-emerald-400">
+              Official slips issued
+            </span>
+          </div>
+
+          {/* Team calls */}
+          <div className="rounded-2xl border border-white/10 bg-[#09081E] p-4">
+            <div className="flex items-center justify-between">
+              <span className="text-[11px] font-medium text-gray-400">
+                Team Calls Today
+              </span>
+
+              <div className="rounded-xl bg-purple-500/15 p-2 text-purple-300">
+                <PhoneCall className="h-4 w-4" />
+              </div>
+            </div>
+
+            <h3 className="mt-1 text-2xl font-bold text-white">
+              {totalCallsToday}
+            </h3>
+
+            <span className="text-[10px] text-emerald-400">
+              {totalHotLeadsToday}{' '}
+              positive responses
+            </span>
+          </div>
+
+          {/* Follow-ups */}
+          <div className="rounded-2xl border border-white/10 bg-[#09081E] p-4">
+            <div className="flex items-center justify-between">
+              <span className="text-[11px] font-medium text-gray-400">
+                Follow-ups Today
+              </span>
+
+              <div className="rounded-xl bg-cyan-500/15 p-2 text-cyan-400">
+                <CalendarCheck className="h-4 w-4" />
+              </div>
+            </div>
+
+            <h3 className="mt-1 text-2xl font-bold text-white">
+              {totalFollowUpsToday}
+            </h3>
+
+            <span className="text-[10px] text-cyan-300">
+              Scheduled activities
+            </span>
+          </div>
+
+          {/* Slab */}
+          <div className="rounded-2xl border border-white/10 bg-[#09081E] p-4">
+            <div className="flex items-center justify-between">
+              <span className="text-[11px] font-medium text-gray-400">
+                Active Slab
+              </span>
+
+              <div className="rounded-xl bg-[#5C3FE0]/15 p-2 text-[#A78BFA]">
+                <Sparkles className="h-4 w-4" />
+              </div>
+            </div>
+
+            <h3 className="mt-1 text-lg font-bold text-purple-300">
+              {activeSlabVersion?.versionCode ??
+                '—'}
+            </h3>
+
+            <span className="text-[10px] text-gray-400">
+              Current slab configuration
+            </span>
+          </div>
+        </div>
+      )}
+
+      {/* ======================================================
+          MAIN CONTENT
+          ====================================================== */}
+
+      <div className="grid grid-cols-1 gap-6 lg:grid-cols-12">
+
+        {/* ====================================================
+            LEFT — DAILY SALES ACTIVITY
+            ==================================================== */}
+
+        <div className="space-y-4 lg:col-span-7">
+
+          <div className="space-y-4 rounded-2xl border border-white/10 bg-[#09081E] p-5">
+
+            <div className="flex items-center justify-between border-b border-white/5 pb-3">
+
+              <div className="flex items-center gap-2">
+                <PhoneCall className="h-4 w-4 text-purple-400" />
+
+                <h3 className="text-sm font-bold text-white">
+                  Recent Sales Daily Work
+                </h3>
+              </div>
+
               <button
-                onClick={() => setActiveTab('daily_work')}
-                className="text-xs text-[#5C3FE0] hover:text-purple-300 font-semibold flex items-center gap-1"
+                type="button"
+                onClick={() =>
+                  setActiveTab(
+                    'daily_work'
+                  )
+                }
+                className="flex items-center gap-1 text-xs font-semibold text-[#A78BFA] hover:text-purple-300"
               >
-                <span>View All Logs</span>
-                <ChevronRight className="w-3.5 h-3.5" />
+                <span>
+                  View All Logs
+                </span>
+
+                <ChevronRight className="h-3.5 w-3.5" />
               </button>
             </div>
 
-            <div className="space-y-3">
-              {dailyWorkLogs.slice(0, 3).map((log) => (
-                <div
-                  key={log.id}
-                  className="p-3.5 rounded-xl bg-black/40 border border-white/5 space-y-2 hover:border-white/15 transition-all"
-                >
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-2.5">
-                      <img
-                        src={log.userAvatar}
-                        alt={log.userName}
-                        className="w-7 h-7 rounded-full object-cover border border-white/10"
-                      />
-                      <div>
-                        <div className="text-xs font-bold text-white">{log.userName}</div>
-                        <div className="text-[10px] text-gray-400">{log.designation}</div>
+            {recentSalesLogs.length ===
+            0 ? (
+              <div className="rounded-xl border border-white/5 bg-black/30 p-8 text-center">
+                <PhoneCall className="mx-auto h-7 w-7 text-gray-600" />
+
+                <p className="mt-2 text-xs font-semibold text-gray-300">
+                  No Sales Work Reports
+                </p>
+
+                <p className="mt-1 text-[10px] text-gray-500">
+                  Sales daily work submissions
+                  will appear here.
+                </p>
+
+                {isSalesStaff && (
+                  <button
+                    type="button"
+                    onClick={() =>
+                      setIsWorkLogModalOpen(
+                        true
+                      )
+                    }
+                    className="mx-auto mt-3 flex items-center gap-1.5 rounded-lg bg-[#5C3FE0] px-3 py-1.5 text-[11px] font-semibold text-white"
+                  >
+                    <Plus className="h-3.5 w-3.5" />
+                    Submit Daily Work
+                  </button>
+                )}
+              </div>
+            ) : (
+              <div className="space-y-3">
+
+                {recentSalesLogs.map(
+                  (log: any) => {
+                    const userName =
+                      getUserName(log);
+
+                    const designation =
+                      getUserDesignation(
+                        log
+                      );
+
+                    const avatarUrl =
+                      getAvatarUrl(log);
+
+                    return (
+                      <div
+                        key={log.id}
+                        className="space-y-2 rounded-xl border border-white/5 bg-black/40 p-3.5 transition-all hover:border-white/15"
+                      >
+
+                        <div className="flex items-center justify-between">
+
+                          <div className="flex items-center gap-2.5">
+
+                            {avatarUrl ? (
+                              <img
+                                src={avatarUrl}
+                                alt={userName}
+                                className="h-7 w-7 rounded-full border border-white/10 object-cover"
+                              />
+                            ) : (
+                              <div className="flex h-7 w-7 items-center justify-center rounded-full border border-white/10 bg-[#5C3FE0]/20 text-[10px] font-bold text-[#A78BFA]">
+                                {userName
+                                  .charAt(
+                                    0
+                                  )
+                                  .toUpperCase()}
+                              </div>
+                            )}
+
+                            <div>
+                              <div className="text-xs font-bold text-white">
+                                {userName}
+                              </div>
+
+                              <div className="text-[10px] text-gray-400">
+                                {designation}
+                              </div>
+                            </div>
+                          </div>
+
+                          <div className="flex items-center gap-2">
+
+                            <span className="text-[10px] text-gray-500">
+                              {getWorkDate(
+                                log
+                              )}
+                            </span>
+
+                            <span
+                              className={`rounded-full border px-2 py-0.5 text-[10px] font-semibold ${
+                                log.status ===
+                                'Reviewed'
+                                  ? 'border-emerald-500/30 bg-emerald-500/15 text-emerald-400'
+                                  : log.status ===
+                                      'Rejected'
+                                    ? 'border-red-500/30 bg-red-500/15 text-red-400'
+                                    : 'border-amber-500/30 bg-amber-500/15 text-amber-400'
+                              }`}
+                            >
+                              {log.status ??
+                                'Submitted'}
+                            </span>
+                          </div>
+                        </div>
+
+                        <p className="line-clamp-2 text-xs leading-relaxed text-gray-300">
+                          {log.narration}
+                        </p>
+
+                        <div className="flex items-center gap-3 border-t border-white/5 pt-2 text-[11px] text-gray-400">
+
+                          <span>
+                            Calls:{' '}
+                            <strong className="text-white">
+                              {log.callsMade ??
+                                0}
+                            </strong>
+                          </span>
+
+                          <span>
+                            •
+                          </span>
+
+                          <span>
+                            Connected:{' '}
+                            <strong className="text-purple-300">
+                              {log.callsConnected ??
+                                0}
+                            </strong>
+                          </span>
+
+                          <span>
+                            •
+                          </span>
+
+                          <span>
+                            Responded:{' '}
+                            <strong className="text-emerald-400">
+                              {log.leadsRespondedWell ??
+                                0}
+                            </strong>
+                          </span>
+
+                          <span>
+                            •
+                          </span>
+
+                          <span>
+                            Follow-ups:{' '}
+                            <strong className="text-cyan-300">
+                              {log.followUpsScheduled ??
+                                0}
+                            </strong>
+                          </span>
+                        </div>
                       </div>
-                    </div>
-                    <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-emerald-500/15 text-emerald-400 border border-emerald-500/30">
-                      {log.status}
-                    </span>
-                  </div>
-
-                  <p className="text-xs text-gray-300 line-clamp-2 leading-relaxed">
-                    {log.narration}
-                  </p>
-
-                  {log.workType === 'sales' && (
-                    <div className="flex items-center gap-3 text-[11px] text-gray-400 pt-1 border-t border-white/5">
-                      <span>Calls: <strong className="text-white">{log.callsMade}</strong></span>
-                      <span>•</span>
-                      <span>Connected: <strong className="text-purple-300">{log.callsConnected}</strong></span>
-                      <span>•</span>
-                      <span>Hot Leads: <strong className="text-emerald-400">{log.leadsRespondedWell}</strong></span>
-                    </div>
-                  )}
-
-                  {log.workType === 'developer' && (
-                    <div className="flex items-center gap-3 text-[11px] text-gray-400 pt-1 border-t border-white/5">
-                      <span>Hours: <strong className="text-blue-300">{log.hoursSpent} hrs</strong></span>
-                      <span>•</span>
-                      <span className="truncate">{log.featuresShipped}</span>
-                    </div>
-                  )}
-                </div>
-              ))}
-            </div>
+                    );
+                  }
+                )}
+              </div>
+            )}
           </div>
         </div>
 
-        {/* Right 5 Columns: Customer Slips & CEO Knowledge Hub */}
-        <div className="lg:col-span-5 space-y-4">
+        {/* ====================================================
+            RIGHT — CUSTOMER RECEIPTS + KNOWLEDGE HUB
+            ==================================================== */}
 
-          {/* Customer Slips Widget */}
-          <div className="p-5 rounded-2xl bg-[#09081E] border border-white/10 space-y-3">
-            <div className="flex items-center justify-between pb-2 border-b border-white/5">
+        <div className="space-y-4 lg:col-span-5">
+
+          {/* Customer Slips */}
+          <div className="space-y-3 rounded-2xl border border-white/10 bg-[#09081E] p-5">
+
+            <div className="flex items-center justify-between border-b border-white/5 pb-2">
+
               <div className="flex items-center gap-2">
-                <Receipt className="w-4 h-4 text-emerald-400" />
-                <h3 className="text-sm font-bold text-white">Latest Customer Payment Slips</h3>
+                <Receipt className="h-4 w-4 text-emerald-400" />
+
+                <h3 className="text-sm font-bold text-white">
+                  Latest Customer Payment Slips
+                </h3>
               </div>
+
               <button
-                onClick={() => setActiveTab('receipts_slabs')}
-                className="text-xs text-emerald-400 hover:underline font-semibold"
+                type="button"
+                onClick={() =>
+                  setActiveTab(
+                    'receipts_slabs'
+                  )
+                }
+                className="text-xs font-semibold text-emerald-400 hover:underline"
               >
                 View All
               </button>
             </div>
 
-            <div className="space-y-2.5">
-              {customerReceipts.slice(0, 2).map((rcpt) => (
-                <div
-                  key={rcpt.id}
-                  onClick={() => setSelectedReceiptForView(rcpt)}
-                  className="p-3 rounded-xl bg-black/40 border border-white/5 hover:border-emerald-500/30 transition-all cursor-pointer space-y-1 group"
-                >
-                  <div className="flex items-center justify-between text-xs">
-                    <span className="font-bold text-white group-hover:text-emerald-300">
-                      {rcpt.customerName}
-                    </span>
-                    <span className="font-bold text-emerald-400">
-                      ${rcpt.depositAmount.toLocaleString()}
-                    </span>
-                  </div>
-                  <div className="flex items-center justify-between text-[10px] text-gray-400">
-                    <span className="font-mono text-purple-300">{rcpt.receiptNumber}</span>
-                    <span>{rcpt.slabTierName} ({rcpt.annualYieldPercent}%)</span>
-                  </div>
-                </div>
-              ))}
-            </div>
+            {customerReceipts.length ===
+            0 ? (
+              <div className="py-6 text-center">
+                <Receipt className="mx-auto h-6 w-6 text-gray-600" />
+
+                <p className="mt-2 text-xs text-gray-400">
+                  No customer slips yet.
+                </p>
+              </div>
+            ) : (
+              <div className="space-y-2.5">
+
+                {customerReceipts
+                  .slice(0, 2)
+                  .map(
+                    (receipt: any) => (
+                      <div
+                        key={receipt.id}
+                        onClick={() =>
+                          setSelectedReceiptForView(
+                            receipt
+                          )
+                        }
+                        className="group cursor-pointer space-y-1 rounded-xl border border-white/5 bg-black/40 p-3 transition-all hover:border-emerald-500/30"
+                      >
+
+                        <div className="flex items-center justify-between text-xs">
+
+                          <span className="font-bold text-white group-hover:text-emerald-300">
+                            {
+                              receipt.customerName
+                            }
+                          </span>
+
+                          <span className="font-bold text-emerald-400">
+                            {Number(
+                              receipt.depositAmount ??
+                                0
+                            ).toLocaleString()}
+                          </span>
+                        </div>
+
+                        <div className="flex items-center justify-between text-[10px] text-gray-400">
+
+                          <span className="font-mono text-purple-300">
+                            {
+                              receipt.receiptNumber
+                            }
+                          </span>
+
+                          <span>
+                            {receipt.slabTierName ??
+                              'Slab'}
+                          </span>
+                        </div>
+                      </div>
+                    )
+                  )}
+              </div>
+            )}
           </div>
 
-          {/* CEO Knowledge Hub Quick Access */}
-          <div className="p-5 rounded-2xl bg-gradient-to-br from-[#120e3a] to-[#09081E] border border-[#5C3FE0]/30 space-y-3">
+          {/* Knowledge Hub */}
+          <div className="space-y-3 rounded-2xl border border-[#5C3FE0]/30 bg-gradient-to-br from-[#120e3a] to-[#09081E] p-5">
+
             <div className="flex items-center justify-between">
+
               <div className="flex items-center gap-2">
-                <Video className="w-4 h-4 text-purple-300" />
-                <h3 className="text-sm font-bold text-white">CEO Knowledge Hub</h3>
+                <Video className="h-4 w-4 text-purple-300" />
+
+                <h3 className="text-sm font-bold text-white">
+                  CEO Knowledge Hub
+                </h3>
               </div>
-              <span className="text-[10px] px-2 py-0.5 rounded bg-emerald-500/20 text-emerald-300 font-semibold">
-                No Exams • Pure Teaching
+
+              <span className="rounded bg-emerald-500/20 px-2 py-0.5 text-[10px] font-semibold text-emerald-300">
+                Learning
               </span>
             </div>
 
-            <p className="text-xs text-gray-300 leading-relaxed">
-              Watch video masterclasses from Alexander Sterling and executive leadership on sovereign investment slabs and client advisory techniques.
+            <p className="text-xs leading-relaxed text-gray-300">
+              Access leadership masterclasses,
+              investment slab education and
+              client advisory training.
             </p>
 
             <button
-              onClick={() => setActiveTab('knowledge_hub')}
-              className="w-full py-2.5 rounded-xl bg-[#5C3FE0] hover:bg-[#6A4DF4] text-white text-xs font-bold shadow transition-all flex items-center justify-center gap-2"
+              type="button"
+              onClick={() =>
+                setActiveTab(
+                  'knowledge_hub'
+                )
+              }
+              className="flex w-full items-center justify-center gap-2 rounded-xl bg-[#5C3FE0] py-2.5 text-xs font-bold text-white shadow transition-all hover:bg-[#6A4DF4]"
             >
-              <Play className="w-3.5 h-3.5 fill-white" />
-              <span>Explore Masterclasses</span>
+              <Play className="h-3.5 w-3.5 fill-white" />
+
+              <span>
+                Explore Masterclasses
+              </span>
             </button>
           </div>
-
         </div>
-
       </div>
 
+      {/* ======================================================
+          MANAGEMENT QUICK ACTIONS
+          ====================================================== */}
+
+      {isManagement && (
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+
+          <button
+            type="button"
+            onClick={() =>
+              setActiveTab(
+                'daily_work'
+              )
+            }
+            className="group flex items-center justify-between rounded-2xl border border-white/10 bg-[#09081E] p-4 text-left transition-all hover:border-[#5C3FE0]/40"
+          >
+            <div className="flex items-center gap-3">
+
+              <div className="rounded-xl bg-purple-500/15 p-2.5 text-purple-300">
+                <PhoneCall className="h-4 w-4" />
+              </div>
+
+              <div>
+                <p className="text-xs font-bold text-white">
+                  Review Daily Work
+                </p>
+
+                <p className="mt-0.5 text-[10px] text-gray-500">
+                  Review Sales submissions
+                </p>
+              </div>
+            </div>
+
+            <ArrowUpRight className="h-4 w-4 text-gray-500 transition group-hover:text-[#A78BFA]" />
+          </button>
+
+          <button
+            type="button"
+            onClick={() =>
+              setActiveTab(
+                'attendance'
+              )
+            }
+            className="group flex items-center justify-between rounded-2xl border border-white/10 bg-[#09081E] p-4 text-left transition-all hover:border-cyan-500/30"
+          >
+            <div className="flex items-center gap-3">
+
+              <div className="rounded-xl bg-cyan-500/15 p-2.5 text-cyan-400">
+                <CalendarCheck className="h-4 w-4" />
+              </div>
+
+              <div>
+                <p className="text-xs font-bold text-white">
+                  Attendance
+                </p>
+
+                <p className="mt-0.5 text-[10px] text-gray-500">
+                  View staff attendance
+                </p>
+              </div>
+            </div>
+
+            <ArrowUpRight className="h-4 w-4 text-gray-500 transition group-hover:text-cyan-300" />
+          </button>
+
+          <button
+            type="button"
+            onClick={() =>
+              setActiveTab(
+                'staff'
+              )
+            }
+            className="group flex items-center justify-between rounded-2xl border border-white/10 bg-[#09081E] p-4 text-left transition-all hover:border-emerald-500/30"
+          >
+            <div className="flex items-center gap-3">
+
+              <div className="rounded-xl bg-emerald-500/15 p-2.5 text-emerald-400">
+                <Users className="h-4 w-4" />
+              </div>
+
+              <div>
+                <p className="text-xs font-bold text-white">
+                  Staff Management
+                </p>
+
+                <p className="mt-0.5 text-[10px] text-gray-500">
+                  Manage authorized staff
+                </p>
+              </div>
+            </div>
+
+            <ArrowUpRight className="h-4 w-4 text-gray-500 transition group-hover:text-emerald-300" />
+          </button>
+        </div>
+      )}
     </div>
   );
 };

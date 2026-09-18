@@ -1,489 +1,1349 @@
-import React, { useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { useApp } from '../context/AppContext';
-import { DailyWorkLog } from '../types';
+import {
+  BackendDailyWorkLog,
+  getDailyWorkLogs,
+  reviewDailyWorkLog,
+} from '../api/dailyWork';
+
 import {
   PhoneCall,
   UserCheck,
   Calendar,
-  DollarSign,
   FileText,
   Plus,
   Search,
-  Filter,
   CheckCircle2,
   Clock,
   MessageSquare,
   Sparkles,
   Download,
-  Code2,
-  GitPullRequest,
   Check,
   Send,
-  Briefcase,
   AlertCircle,
+  RefreshCw,
+  XCircle,
 } from 'lucide-react';
 
 export const DailyWorkView: React.FC = () => {
   const {
-    dailyWorkLogs,
     setIsWorkLogModalOpen,
     currentUser,
-    reviewDailyWorkLog,
+    selectedBranch,
   } = useApp();
 
-  const isManagement = currentUser.role === 'super_admin' || currentUser.role === 'company_admin' || currentUser.role === 'manager' || currentUser.role === 'hr_ops';
-  const isDeveloper = currentUser.role === 'developer';
+  // ============================================================
+  // ROLE
+  // ============================================================
 
-  const [activeFilter, setActiveFilter] = useState<'all' | 'sales' | 'developer' | 'operations'>('all');
-  const [searchQuery, setSearchQuery] = useState('');
-  const [selectedDate, setSelectedDate] = useState('');
+  const role = (
+    currentUser.roleName ||
+    currentUser.role ||
+    ''
+  ).toLowerCase();
 
-  // Manager Feedback State
-  const [feedbackLogId, setFeedbackLogId] = useState<string | null>(null);
-  const [feedbackText, setFeedbackText] = useState('');
+  const isSalesStaff = role === 'sales_staff';
 
-  // Filter logs
-  const filteredLogs = dailyWorkLogs.filter((log) => {
-    // If not management, staff/dev can view all team logs or only their own? Let's show team logs with their own highlighted
-    if (activeFilter !== 'all' && log.workType !== activeFilter) return false;
-    if (selectedDate && log.date !== selectedDate) return false;
-    if (searchQuery) {
-      const q = searchQuery.toLowerCase();
-      const matchName = log.userName.toLowerCase().includes(q);
-      const matchDesignation = log.designation.toLowerCase().includes(q);
-      const matchNarration = log.narration.toLowerCase().includes(q);
-      const matchFeatures = log.featuresShipped?.toLowerCase().includes(q);
-      return matchName || matchDesignation || matchNarration || matchFeatures;
+  const isBranchManager =
+    role === 'branch_manager';
+
+  const isHrOps =
+    role === 'hr_ops';
+
+  const isCompanyAdmin =
+    role === 'company_admin';
+
+  const isManagement =
+    isBranchManager ||
+    isHrOps ||
+    isCompanyAdmin;
+
+  // Super admin intentionally has no Daily Work access.
+  const isSuperAdmin =
+    role === 'super_admin';
+
+  // ============================================================
+  // STATE
+  // ============================================================
+
+  const [dailyWorkLogs, setDailyWorkLogs] = useState<
+    BackendDailyWorkLog[]
+  >([]);
+
+  const [isLoading, setIsLoading] =
+    useState(true);
+
+  const [isRefreshing, setIsRefreshing] =
+    useState(false);
+
+  const [error, setError] =
+    useState<string | null>(null);
+
+  const [searchQuery, setSearchQuery] =
+    useState('');
+
+  const [selectedDate, setSelectedDate] =
+    useState('');
+
+  const [statusFilter, setStatusFilter] =
+    useState<'all' | 'Submitted' | 'Reviewed' | 'Rejected'>(
+      'all'
+    );
+
+  const [feedbackLogId, setFeedbackLogId] =
+    useState<number | null>(null);
+
+  const [feedbackText, setFeedbackText] =
+    useState('');
+
+  const [reviewingLogId, setReviewingLogId] =
+    useState<number | null>(null);
+
+  // ============================================================
+  // LOAD DAILY WORK
+  // ============================================================
+
+  const loadDailyWork = async (
+    showFullLoader = true
+  ) => {
+    if (isSuperAdmin) {
+      setDailyWorkLogs([]);
+      setIsLoading(false);
+      return;
     }
-    return true;
-  });
 
-  // Calculate aggregates
-  const totalCalls = dailyWorkLogs.reduce((acc, log) => acc + (log.callsMade || 0), 0);
-  const totalHotLeads = dailyWorkLogs.reduce((acc, log) => acc + (log.leadsRespondedWell || 0), 0);
-  const totalClosedDeals = dailyWorkLogs.reduce((acc, log) => acc + (log.closingInvestmentAmount || 0), 0);
-  const totalDevHours = dailyWorkLogs.reduce((acc, log) => acc + (log.hoursSpent || 0), 0);
+    try {
+      if (showFullLoader) {
+        setIsLoading(true);
+      } else {
+        setIsRefreshing(true);
+      }
 
-  const handleFeedbackSubmit = (logId: string) => {
-    if (!feedbackText.trim()) return;
-    reviewDailyWorkLog(logId, feedbackText, 'Reviewed');
-    setFeedbackLogId(null);
-    setFeedbackText('');
+      setError(null);
+
+      /*
+       * Sales Staff:
+       * Backend automatically restricts them to their own
+       * Sales reports.
+       *
+       * Branch Manager:
+       * Backend restricts them to their assigned branch.
+       *
+       * HR Ops / Company Admin:
+       * They can see the tenant and optionally filter by branch.
+       *
+       * The selected branch is a DISPLAY FILTER for management.
+       * It is NOT being trusted for authorization.
+       */
+
+      const branchId =
+        isManagement &&
+          !isBranchManager &&
+          selectedBranch?.id
+          ? selectedBranch.id
+          : undefined;
+
+      const logs = await getDailyWorkLogs({
+        branchId,
+        workType: 0, // Sales
+      });
+
+      setDailyWorkLogs(logs);
+    } catch (err) {
+      console.error(
+        'Failed to load daily work logs:',
+        err
+      );
+
+      setError(
+        err instanceof Error
+          ? err.message
+          : 'Failed to load daily work reports.'
+      );
+    } finally {
+      setIsLoading(false);
+      setIsRefreshing(false);
+    }
   };
 
+  useEffect(() => {
+    loadDailyWork();
+  }, [
+    selectedBranch?.id,
+    role,
+  ]);
+
+  // ============================================================
+  // FILTER LOGS
+  // ============================================================
+
+  const filteredLogs = useMemo(() => {
+    const query =
+      searchQuery.trim().toLowerCase();
+
+    return dailyWorkLogs.filter((log) => {
+      // Only Sales reports are currently supported.
+      if (
+        log.workType !== 'Sales' &&
+        log.workType !== 0
+      ) {
+        return false;
+      }
+
+      // Date filter
+      if (
+        selectedDate &&
+        log.workDate !== selectedDate
+      ) {
+        return false;
+      }
+
+      // Status filter
+      if (
+        statusFilter !== 'all' &&
+        log.status !== statusFilter
+      ) {
+        return false;
+      }
+
+      // Search
+      if (query) {
+        const userName =
+          log.user?.fullName || '';
+
+        const employeeCode =
+          log.user?.employeeCode || '';
+
+        const designation =
+          log.user?.designation || '';
+
+        const department =
+          log.user?.department || '';
+
+        const narration =
+          log.narration || '';
+
+        const managerNotes =
+          log.managerNotes || '';
+
+        const branchName =
+          log.branch?.branchName || '';
+
+        const searchableText = [
+          userName,
+          employeeCode,
+          designation,
+          department,
+          narration,
+          managerNotes,
+          branchName,
+        ]
+          .join(' ')
+          .toLowerCase();
+
+        if (!searchableText.includes(query)) {
+          return false;
+        }
+      }
+
+      return true;
+    });
+  }, [
+    dailyWorkLogs,
+    searchQuery,
+    selectedDate,
+    statusFilter,
+  ]);
+
+  // ============================================================
+  // AGGREGATES
+  // ============================================================
+
+  const totalCalls = useMemo(
+    () =>
+      filteredLogs.reduce(
+        (total, log) =>
+          total + (log.callsMade || 0),
+        0
+      ),
+    [filteredLogs]
+  );
+
+  const totalConnected = useMemo(
+    () =>
+      filteredLogs.reduce(
+        (total, log) =>
+          total + (log.callsConnected || 0),
+        0
+      ),
+    [filteredLogs]
+  );
+
+  const totalHotLeads = useMemo(
+    () =>
+      filteredLogs.reduce(
+        (total, log) =>
+          total +
+          (log.leadsRespondedWell || 0),
+        0
+      ),
+    [filteredLogs]
+  );
+
+  const totalFollowUps = useMemo(
+    () =>
+      filteredLogs.reduce(
+        (total, log) =>
+          total +
+          (log.followUpsScheduled || 0),
+        0
+      ),
+    [filteredLogs]
+  );
+
+  // ============================================================
+  // REVIEW
+  // ============================================================
+
+  const handleQuickReview = async (
+    logId: number
+  ) => {
+    try {
+      setReviewingLogId(logId);
+
+      await reviewDailyWorkLog(
+        logId,
+        {
+          managerNotes:
+            'Report reviewed by management.',
+          status: 'Reviewed',
+        }
+      );
+
+      await loadDailyWork(false);
+    } catch (err) {
+      console.error(
+        'Failed to review daily work:',
+        err
+      );
+
+      setError(
+        err instanceof Error
+          ? err.message
+          : 'Failed to review report.'
+      );
+    } finally {
+      setReviewingLogId(null);
+    }
+  };
+
+  const handleFeedbackSubmit = async (
+    logId: number
+  ) => {
+    if (!feedbackText.trim()) {
+      return;
+    }
+
+    try {
+      setReviewingLogId(logId);
+
+      await reviewDailyWorkLog(
+        logId,
+        {
+          managerNotes:
+            feedbackText.trim(),
+          status: 'Reviewed',
+        }
+      );
+
+      setFeedbackLogId(null);
+      setFeedbackText('');
+
+      await loadDailyWork(false);
+    } catch (err) {
+      console.error(
+        'Failed to submit review:',
+        err
+      );
+
+      setError(
+        err instanceof Error
+          ? err.message
+          : 'Failed to submit management review.'
+      );
+    } finally {
+      setReviewingLogId(null);
+    }
+  };
+
+  const handleReject = async (
+    logId: number
+  ) => {
+    const reason =
+      window.prompt(
+        'Enter the reason for rejecting this report:'
+      );
+
+    if (!reason?.trim()) {
+      return;
+    }
+
+    try {
+      setReviewingLogId(logId);
+
+      await reviewDailyWorkLog(
+        logId,
+        {
+          managerNotes:
+            reason.trim(),
+          status: 'Rejected',
+        }
+      );
+
+      await loadDailyWork(false);
+    } catch (err) {
+      console.error(
+        'Failed to reject daily work:',
+        err
+      );
+
+      setError(
+        err instanceof Error
+          ? err.message
+          : 'Failed to reject report.'
+      );
+    } finally {
+      setReviewingLogId(null);
+    }
+  };
+
+  // ============================================================
+  // CSV EXPORT
+  // ============================================================
+
   const handleExportCSV = () => {
-    const headers = ['Date', 'Employee', 'Designation', 'Department', 'Type', 'Calls Made', 'Responded Well', 'Closed Amount', 'Narration', 'Status'];
-    const rows = filteredLogs.map((l) => [
-      l.date,
-      `"${l.userName}"`,
-      `"${l.designation}"`,
-      `"${l.department}"`,
-      l.workType,
-      l.callsMade || 0,
-      l.leadsRespondedWell || 0,
-      l.closingInvestmentAmount || 0,
-      `"${l.narration.replace(/"/g, '""')}"`,
-      l.status,
-    ]);
-    const csvContent = 'data:text/csv;charset=utf-8,' + [headers.join(','), ...rows.map((e) => e.join(','))].join('\n');
-    const encodedUri = encodeURI(csvContent);
-    const link = document.createElement('a');
-    link.setAttribute('href', encodedUri);
-    link.setAttribute('download', `Estuscia_Daily_Work_Report_${new Date().toISOString().substring(0, 10)}.csv`);
+    if (filteredLogs.length === 0) {
+      return;
+    }
+
+    const headers = [
+      'Date',
+      'Employee',
+      'Employee Code',
+      'Designation',
+      'Department',
+      'Branch',
+      'Calls Made',
+      'Calls Connected',
+      'Leads Responded Well',
+      'Follow-ups Scheduled',
+      'Narration',
+      'Status',
+      'Manager Notes',
+    ];
+
+    const escapeCSV = (
+      value: unknown
+    ) => {
+      const stringValue =
+        value === null ||
+          value === undefined
+          ? ''
+          : String(value);
+
+      return `"${stringValue.replace(
+        /"/g,
+        '""'
+      )}"`;
+    };
+
+    const rows = filteredLogs.map(
+      (log) => [
+        log.workDate,
+        escapeCSV(
+          log.user?.fullName || ''
+        ),
+        escapeCSV(
+          log.user?.employeeCode || ''
+        ),
+        escapeCSV(
+          log.user?.designation || ''
+        ),
+        escapeCSV(
+          log.user?.department || ''
+        ),
+        escapeCSV(
+          log.branch?.branchName || ''
+        ),
+        log.callsMade ?? 0,
+        log.callsConnected ?? 0,
+        log.leadsRespondedWell ?? 0,
+        log.followUpsScheduled ?? 0,
+        escapeCSV(log.narration),
+        escapeCSV(log.status),
+        escapeCSV(
+          log.managerNotes || ''
+        ),
+      ]
+    );
+
+    const csvContent = [
+      headers.join(','),
+      ...rows.map((row) =>
+        row.join(',')
+      ),
+    ].join('\n');
+
+    const blob = new Blob(
+      [csvContent],
+      {
+        type: 'text/csv;charset=utf-8;',
+      }
+    );
+
+    const url =
+      URL.createObjectURL(blob);
+
+    const link =
+      document.createElement('a');
+
+    link.href = url;
+
+    link.download =
+      `Estuscia_Daily_Work_Report_${new Date()
+        .toISOString()
+        .substring(0, 10)}.csv`;
+
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
+
+    URL.revokeObjectURL(url);
   };
+
+  // ============================================================
+  // SUPER ADMIN
+  // ============================================================
+
+  if (isSuperAdmin) {
+    return null;
+  }
+
+  // ============================================================
+  // RENDER
+  // ============================================================
 
   return (
     <div className="space-y-6">
-      
-      {/* Top Banner & Action */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-2 border-b border-white/5">
+
+      {/* ====================================================== */}
+      {/* TOP HEADER */}
+      {/* ====================================================== */}
+
+      <div className="flex flex-col gap-4 border-b border-white/5 pb-4 sm:flex-row sm:items-center sm:justify-between">
+
         <div>
-          <div className="flex items-center gap-2 mb-1">
-            <h1 className="text-xl font-bold text-white tracking-tight">
-              Daily Work, Call Logs & Activity Submissions
+          <div className="mb-1 flex items-center gap-2">
+            <h1 className="text-xl font-bold tracking-tight text-white">
+              Daily Sales Work
             </h1>
-            <span className="text-[10px] px-2.5 py-0.5 rounded-full bg-[#5C3FE0]/20 text-[#5C3FE0] border border-[#5C3FE0]/30 font-semibold">
-              EMS Operations
+
+            <span className="rounded-full border border-[#5C3FE0]/30 bg-[#5C3FE0]/20 px-2.5 py-0.5 text-[10px] font-semibold text-[#A78BFA]">
+              EMS
             </span>
           </div>
+
           <p className="text-xs text-gray-400">
             {isManagement
-              ? 'Review daily staff call logs, customer lead follow-ups, developer narrations, and provide managerial feedback.'
-              : 'Submit your daily work narrations, calls completed, customer responses, and closing investments.'}
+              ? 'Review and manage daily sales activity reports for your authorized scope.'
+              : 'Submit and track your daily sales activity.'}
           </p>
         </div>
 
-        <div className="flex items-center gap-3">
-          <button
-            onClick={handleExportCSV}
-            className="px-3.5 py-2 rounded-xl bg-white/5 hover:bg-white/10 text-gray-300 hover:text-white border border-white/10 text-xs font-semibold transition-all flex items-center gap-2"
-          >
-            <Download className="w-3.5 h-3.5" />
-            <span>Export CSV</span>
-          </button>
+        <div className="flex items-center gap-2">
 
           <button
-            onClick={() => setIsWorkLogModalOpen(true)}
-            className="px-4 py-2 rounded-xl bg-gradient-to-r from-[#5C3FE0] to-[#7C3AED] hover:from-[#6A4DF4] hover:to-[#8B5CF6] text-white text-xs font-bold shadow-lg shadow-[#5C3FE0]/30 transition-all flex items-center gap-2"
+            type="button"
+            onClick={() =>
+              loadDailyWork(false)
+            }
+            disabled={isRefreshing}
+            className="flex items-center gap-2 rounded-xl border border-white/10 bg-white/5 px-3.5 py-2 text-xs font-semibold text-gray-300 transition hover:bg-white/10 hover:text-white disabled:cursor-not-allowed disabled:opacity-50"
           >
-            <Plus className="w-4 h-4" />
-            <span>+ Submit Daily Work Report</span>
+            <RefreshCw
+              className={`h-3.5 w-3.5 ${isRefreshing
+                ? 'animate-spin'
+                : ''
+                }`}
+            />
+
+            <span>Refresh</span>
           </button>
+
+          {filteredLogs.length > 0 && (
+            <button
+              type="button"
+              onClick={handleExportCSV}
+              className="flex items-center gap-2 rounded-xl border border-white/10 bg-white/5 px-3.5 py-2 text-xs font-semibold text-gray-300 transition hover:bg-white/10 hover:text-white"
+            >
+              <Download className="h-3.5 w-3.5" />
+
+              <span>Export CSV</span>
+            </button>
+          )}
+
+          {isSalesStaff && (
+            <button
+              type="button"
+              onClick={() =>
+                setIsWorkLogModalOpen(true)
+              }
+              className="flex items-center gap-2 rounded-xl bg-gradient-to-r from-[#5C3FE0] to-[#7C3AED] px-4 py-2 text-xs font-bold text-white shadow-lg shadow-[#5C3FE0]/30 transition-all hover:from-[#6A4DF4] hover:to-[#8B5CF6]"
+            >
+              <Plus className="h-4 w-4" />
+
+              <span>
+                Submit Daily Work
+              </span>
+            </button>
+          )}
+
         </div>
       </div>
 
-      {/* Aggregate Metric Cards */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-        <div className="p-4 rounded-2xl bg-[#09081E] border border-white/10 flex items-center justify-between">
-          <div>
-            <p className="text-[11px] font-medium text-gray-400">Total Calls Logged</p>
-            <h3 className="text-2xl font-bold text-white mt-1">{totalCalls}</h3>
-            <span className="text-[10px] text-purple-400 font-medium">Outreach volume today</span>
+      {/* ====================================================== */}
+      {/* ERROR */}
+      {/* ====================================================== */}
+
+      {error && (
+        <div className="flex items-start justify-between gap-3 rounded-xl border border-red-500/20 bg-red-500/10 px-4 py-3">
+
+          <div className="flex items-start gap-3">
+            <AlertCircle className="mt-0.5 h-4 w-4 shrink-0 text-red-400" />
+
+            <p className="text-xs text-red-300">
+              {error}
+            </p>
           </div>
-          <div className="p-3 rounded-xl bg-[#5C3FE0]/15 text-[#5C3FE0] border border-[#5C3FE0]/20">
-            <PhoneCall className="w-5 h-5" />
+
+          <button
+            type="button"
+            onClick={() => setError(null)}
+            className="text-red-400 transition hover:text-red-300"
+          >
+            <XCircle className="h-4 w-4" />
+          </button>
+
+        </div>
+      )}
+
+      {/* ====================================================== */}
+      {/* METRIC CARDS */}
+      {/* ====================================================== */}
+
+      <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
+
+        {/* Calls */}
+
+        <div className="flex items-center justify-between rounded-2xl border border-white/10 bg-[#09081E] p-4">
+          <div>
+            <p className="text-[11px] font-medium text-gray-400">
+              Calls Made
+            </p>
+
+            <h3 className="mt-1 text-2xl font-bold text-white">
+              {totalCalls}
+            </h3>
+
+            <span className="text-[10px] font-medium text-purple-400">
+              Sales outreach
+            </span>
+          </div>
+
+          <div className="rounded-xl border border-[#5C3FE0]/20 bg-[#5C3FE0]/15 p-3 text-[#A78BFA]">
+            <PhoneCall className="h-5 w-5" />
           </div>
         </div>
 
-        <div className="p-4 rounded-2xl bg-[#09081E] border border-white/10 flex items-center justify-between">
+        {/* Connected */}
+
+        <div className="flex items-center justify-between rounded-2xl border border-white/10 bg-[#09081E] p-4">
           <div>
-            <p className="text-[11px] font-medium text-gray-400">Responded Well (Hot Leads)</p>
-            <h3 className="text-2xl font-bold text-emerald-400 mt-1">{totalHotLeads}</h3>
-            <span className="text-[10px] text-emerald-500 font-medium">High conversion interest</span>
+            <p className="text-[11px] font-medium text-gray-400">
+              Calls Connected
+            </p>
+
+            <h3 className="mt-1 text-2xl font-bold text-white">
+              {totalConnected}
+            </h3>
+
+            <span className="text-[10px] font-medium text-cyan-400">
+              Successful connections
+            </span>
           </div>
-          <div className="p-3 rounded-xl bg-emerald-500/15 text-emerald-400 border border-emerald-500/20">
-            <Sparkles className="w-5 h-5" />
+
+          <div className="rounded-xl border border-cyan-500/20 bg-cyan-500/10 p-3 text-cyan-400">
+            <UserCheck className="h-5 w-5" />
           </div>
         </div>
 
-        <div className="p-4 rounded-2xl bg-[#09081E] border border-white/10 flex items-center justify-between">
+        {/* Hot Leads */}
+
+        <div className="flex items-center justify-between rounded-2xl border border-white/10 bg-[#09081E] p-4">
           <div>
-            <p className="text-[11px] font-medium text-gray-400">Closing Deals Reported</p>
-            <h3 className="text-2xl font-bold text-white mt-1">${(totalClosedDeals / 1000).toFixed(0)}k</h3>
-            <span className="text-[10px] text-cyan-400 font-medium">Active investment pipeline</span>
+            <p className="text-[11px] font-medium text-gray-400">
+              Responded Well
+            </p>
+
+            <h3 className="mt-1 text-2xl font-bold text-emerald-400">
+              {totalHotLeads}
+            </h3>
+
+            <span className="text-[10px] font-medium text-emerald-500">
+              Positive responses
+            </span>
           </div>
-          <div className="p-3 rounded-xl bg-cyan-500/15 text-cyan-400 border border-cyan-500/20">
-            <DollarSign className="w-5 h-5" />
+
+          <div className="rounded-xl border border-emerald-500/20 bg-emerald-500/10 p-3 text-emerald-400">
+            <Sparkles className="h-5 w-5" />
           </div>
         </div>
 
-        <div className="p-4 rounded-2xl bg-[#09081E] border border-white/10 flex items-center justify-between">
+        {/* Follow Ups */}
+
+        <div className="flex items-center justify-between rounded-2xl border border-white/10 bg-[#09081E] p-4">
           <div>
-            <p className="text-[11px] font-medium text-gray-400">Developer Hours & Deliverables</p>
-            <h3 className="text-2xl font-bold text-blue-400 mt-1">{totalDevHours} hrs</h3>
-            <span className="text-[10px] text-blue-300 font-medium">Engineering sprint items</span>
+            <p className="text-[11px] font-medium text-gray-400">
+              Follow-ups
+            </p>
+
+            <h3 className="mt-1 text-2xl font-bold text-white">
+              {totalFollowUps}
+            </h3>
+
+            <span className="text-[10px] font-medium text-blue-400">
+              Scheduled activities
+            </span>
           </div>
-          <div className="p-3 rounded-xl bg-blue-500/15 text-blue-400 border border-blue-500/20">
-            <Code2 className="w-5 h-5" />
+
+          <div className="rounded-xl border border-blue-500/20 bg-blue-500/10 p-3 text-blue-400">
+            <Calendar className="h-5 w-5" />
           </div>
         </div>
+
       </div>
 
-      {/* Filter and Search Bar */}
-      <div className="p-4 rounded-2xl bg-[#09081E] border border-white/10 space-y-3">
-        <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3">
-          
-          {/* Work Type Tabs */}
-          <div className="flex items-center gap-1.5 p-1 rounded-xl bg-black/40 border border-white/10 overflow-x-auto">
+      {/* ====================================================== */}
+      {/* FILTERS */}
+      {/* ====================================================== */}
+
+      <div className="space-y-3 rounded-2xl border border-white/10 bg-[#09081E] p-4">
+
+        <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+
+          <div className="flex items-center gap-1.5 rounded-xl border border-white/10 bg-black/40 p-1">
+
             <button
-              onClick={() => setActiveFilter('all')}
-              className={`px-3 py-1.5 rounded-lg text-xs font-semibold whitespace-nowrap transition-all ${
-                activeFilter === 'all'
-                  ? 'bg-[#5C3FE0] text-white shadow-md'
-                  : 'text-gray-400 hover:text-white'
-              }`}
+              type="button"
+              onClick={() =>
+                setStatusFilter('all')
+              }
+              className={`rounded-lg px-3 py-1.5 text-xs font-semibold transition-all ${statusFilter === 'all'
+                ? 'bg-[#5C3FE0] text-white shadow-md'
+                : 'text-gray-400 hover:text-white'
+                }`}
             >
-              All Reports ({dailyWorkLogs.length})
+              All Reports
             </button>
+
             <button
-              onClick={() => setActiveFilter('sales')}
-              className={`px-3 py-1.5 rounded-lg text-xs font-semibold whitespace-nowrap transition-all ${
-                activeFilter === 'sales'
-                  ? 'bg-[#5C3FE0] text-white shadow-md'
-                  : 'text-gray-400 hover:text-white'
-              }`}
+              type="button"
+              onClick={() =>
+                setStatusFilter('Submitted')
+              }
+              className={`rounded-lg px-3 py-1.5 text-xs font-semibold transition-all ${statusFilter === 'Submitted'
+                ? 'bg-[#5C3FE0] text-white shadow-md'
+                : 'text-gray-400 hover:text-white'
+                }`}
             >
-              Sales & Calls
+              Submitted
             </button>
+
             <button
-              onClick={() => setActiveFilter('developer')}
-              className={`px-3 py-1.5 rounded-lg text-xs font-semibold whitespace-nowrap transition-all ${
-                activeFilter === 'developer'
-                  ? 'bg-[#5C3FE0] text-white shadow-md'
-                  : 'text-gray-400 hover:text-white'
-              }`}
+              type="button"
+              onClick={() =>
+                setStatusFilter('Reviewed')
+              }
+              className={`rounded-lg px-3 py-1.5 text-xs font-semibold transition-all ${statusFilter === 'Reviewed'
+                ? 'bg-[#5C3FE0] text-white shadow-md'
+                : 'text-gray-400 hover:text-white'
+                }`}
             >
-              Developer Narrations
+              Reviewed
             </button>
+
             <button
-              onClick={() => setActiveFilter('operations')}
-              className={`px-3 py-1.5 rounded-lg text-xs font-semibold whitespace-nowrap transition-all ${
-                activeFilter === 'operations'
-                  ? 'bg-[#5C3FE0] text-white shadow-md'
-                  : 'text-gray-400 hover:text-white'
-              }`}
+              type="button"
+              onClick={() =>
+                setStatusFilter('Rejected')
+              }
+              className={`rounded-lg px-3 py-1.5 text-xs font-semibold transition-all ${statusFilter === 'Rejected'
+                ? 'bg-[#5C3FE0] text-white shadow-md'
+                : 'text-gray-400 hover:text-white'
+                }`}
             >
-              Operations & Support
+              Rejected
             </button>
+
           </div>
 
-          {/* Search & Date input */}
-          <div className="flex items-center gap-2">
-            <div className="relative flex-1 sm:w-64">
-              <Search className="w-3.5 h-3.5 absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+          <div className="flex flex-col gap-2 sm:flex-row">
+
+            {/* Search */}
+
+            <div className="relative sm:w-64">
+              <Search className="absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-gray-400" />
+
               <input
                 type="text"
-                placeholder="Search staff, code, narration..."
+                placeholder="Search employee, branch, narration..."
                 value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="w-full pl-8 pr-3 py-1.5 rounded-xl bg-black/40 border border-white/10 text-white text-xs placeholder-gray-500 focus:outline-none focus:border-[#5C3FE0]"
+                onChange={(event) =>
+                  setSearchQuery(
+                    event.target.value
+                  )
+                }
+                className="w-full rounded-xl border border-white/10 bg-black/40 py-2 pl-8 pr-3 text-xs text-white placeholder-gray-500 outline-none focus:border-[#5C3FE0]"
               />
             </div>
+
+            {/* Date */}
+
             <input
               type="date"
               value={selectedDate}
-              onChange={(e) => setSelectedDate(e.target.value)}
-              className="px-2.5 py-1.5 rounded-xl bg-black/40 border border-white/10 text-white text-xs focus:outline-none focus:border-[#5C3FE0]"
+              onChange={(event) =>
+                setSelectedDate(
+                  event.target.value
+                )
+              }
+              className="rounded-xl border border-white/10 bg-black/40 px-3 py-2 text-xs text-white outline-none focus:border-[#5C3FE0]"
             />
+
             {selectedDate && (
               <button
-                onClick={() => setSelectedDate('')}
-                className="text-[11px] text-[#5C3FE0] hover:underline px-1"
+                type="button"
+                onClick={() =>
+                  setSelectedDate('')
+                }
+                className="px-2 text-[11px] text-[#A78BFA] hover:underline"
               >
                 Clear
               </button>
             )}
+
           </div>
 
         </div>
+
+        {/* Management scope */}
+
+        {isManagement && (
+          <div className="flex items-center gap-2 border-t border-white/5 pt-3 text-[11px] text-gray-500">
+            <Clock className="h-3.5 w-3.5" />
+
+            {isBranchManager
+              ? 'Showing reports for your assigned branch.'
+              : selectedBranch?.id
+                ? `Showing reports for ${selectedBranch.branchName}.`
+                : 'Showing reports across your authorized tenant scope.'}
+          </div>
+        )}
+
       </div>
 
-      {/* Submissions Feed List */}
-      <div className="space-y-4">
-        {filteredLogs.length === 0 ? (
-          <div className="p-12 rounded-2xl bg-[#09081E] border border-white/10 text-center space-y-3">
-            <FileText className="w-10 h-10 text-gray-500 mx-auto" />
-            <h4 className="text-sm font-semibold text-white">No Work Reports Found</h4>
-            <p className="text-xs text-gray-400 max-w-md mx-auto">
-              No daily reports match the selected criteria. Staff can click "+ Submit Daily Work Report" to log today's accomplishments.
-            </p>
+      {/* ====================================================== */}
+      {/* LOADING */}
+      {/* ====================================================== */}
+
+      {isLoading ? (
+        <div className="rounded-2xl border border-white/10 bg-[#09081E] p-12 text-center">
+
+          <RefreshCw className="mx-auto h-8 w-8 animate-spin text-[#A78BFA]" />
+
+          <p className="mt-3 text-sm font-semibold text-white">
+            Loading daily work reports...
+          </p>
+
+          <p className="mt-1 text-xs text-gray-500">
+            Fetching the latest Sales reports.
+          </p>
+
+        </div>
+      ) : filteredLogs.length === 0 ? (
+
+        /* ==================================================== */
+        /* EMPTY */
+        /* ==================================================== */
+
+        <div className="space-y-3 rounded-2xl border border-white/10 bg-[#09081E] p-12 text-center">
+
+          <FileText className="mx-auto h-10 w-10 text-gray-500" />
+
+          <h4 className="text-sm font-semibold text-white">
+            No Sales Work Reports Found
+          </h4>
+
+          <p className="mx-auto max-w-md text-xs text-gray-400">
+            {isSalesStaff
+              ? 'You have not submitted a Sales Daily Work report matching the selected criteria.'
+              : 'No Sales Daily Work reports match the selected criteria.'}
+          </p>
+
+          {isSalesStaff && (
             <button
-              onClick={() => setIsWorkLogModalOpen(true)}
-              className="px-4 py-2 rounded-xl bg-[#5C3FE0] text-white text-xs font-bold shadow-lg"
+              type="button"
+              onClick={() =>
+                setIsWorkLogModalOpen(true)
+              }
+              className="mx-auto mt-2 flex items-center gap-2 rounded-xl bg-[#5C3FE0] px-4 py-2 text-xs font-bold text-white shadow-lg transition hover:bg-[#6A4DF4]"
             >
-              + Submit Report Now
+              <Plus className="h-3.5 w-3.5" />
+
+              Submit Report
             </button>
-          </div>
-        ) : (
-          filteredLogs.map((log) => {
-            const isSalesLog = log.workType === 'sales';
-            const isDevLog = log.workType === 'developer';
+          )}
+
+        </div>
+      ) : (
+
+        /* ==================================================== */
+        /* REPORT FEED */
+        /* ==================================================== */
+
+        <div className="space-y-4">
+
+          {filteredLogs.map((log) => {
+            const isOwnReport =
+              log.userId ===
+              currentUser.id;
+
+            const isPending =
+              log.status === 'Submitted';
+
+            const isReviewed =
+              log.status === 'Reviewed';
+
+            const isRejected =
+              log.status === 'Rejected';
+
+            const userName =
+              log.userName ||
+              'Unknown Employee';
+
+            const employeeCode =
+              log.user?.employeeCode ||
+              '—';
+
+            const designation =
+              log.user?.designation ||
+              '—';
+
+            const department =
+              log.user?.department ||
+              '—';
+
+            const avatarUrl =
+              log.user?.avatarUrl || '';
+
+            const branchName =
+              log.branchName ||
+              'Unknown Branch';
+
+            const branchCity =
+              log.branch?.city || null;
 
             return (
               <div
                 key={log.id}
-                className={`p-5 rounded-2xl bg-[#09081E] border transition-all ${
-                  log.userId === currentUser.id
-                    ? 'border-[#5C3FE0]/40 bg-[#0c092a]'
-                    : 'border-white/10 hover:border-white/20'
-                }`}
+                className={`rounded-2xl border bg-[#09081E] p-5 transition-all ${isOwnReport
+                  ? 'border-[#5C3FE0]/40 bg-[#0c092a]'
+                  : 'border-white/10 hover:border-white/20'
+                  }`}
               >
-                {/* Log Header */}
-                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-white/5">
+
+                {/* ================================================== */}
+                {/* REPORT HEADER */}
+                {/* ================================================== */}
+
+                <div className="flex flex-col gap-3 border-b border-white/5 pb-3 sm:flex-row sm:items-center sm:justify-between">
+
                   <div className="flex items-center gap-3">
-                    <img
-                      src={log.userAvatar}
-                      alt={log.userName}
-                      className="w-10 h-10 rounded-full object-cover border border-white/10"
-                    />
+
+                    {avatarUrl ? (
+                      <img
+                        src={avatarUrl}
+                        alt={userName}
+                        className="h-10 w-10 rounded-full border border-white/10 object-cover"
+                      />
+                    ) : (
+                      <div className="flex h-10 w-10 items-center justify-center rounded-full border border-white/10 bg-[#5C3FE0]/20 text-sm font-bold text-[#A78BFA]">
+                        {userName
+                          .charAt(0)
+                          .toUpperCase()}
+                      </div>
+                    )}
+
                     <div>
-                      <div className="flex items-center gap-2">
-                        <h4 className="text-sm font-bold text-white">{log.userName}</h4>
-                        <span className="text-[10px] px-2 py-0.5 rounded bg-white/5 text-gray-400 border border-white/10 font-mono">
-                          {log.employeeCode}
+
+                      <div className="flex flex-wrap items-center gap-2">
+
+                        <h4 className="text-sm font-bold text-white">
+                          {userName}
+                        </h4>
+
+                        <span className="rounded border border-white/10 bg-white/5 px-2 py-0.5 font-mono text-[10px] text-gray-400">
+                          {employeeCode}
                         </span>
-                        {log.userId === currentUser.id && (
-                          <span className="text-[10px] px-2 py-0.5 rounded bg-[#5C3FE0]/20 text-purple-300 font-semibold border border-[#5C3FE0]/30">
+
+                        {isOwnReport && (
+                          <span className="rounded border border-[#5C3FE0]/30 bg-[#5C3FE0]/20 px-2 py-0.5 text-[10px] font-semibold text-[#A78BFA]">
                             You
                           </span>
                         )}
+
                       </div>
+
                       <p className="text-xs text-gray-400">
-                        {log.designation} • <span className="text-gray-300">{log.department}</span>
+                        {designation}
+                        {' • '}
+                        <span className="text-gray-300">
+                          {department}
+                        </span>
                       </p>
+
+                      <p className="mt-0.5 text-[10px] text-gray-500">
+                        {branchName}
+                        {branchCity
+                          ? ` • ${branchCity}`
+                          : ''}
+                      </p>
+
                     </div>
                   </div>
 
                   <div className="flex items-center gap-3">
-                    <div className="text-right text-xs">
-                      <div className="flex items-center gap-1.5 text-gray-300 font-medium justify-end">
-                        <Calendar className="w-3.5 h-3.5 text-gray-400" />
-                        <span>{log.date}</span>
+
+                    <div className="text-right">
+
+                      <div className="flex items-center justify-end gap-1.5 text-xs font-medium text-gray-300">
+                        <Calendar className="h-3.5 w-3.5 text-gray-400" />
+
+                        <span>
+                          {log.workDate}
+                        </span>
                       </div>
-                      <span className="text-[11px] text-gray-500">Submitted at {log.submittedAt.split(' ')[1] || '18:30'}</span>
+
+                      <span className="text-[10px] text-gray-500">
+                        {new Date(
+                          log.createdAtUtc
+                        ).toLocaleString()}
+                      </span>
+
                     </div>
 
                     <span
-                      className={`text-[10px] font-bold px-2.5 py-1 rounded-full border ${
-                        log.status === 'Reviewed' || log.status === 'Acknowledged'
-                          ? 'bg-emerald-500/15 text-emerald-400 border-emerald-500/30'
-                          : 'bg-amber-500/15 text-amber-400 border-amber-500/30'
-                      }`}
+                      className={`rounded-full border px-2.5 py-1 text-[10px] font-bold ${isReviewed
+                        ? 'border-emerald-500/30 bg-emerald-500/15 text-emerald-400'
+                        : isRejected
+                          ? 'border-red-500/30 bg-red-500/15 text-red-400'
+                          : 'border-amber-500/30 bg-amber-500/15 text-amber-400'
+                        }`}
                     >
                       {log.status}
                     </span>
+
                   </div>
                 </div>
 
-                {/* Log Metrics Body */}
-                <div className="py-3.5 space-y-3">
-                  {/* Sales Metrics Chips */}
-                  {isSalesLog && (
-                    <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-6 gap-2 text-xs">
-                      <div className="p-2.5 rounded-xl bg-black/40 border border-white/5">
-                        <span className="text-[10px] text-gray-400 block">Calls Made</span>
-                        <span className="text-base font-bold text-white">{log.callsMade}</span>
-                      </div>
-                      <div className="p-2.5 rounded-xl bg-black/40 border border-white/5">
-                        <span className="text-[10px] text-gray-400 block">Connected</span>
-                        <span className="text-base font-bold text-purple-300">{log.callsConnected}</span>
-                      </div>
-                      <div className="p-2.5 rounded-xl bg-emerald-500/10 border border-emerald-500/20">
-                        <span className="text-[10px] text-emerald-400 block">Responded Well</span>
-                        <span className="text-base font-bold text-emerald-400">{log.leadsRespondedWell} Hot</span>
-                      </div>
-                      <div className="p-2.5 rounded-xl bg-black/40 border border-white/5">
-                        <span className="text-[10px] text-gray-400 block">Follow-ups</span>
-                        <span className="text-base font-bold text-cyan-300">{log.followUpsScheduled}</span>
-                      </div>
-                      <div className="p-2.5 rounded-xl bg-black/40 border border-white/5">
-                        <span className="text-[10px] text-gray-400 block">Deals Pitched</span>
-                        <span className="text-base font-bold text-white">{log.dealsPitched}</span>
-                      </div>
-                      <div className="p-2.5 rounded-xl bg-[#5C3FE0]/15 border border-[#5C3FE0]/30">
-                        <span className="text-[10px] text-purple-300 block">Closing Value</span>
-                        <span className="text-base font-bold text-white">
-                          ${(log.closingInvestmentAmount || 0).toLocaleString()}
-                        </span>
-                      </div>
-                    </div>
-                  )}
+                {/* ================================================== */}
+                {/* SALES METRICS */}
+                {/* ================================================== */}
 
-                  {/* Developer Metrics Chips */}
-                  {isDevLog && (
-                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 text-xs">
-                      {log.featuresShipped && (
-                        <div className="p-2.5 rounded-xl bg-blue-500/10 border border-blue-500/20 sm:col-span-2">
-                          <span className="text-[10px] text-blue-300 block font-semibold">Features Shipped</span>
-                          <span className="text-xs text-white font-medium">{log.featuresShipped}</span>
-                        </div>
-                      )}
-                      <div className="p-2.5 rounded-xl bg-black/40 border border-white/5">
-                        <span className="text-[10px] text-gray-400 block">Hours Logged</span>
-                        <span className="text-base font-bold text-blue-300">{log.hoursSpent || 8} hrs</span>
-                      </div>
-                      {log.pullRequests && (
-                        <div className="p-2.5 rounded-xl bg-black/40 border border-white/5 sm:col-span-3 flex items-center gap-2">
-                          <GitPullRequest className="w-3.5 h-3.5 text-blue-400" />
-                          <span className="text-[11px] text-gray-400 font-mono">{log.pullRequests}</span>
-                        </div>
-                      )}
-                    </div>
-                  )}
+                <div className="space-y-3 py-3.5">
 
-                  {/* Detailed Narration Box */}
-                  <div className="p-3.5 rounded-xl bg-black/40 border border-white/5 space-y-1">
-                    <p className="text-[11px] font-semibold text-gray-400">
-                      {isDevLog ? 'Developer Daily Work Narration:' : 'Detailed Call & Activity Remarks:'}
-                    </p>
-                    <p className="text-xs text-gray-200 leading-relaxed whitespace-pre-line font-sans">
-                      {log.narration}
-                    </p>
-                    {log.blockers && (
-                      <div className="mt-2 pt-2 border-t border-white/5 flex items-center gap-2 text-xs text-amber-400">
-                        <AlertCircle className="w-3.5 h-3.5" />
-                        <span>Blocker: {log.blockers}</span>
-                      </div>
-                    )}
+                  <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+
+                    {/* Calls Made */}
+
+                    <div className="rounded-xl border border-white/5 bg-black/40 p-2.5">
+                      <span className="block text-[10px] text-gray-400">
+                        Calls Made
+                      </span>
+
+                      <span className="text-base font-bold text-white">
+                        {log.callsMade ?? 0}
+                      </span>
+                    </div>
+
+                    {/* Connected */}
+
+                    <div className="rounded-xl border border-white/5 bg-black/40 p-2.5">
+                      <span className="block text-[10px] text-gray-400">
+                        Connected
+                      </span>
+
+                      <span className="text-base font-bold text-[#A78BFA]">
+                        {log.callsConnected ?? 0}
+                      </span>
+                    </div>
+
+                    {/* Responded */}
+
+                    <div className="rounded-xl border border-emerald-500/20 bg-emerald-500/10 p-2.5">
+                      <span className="block text-[10px] text-emerald-400">
+                        Responded Well
+                      </span>
+
+                      <span className="text-base font-bold text-emerald-400">
+                        {log.leadsRespondedWell ?? 0}
+                      </span>
+                    </div>
+
+                    {/* Follow Ups */}
+
+                    <div className="rounded-xl border border-cyan-500/20 bg-cyan-500/10 p-2.5">
+                      <span className="block text-[10px] text-cyan-400">
+                        Follow-ups
+                      </span>
+
+                      <span className="text-base font-bold text-cyan-300">
+                        {log.followUpsScheduled ?? 0}
+                      </span>
+                    </div>
+
                   </div>
 
-                  {/* Manager Feedback Section */}
-                  {log.managerFeedback ? (
-                    <div className="p-3 rounded-xl bg-emerald-500/10 border border-emerald-500/20 flex items-start gap-2.5">
-                      <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0 mt-0.5" />
+                  {/* ================================================== */}
+                  {/* NARRATION */}
+                  {/* ================================================== */}
+
+                  <div className="space-y-1 rounded-xl border border-white/5 bg-black/40 p-3.5">
+
+                    <p className="text-[11px] font-semibold text-gray-400">
+                      Daily Work Narration
+                    </p>
+
+                    <p className="whitespace-pre-line text-xs leading-relaxed text-gray-200">
+                      {log.narration}
+                    </p>
+
+                  </div>
+
+                  {/* ================================================== */}
+                  {/* MANAGER NOTES */}
+                  {/* ================================================== */}
+
+                  {log.managerNotes && (
+                    <div
+                      className={`flex items-start gap-2.5 rounded-xl border p-3 ${isRejected
+                        ? 'border-red-500/20 bg-red-500/10'
+                        : 'border-emerald-500/20 bg-emerald-500/10'
+                        }`}
+                    >
+
+                      {isRejected ? (
+                        <XCircle className="mt-0.5 h-4 w-4 shrink-0 text-red-400" />
+                      ) : (
+                        <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-emerald-400" />
+                      )}
+
                       <div className="text-xs">
-                        <span className="font-semibold text-emerald-300">Manager Review: </span>
-                        <span className="text-gray-200">{log.managerFeedback}</span>
+
+                        <span
+                          className={`font-semibold ${isRejected
+                            ? 'text-red-300'
+                            : 'text-emerald-300'
+                            }`}
+                        >
+                          Management Review:{' '}
+                        </span>
+
+                        <span className="text-gray-200">
+                          {log.managerNotes}
+                        </span>
+
                       </div>
                     </div>
-                  ) : null}
-
-                  {/* Manager Action Trigger */}
-                  {isManagement && !log.managerFeedback && (
-                    <div className="pt-2">
-                      {feedbackLogId === log.id ? (
-                        <div className="space-y-2 p-3 rounded-xl bg-black/60 border border-[#5C3FE0]/40">
-                          <label className="block text-[11px] font-semibold text-purple-300">
-                            Provide Feedback & Acknowledge Report
-                          </label>
-                          <textarea
-                            rows={2}
-                            value={feedbackText}
-                            onChange={(e) => setFeedbackText(e.target.value)}
-                            placeholder="e.g. Great outreach volume! Follow up with Mr. Al-Nuaimi on the Tier 3 sovereign slab."
-                            className="w-full px-3 py-2 rounded-lg bg-black/80 border border-white/15 text-white text-xs focus:outline-none focus:border-[#5C3FE0]"
-                          />
-                          <div className="flex items-center justify-end gap-2">
-                            <button
-                              onClick={() => setFeedbackLogId(null)}
-                              className="px-3 py-1.5 rounded-lg text-xs text-gray-400 hover:text-white"
-                            >
-                              Cancel
-                            </button>
-                            <button
-                              onClick={() => handleFeedbackSubmit(log.id)}
-                              className="px-4 py-1.5 rounded-lg bg-[#5C3FE0] text-white text-xs font-bold shadow flex items-center gap-1.5"
-                            >
-                              <Send className="w-3 h-3" />
-                              <span>Submit Review</span>
-                            </button>
-                          </div>
-                        </div>
-                      ) : (
-                        <div className="flex items-center justify-between text-xs pt-1">
-                          <button
-                            onClick={() => {
-                              reviewDailyWorkLog(log.id, 'Report acknowledged and reviewed by leadership.', 'Acknowledged');
-                            }}
-                            className="px-3 py-1.5 rounded-lg bg-white/5 hover:bg-white/10 text-gray-300 hover:text-white border border-white/10 font-semibold transition-all flex items-center gap-1.5 text-[11px]"
-                          >
-                            <Check className="w-3.5 h-3.5 text-emerald-400" />
-                            <span>Quick Acknowledge</span>
-                          </button>
-                          <button
-                            onClick={() => {
-                              setFeedbackLogId(log.id);
-                              setFeedbackText('');
-                            }}
-                            className="px-3 py-1.5 rounded-lg bg-[#5C3FE0]/20 hover:bg-[#5C3FE0]/30 text-[#5C3FE0] border border-[#5C3FE0]/40 font-semibold transition-all flex items-center gap-1.5 text-[11px]"
-                          >
-                            <MessageSquare className="w-3.5 h-3.5" />
-                            <span>Add Management Feedback</span>
-                          </button>
-                        </div>
-                      )}
-                    </div>
                   )}
+
+                  {/* ================================================== */}
+                  {/* MANAGEMENT ACTIONS */}
+                  {/* ================================================== */}
+
+                  {isManagement &&
+                    isPending && (
+                      <div className="pt-2">
+
+                        {feedbackLogId ===
+                          log.id ? (
+                          <div className="space-y-2 rounded-xl border border-[#5C3FE0]/40 bg-black/60 p-3">
+
+                            <label className="block text-[11px] font-semibold text-[#A78BFA]">
+                              Management Review
+                            </label>
+
+                            <textarea
+                              rows={3}
+                              value={feedbackText}
+                              onChange={(event) =>
+                                setFeedbackText(
+                                  event.target.value
+                                )
+                              }
+                              placeholder="Enter your review or feedback..."
+                              disabled={
+                                reviewingLogId ===
+                                log.id
+                              }
+                              className="w-full rounded-lg border border-white/15 bg-black/80 px-3 py-2 text-xs text-white outline-none focus:border-[#5C3FE0]"
+                            />
+
+                            <div className="flex items-center justify-end gap-2">
+
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setFeedbackLogId(
+                                    null
+                                  );
+                                  setFeedbackText(
+                                    ''
+                                  );
+                                }}
+                                disabled={
+                                  reviewingLogId ===
+                                  log.id
+                                }
+                                className="px-3 py-1.5 text-xs text-gray-400 transition hover:text-white"
+                              >
+                                Cancel
+                              </button>
+
+                              <button
+                                type="button"
+                                onClick={() =>
+                                  handleFeedbackSubmit(
+                                    log.id
+                                  )
+                                }
+                                disabled={
+                                  !feedbackText.trim() ||
+                                  reviewingLogId ===
+                                  log.id
+                                }
+                                className="flex items-center gap-1.5 rounded-lg bg-[#5C3FE0] px-4 py-1.5 text-xs font-bold text-white shadow transition hover:bg-[#6A4DF4] disabled:cursor-not-allowed disabled:opacity-50"
+                              >
+                                <Send className="h-3 w-3" />
+
+                                {reviewingLogId ===
+                                  log.id
+                                  ? 'Submitting...'
+                                  : 'Submit Review'}
+                              </button>
+
+                            </div>
+                          </div>
+                        ) : (
+                          <div className="flex flex-wrap items-center justify-between gap-2">
+
+                            <div className="flex flex-wrap items-center gap-2">
+
+                              {/* Quick Review */}
+
+                              <button
+                                type="button"
+                                onClick={() =>
+                                  handleQuickReview(
+                                    log.id
+                                  )
+                                }
+                                disabled={
+                                  reviewingLogId ===
+                                  log.id
+                                }
+                                className="flex items-center gap-1.5 rounded-lg border border-white/10 bg-white/5 px-3 py-1.5 text-[11px] font-semibold text-gray-300 transition hover:bg-white/10 hover:text-white disabled:cursor-not-allowed disabled:opacity-50"
+                              >
+                                <Check className="h-3.5 w-3.5 text-emerald-400" />
+
+                                {reviewingLogId ===
+                                  log.id
+                                  ? 'Reviewing...'
+                                  : 'Quick Review'}
+                              </button>
+
+                              {/* Feedback */}
+
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setFeedbackLogId(
+                                    log.id
+                                  );
+                                  setFeedbackText(
+                                    ''
+                                  );
+                                }}
+                                disabled={
+                                  reviewingLogId ===
+                                  log.id
+                                }
+                                className="flex items-center gap-1.5 rounded-lg border border-[#5C3FE0]/40 bg-[#5C3FE0]/20 px-3 py-1.5 text-[11px] font-semibold text-[#A78BFA] transition hover:bg-[#5C3FE0]/30 disabled:cursor-not-allowed disabled:opacity-50"
+                              >
+                                <MessageSquare className="h-3.5 w-3.5" />
+
+                                Add Feedback
+                              </button>
+
+                              {/* Reject */}
+
+                              <button
+                                type="button"
+                                onClick={() =>
+                                  handleReject(
+                                    log.id
+                                  )
+                                }
+                                disabled={
+                                  reviewingLogId ===
+                                  log.id
+                                }
+                                className="flex items-center gap-1.5 rounded-lg border border-red-500/20 bg-red-500/10 px-3 py-1.5 text-[11px] font-semibold text-red-400 transition hover:bg-red-500/20 disabled:cursor-not-allowed disabled:opacity-50"
+                              >
+                                <XCircle className="h-3.5 w-3.5" />
+
+                                Reject
+                              </button>
+
+                            </div>
+
+                            <span className="text-[10px] text-gray-500">
+                              Awaiting management review
+                            </span>
+
+                          </div>
+                        )}
+
+                      </div>
+                    )}
 
                 </div>
               </div>
             );
-          })
-        )}
-      </div>
+          })}
+
+        </div>
+      )}
 
     </div>
   );

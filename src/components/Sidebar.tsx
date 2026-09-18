@@ -164,6 +164,15 @@ export const Sidebar: React.FC = () => {
       },
 
       {
+        id: 'sales_leads',
+        label: 'Sales Leads',
+        icon: (
+          <Target className="w-4 h-4" />
+        ),
+        section: 'finance_slabs',
+      },
+
+      {
         id: 'receipts_slabs',
         label: 'Customer Receipts & Slabs',
         icon: (

@@ -1,345 +1,528 @@
 import React, { useState } from 'react';
-import { useApp } from '../context/AppContext';
 import {
   X,
   PhoneCall,
   UserCheck,
   Calendar,
-  DollarSign,
   FileText,
   Send,
-  Code2,
-  GitPullRequest,
-  Clock,
   AlertCircle,
   Sparkles,
-  Building2,
 } from 'lucide-react';
 
+import { useApp } from '../context/AppContext';
+import { submitDailyWorkLog } from '../api/dailyWork';
+
 export const DailyWorkModal: React.FC = () => {
-  const { isWorkLogModalOpen, setIsWorkLogModalOpen, currentUser, currentTenant, submitDailyWorkLog } = useApp();
+  const {
+    isWorkLogModalOpen,
+    setIsWorkLogModalOpen,
+    currentUser,
+  } = useApp();
 
-  const isDeveloper = currentUser.role === 'developer' || currentUser.designation.toLowerCase().includes('developer') || currentUser.designation.toLowerCase().includes('engineer');
-  const isSales = currentUser.role === 'staff' || currentUser.designation.toLowerCase().includes('advisor') || currentUser.designation.toLowerCase().includes('sales') || currentUser.designation.toLowerCase().includes('manager');
-  const isOperations = currentUser.role === 'support' || currentUser.role === 'hr_ops' || currentUser.designation.toLowerCase().includes('operations');
+  const [date, setDate] = useState(
+    new Date().toISOString().split('T')[0]
+  );
 
-  // Form State
-  const [date, setDate] = useState(new Date().toISOString().substring(0, 10));
-  
-  // Sales specific fields
-  const [callsMade, setCallsMade] = useState<number>(35);
-  const [callsConnected, setCallsConnected] = useState<number>(24);
-  const [leadsRespondedWell, setLeadsRespondedWell] = useState<number>(8);
-  const [followUpsScheduled, setFollowUpsScheduled] = useState<number>(5);
-  const [dealsPitched, setDealsPitched] = useState<number>(3);
-  const [closingInvestmentAmount, setClosingInvestmentAmount] = useState<number>(100000);
+  const [callsMade, setCallsMade] = useState('');
+  const [callsConnected, setCallsConnected] = useState('');
+  const [leadsRespondedWell, setLeadsRespondedWell] = useState('');
+  const [followUpsScheduled, setFollowUpsScheduled] = useState('');
+  const [narration, setNarration] = useState('');
 
-  // Developer specific fields
-  const [featuresShipped, setFeaturesShipped] = useState<string>('');
-  const [bugFixes, setBugFixes] = useState<string>('');
-  const [pullRequests, setPullRequests] = useState<string>('');
-  const [hoursSpent, setHoursSpent] = useState<number>(8);
-  const [blockers, setBlockers] = useState<string>('');
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
-  // Common Narration
-  const [narration, setNarration] = useState<string>('');
+  if (!isWorkLogModalOpen) {
+    return null;
+  }
 
-  if (!isWorkLogModalOpen) return null;
+  // Only Sales Staff can submit Sales Daily Work.
+  const role =
+    currentUser.roleName ||
+    currentUser.role ||
+    '';
 
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
+  if (role !== 'sales_staff') {
+    return null;
+  }
 
-    let workType: 'sales' | 'developer' | 'operations' | 'general' = 'general';
-    if (isDeveloper) workType = 'developer';
-    else if (isSales) workType = 'sales';
-    else if (isOperations) workType = 'operations';
-
-    submitDailyWorkLog({
-      tenantId: currentTenant.id,
-      userId: currentUser.id,
-      userName: currentUser.name,
-      userAvatar: currentUser.avatar,
-      employeeCode: currentUser.employeeCode,
-      designation: currentUser.designation,
-      department: currentUser.department,
-      date,
-      workType,
-      callsMade: isSales ? Number(callsMade) : undefined,
-      callsConnected: isSales ? Number(callsConnected) : undefined,
-      leadsRespondedWell: isSales ? Number(leadsRespondedWell) : undefined,
-      followUpsScheduled: isSales ? Number(followUpsScheduled) : undefined,
-      dealsPitched: isSales ? Number(dealsPitched) : undefined,
-      closingInvestmentAmount: isSales ? Number(closingInvestmentAmount) : undefined,
-      featuresShipped: isDeveloper ? featuresShipped : undefined,
-      bugFixes: isDeveloper ? bugFixes : undefined,
-      pullRequests: isDeveloper ? pullRequests : undefined,
-      hoursSpent: isDeveloper ? Number(hoursSpent) : undefined,
-      blockers: blockers || undefined,
-      narration: narration || (isDeveloper ? 'Completed designated sprint items and architecture refactoring.' : 'Completed daily client outreach and investment consultation.'),
-    });
+  const handleClose = () => {
+    if (isSubmitting) {
+      return;
+    }
 
     setIsWorkLogModalOpen(false);
-    // Reset form
-    setNarration('');
-    setFeaturesShipped('');
-    setBugFixes('');
-    setPullRequests('');
-    setBlockers('');
+    setError(null);
+  };
+
+  const handleSubmit = async (
+    event: React.FormEvent
+  ) => {
+    event.preventDefault();
+
+    setError(null);
+
+    if (!date) {
+      setError('Please select a work date.');
+      return;
+    }
+
+    if (!narration.trim()) {
+      setError('Please enter a narration for today\'s work.');
+      return;
+    }
+
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
+    const selectedDate = new Date(`${date}T00:00:00`);
+
+    if (selectedDate > today) {
+      setError('Work date cannot be in the future.');
+      return;
+    }
+
+    const parseOptionalNumber = (
+      value: string
+    ): number | undefined => {
+      if (!value.trim()) {
+        return undefined;
+      }
+
+      const parsed = Number(value);
+
+      if (!Number.isFinite(parsed)) {
+        return undefined;
+      }
+
+      return parsed;
+    };
+
+    const callsMadeValue =
+      parseOptionalNumber(callsMade);
+
+    const callsConnectedValue =
+      parseOptionalNumber(callsConnected);
+
+    const leadsRespondedWellValue =
+      parseOptionalNumber(leadsRespondedWell);
+
+    const followUpsScheduledValue =
+      parseOptionalNumber(followUpsScheduled);
+
+    if (
+      callsMadeValue !== undefined &&
+      callsMadeValue < 0
+    ) {
+      setError('Calls made cannot be negative.');
+      return;
+    }
+
+    if (
+      callsConnectedValue !== undefined &&
+      callsConnectedValue < 0
+    ) {
+      setError('Calls connected cannot be negative.');
+      return;
+    }
+
+    if (
+      leadsRespondedWellValue !== undefined &&
+      leadsRespondedWellValue < 0
+    ) {
+      setError(
+        'Leads responded well cannot be negative.'
+      );
+      return;
+    }
+
+    if (
+      followUpsScheduledValue !== undefined &&
+      followUpsScheduledValue < 0
+    ) {
+      setError(
+        'Follow-ups scheduled cannot be negative.'
+      );
+      return;
+    }
+
+    if (
+      callsMadeValue !== undefined &&
+      callsConnectedValue !== undefined &&
+      callsConnectedValue > callsMadeValue
+    ) {
+      setError(
+        'Calls connected cannot be greater than calls made.'
+      );
+      return;
+    }
+
+    try {
+      setIsSubmitting(true);
+
+      await submitDailyWorkLog({
+        workDate: date,
+
+        // 0 = Sales
+        workType: 0,
+
+        narration: narration.trim(),
+
+        callsMade: callsMadeValue,
+        callsConnected: callsConnectedValue,
+        leadsRespondedWell:
+          leadsRespondedWellValue,
+        followUpsScheduled:
+          followUpsScheduledValue,
+      });
+
+      // Reset form after successful submission.
+      setDate(new Date().toISOString().split('T')[0]);
+      setCallsMade('');
+      setCallsConnected('');
+      setLeadsRespondedWell('');
+      setFollowUpsScheduled('');
+      setNarration('');
+
+      setIsWorkLogModalOpen(false);
+    } catch (err) {
+      console.error(
+        'Failed to submit daily work:',
+        err
+      );
+
+      const message =
+        err instanceof Error
+          ? err.message
+          : 'Failed to submit daily work. Please try again.';
+
+      setError(message);
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm overflow-y-auto">
-      <div className="relative w-full max-w-2xl bg-[#09081E] border border-white/15 rounded-2xl shadow-2xl overflow-hidden my-8">
-        
-        {/* Modal Header */}
-        <div className="px-6 py-4 border-b border-white/10 flex items-center justify-between bg-white/[0.02]">
+    <div
+      className="fixed inset-0 z-[100] flex items-center justify-center bg-black/70 p-4 backdrop-blur-sm"
+      onMouseDown={(event) => {
+        if (event.target === event.currentTarget) {
+          handleClose();
+        }
+      }}
+    >
+      <div className="w-full max-w-2xl overflow-hidden rounded-2xl border border-purple-500/20 bg-[#09071e] shadow-2xl">
+        {/* ================================================== */}
+        {/* HEADER */}
+        {/* ================================================== */}
+
+        <div className="flex items-center justify-between border-b border-white/10 px-6 py-5">
           <div className="flex items-center gap-3">
-            <div className="p-2 rounded-xl bg-[#5C3FE0]/20 text-[#5C3FE0] border border-[#5C3FE0]/30">
-              {isDeveloper ? <Code2 className="w-5 h-5" /> : <PhoneCall className="w-5 h-5" />}
+            <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-purple-600/20">
+              <Sparkles
+                size={22}
+                className="text-purple-400"
+              />
             </div>
+
             <div>
-              <h2 className="text-base font-bold text-white flex items-center gap-2">
-                <span>Daily Work & Activity Logger</span>
-                <span className="text-[10px] px-2 py-0.5 rounded-full bg-[#5C3FE0]/20 text-[#5C3FE0] border border-[#5C3FE0]/30 font-medium">
-                  {currentUser.designation}
-                </span>
+              <h2 className="text-lg font-semibold text-white">
+                Daily Sales Work
               </h2>
-              <p className="text-xs text-gray-400">
-                Log your daily accomplishments, calls, client follow-ups, or code deliverables for review.
+
+              <p className="text-sm text-gray-400">
+                Submit your sales activity for the day
               </p>
             </div>
           </div>
+
           <button
-            onClick={() => setIsWorkLogModalOpen(false)}
-            className="p-1.5 rounded-lg text-gray-400 hover:text-white hover:bg-white/10 transition-colors"
+            type="button"
+            onClick={handleClose}
+            disabled={isSubmitting}
+            className="rounded-lg p-2 text-gray-400 transition hover:bg-white/5 hover:text-white disabled:cursor-not-allowed disabled:opacity-50"
           >
-            <X className="w-5 h-5" />
+            <X size={20} />
           </button>
         </div>
 
-        {/* Modal Form Body */}
-        <form onSubmit={handleSubmit} className="p-6 space-y-4 max-h-[75vh] overflow-y-auto custom-scrollbar">
-          
-          {/* Top Info Bar */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 p-3 rounded-xl bg-black/40 border border-white/5 text-xs">
-            <div>
-              <span className="text-gray-400 block text-[11px]">Reporting Employee:</span>
-              <span className="font-semibold text-white">{currentUser.name} ({currentUser.employeeCode})</span>
-            </div>
-            <div>
-              <span className="text-gray-400 block text-[11px]">Log Date:</span>
-              <input
-                type="date"
-                value={date}
-                onChange={(e) => setDate(e.target.value)}
-                className="mt-0.5 px-2 py-1 rounded bg-black/60 border border-white/10 text-white text-xs focus:outline-none focus:border-[#5C3FE0]"
-              />
-            </div>
-          </div>
+        {/* ================================================== */}
+        {/* BODY */}
+        {/* ================================================== */}
 
-          {/* Conditional Fields for Sales Staff / Advisors */}
-          {isSales && (
-            <div className="space-y-3">
-              <div className="flex items-center gap-2 text-xs font-bold text-purple-300">
-                <PhoneCall className="w-3.5 h-3.5" />
-                <span>Daily Call Metrics & Outreach Volume</span>
+        <form
+          onSubmit={handleSubmit}
+          className="max-h-[75vh] overflow-y-auto"
+        >
+          <div className="space-y-6 p-6">
+
+            {/* ERROR */}
+
+            {error && (
+              <div className="flex items-start gap-3 rounded-xl border border-red-500/20 bg-red-500/10 px-4 py-3">
+                <AlertCircle
+                  size={18}
+                  className="mt-0.5 shrink-0 text-red-400"
+                />
+
+                <p className="text-sm text-red-300">
+                  {error}
+                </p>
+              </div>
+            )}
+
+            {/* ================================================== */}
+            {/* USER / BRANCH INFO */}
+            {/* ================================================== */}
+
+            <div className="rounded-xl border border-white/10 bg-[#0e0b2e] p-4">
+              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+
+                <div>
+                  <p className="text-xs uppercase tracking-wide text-gray-500">
+                    Employee
+                  </p>
+
+                  <p className="mt-1 text-sm font-medium text-white">
+                    {currentUser.username}
+                  </p>
+                </div>
+
+                <div>
+                  <p className="text-xs uppercase tracking-wide text-gray-500">
+                    Designation
+                  </p>
+
+                  <p className="mt-1 text-sm font-medium text-white">
+                    {currentUser.designation || 'Sales Staff'}
+                  </p>
+                </div>
+
+              </div>
+            </div>
+
+            {/* ================================================== */}
+            {/* DATE */}
+            {/* ================================================== */}
+
+            <div>
+              <label className="mb-2 block text-sm font-medium text-gray-300">
+                Work Date
+              </label>
+
+              <div className="relative">
+                <Calendar
+                  size={18}
+                  className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-gray-500"
+                />
+
+                <input
+                  type="date"
+                  value={date}
+                  max={new Date()
+                    .toISOString()
+                    .split('T')[0]}
+                  onChange={(event) =>
+                    setDate(event.target.value)
+                  }
+                  disabled={isSubmitting}
+                  className="w-full rounded-xl border border-white/10 bg-[#0e0b2e] py-3 pl-10 pr-4 text-sm text-white outline-none transition focus:border-purple-500/50"
+                />
+              </div>
+            </div>
+
+            {/* ================================================== */}
+            {/* SALES METRICS */}
+            {/* ================================================== */}
+
+            <div>
+              <div className="mb-3">
+                <h3 className="text-sm font-semibold text-white">
+                  Sales Activity
+                </h3>
+
+                <p className="mt-1 text-xs text-gray-500">
+                  Enter the activity completed during the day.
+                </p>
               </div>
 
-              <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-                <div className="p-3 rounded-xl bg-black/40 border border-white/10">
-                  <label className="block text-[11px] font-medium text-gray-400 mb-1">
-                    Calls Completed
+              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+
+                {/* Calls Made */}
+
+                <div>
+                  <label className="mb-2 block text-sm text-gray-300">
+                    Calls Made
                   </label>
-                  <input
-                    type="number"
-                    min="0"
-                    value={callsMade}
-                    onChange={(e) => setCallsMade(Number(e.target.value))}
-                    className="w-full px-3 py-1.5 rounded-lg bg-black/60 border border-white/10 text-white text-sm font-semibold focus:outline-none focus:border-[#5C3FE0]"
-                  />
+
+                  <div className="relative">
+                    <PhoneCall
+                      size={17}
+                      className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-gray-500"
+                    />
+
+                    <input
+                      type="number"
+                      min="0"
+                      value={callsMade}
+                      onChange={(event) =>
+                        setCallsMade(event.target.value)
+                      }
+                      disabled={isSubmitting}
+                      placeholder="0"
+                      className="w-full rounded-xl border border-white/10 bg-[#0e0b2e] py-3 pl-10 pr-4 text-sm text-white outline-none focus:border-purple-500/50"
+                    />
+                  </div>
                 </div>
 
-                <div className="p-3 rounded-xl bg-black/40 border border-white/10">
-                  <label className="block text-[11px] font-medium text-gray-400 mb-1">
-                    Connected / Spoken
+                {/* Calls Connected */}
+
+                <div>
+                  <label className="mb-2 block text-sm text-gray-300">
+                    Calls Connected
                   </label>
-                  <input
-                    type="number"
-                    min="0"
-                    value={callsConnected}
-                    onChange={(e) => setCallsConnected(Number(e.target.value))}
-                    className="w-full px-3 py-1.5 rounded-lg bg-black/60 border border-white/10 text-white text-sm font-semibold focus:outline-none focus:border-[#5C3FE0]"
-                  />
+
+                  <div className="relative">
+                    <UserCheck
+                      size={17}
+                      className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-gray-500"
+                    />
+
+                    <input
+                      type="number"
+                      min="0"
+                      value={callsConnected}
+                      onChange={(event) =>
+                        setCallsConnected(event.target.value)
+                      }
+                      disabled={isSubmitting}
+                      placeholder="0"
+                      className="w-full rounded-xl border border-white/10 bg-[#0e0b2e] py-3 pl-10 pr-4 text-sm text-white outline-none focus:border-purple-500/50"
+                    />
+                  </div>
                 </div>
 
-                <div className="p-3 rounded-xl bg-black/40 border border-emerald-500/20 bg-emerald-500/5">
-                  <label className="block text-[11px] font-medium text-emerald-400 mb-1">
-                    Responded Well (Hot)
+                {/* Leads */}
+
+                <div>
+                  <label className="mb-2 block text-sm text-gray-300">
+                    Leads Responded Well
                   </label>
-                  <input
-                    type="number"
-                    min="0"
-                    value={leadsRespondedWell}
-                    onChange={(e) => setLeadsRespondedWell(Number(e.target.value))}
-                    className="w-full px-3 py-1.5 rounded-lg bg-black/60 border border-white/10 text-white text-sm font-semibold focus:outline-none focus:border-emerald-500"
-                  />
+
+                  <div className="relative">
+                    <UserCheck
+                      size={17}
+                      className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-gray-500"
+                    />
+
+                    <input
+                      type="number"
+                      min="0"
+                      value={leadsRespondedWell}
+                      onChange={(event) =>
+                        setLeadsRespondedWell(
+                          event.target.value
+                        )
+                      }
+                      disabled={isSubmitting}
+                      placeholder="0"
+                      className="w-full rounded-xl border border-white/10 bg-[#0e0b2e] py-3 pl-10 pr-4 text-sm text-white outline-none focus:border-purple-500/50"
+                    />
+                  </div>
                 </div>
 
-                <div className="p-3 rounded-xl bg-black/40 border border-white/10">
-                  <label className="block text-[11px] font-medium text-gray-400 mb-1">
+                {/* Follow Ups */}
+
+                <div>
+                  <label className="mb-2 block text-sm text-gray-300">
                     Follow-ups Scheduled
                   </label>
-                  <input
-                    type="number"
-                    min="0"
-                    value={followUpsScheduled}
-                    onChange={(e) => setFollowUpsScheduled(Number(e.target.value))}
-                    className="w-full px-3 py-1.5 rounded-lg bg-black/60 border border-white/10 text-white text-sm font-semibold focus:outline-none focus:border-[#5C3FE0]"
-                  />
+
+                  <div className="relative">
+                    <Calendar
+                      size={17}
+                      className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-gray-500"
+                    />
+
+                    <input
+                      type="number"
+                      min="0"
+                      value={followUpsScheduled}
+                      onChange={(event) =>
+                        setFollowUpsScheduled(
+                          event.target.value
+                        )
+                      }
+                      disabled={isSubmitting}
+                      placeholder="0"
+                      className="w-full rounded-xl border border-white/10 bg-[#0e0b2e] py-3 pl-10 pr-4 text-sm text-white outline-none focus:border-purple-500/50"
+                    />
+                  </div>
                 </div>
 
-                <div className="p-3 rounded-xl bg-black/40 border border-white/10">
-                  <label className="block text-[11px] font-medium text-gray-400 mb-1">
-                    Deals / Slabs Pitched
-                  </label>
-                  <input
-                    type="number"
-                    min="0"
-                    value={dealsPitched}
-                    onChange={(e) => setDealsPitched(Number(e.target.value))}
-                    className="w-full px-3 py-1.5 rounded-lg bg-black/60 border border-white/10 text-white text-sm font-semibold focus:outline-none focus:border-[#5C3FE0]"
-                  />
-                </div>
-
-                <div className="p-3 rounded-xl bg-black/40 border border-[#5C3FE0]/30 bg-[#5C3FE0]/5">
-                  <label className="block text-[11px] font-medium text-purple-300 mb-1">
-                    Closing Investment ($)
-                  </label>
-                  <input
-                    type="number"
-                    min="0"
-                    step="1000"
-                    value={closingInvestmentAmount}
-                    onChange={(e) => setClosingInvestmentAmount(Number(e.target.value))}
-                    className="w-full px-3 py-1.5 rounded-lg bg-black/60 border border-white/10 text-white text-sm font-semibold focus:outline-none focus:border-[#5C3FE0]"
-                  />
-                </div>
               </div>
             </div>
-          )}
 
-          {/* Conditional Fields for Developers */}
-          {isDeveloper && (
-            <div className="space-y-3">
-              <div className="flex items-center gap-2 text-xs font-bold text-blue-300">
-                <Code2 className="w-3.5 h-3.5" />
-                <span>Developer Engineering Deliverables</span>
-              </div>
+            {/* ================================================== */}
+            {/* NARRATION */}
+            {/* ================================================== */}
 
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                <div className="p-3 rounded-xl bg-black/40 border border-white/10">
-                  <label className="block text-[11px] font-medium text-gray-400 mb-1">
-                    Features Developed / Shipped
-                  </label>
-                  <input
-                    type="text"
-                    value={featuresShipped}
-                    onChange={(e) => setFeaturesShipped(e.target.value)}
-                    placeholder="e.g. Biometric Excel parser, Customer slip generator"
-                    className="w-full px-3 py-2 rounded-lg bg-black/60 border border-white/10 text-white text-xs focus:outline-none focus:border-blue-500"
-                  />
-                </div>
+            <div>
+              <label className="mb-2 block text-sm font-medium text-gray-300">
+                Daily Narration
+              </label>
 
-                <div className="p-3 rounded-xl bg-black/40 border border-white/10">
-                  <label className="block text-[11px] font-medium text-gray-400 mb-1">
-                    Bug Fixes / PR Links
-                  </label>
-                  <input
-                    type="text"
-                    value={pullRequests}
-                    onChange={(e) => setPullRequests(e.target.value)}
-                    placeholder="e.g. PR #409 (Yield rounding fix), PR #410"
-                    className="w-full px-3 py-2 rounded-lg bg-black/60 border border-white/10 text-white text-xs focus:outline-none focus:border-blue-500"
-                  />
-                </div>
-              </div>
+              <div className="relative">
+                <FileText
+                  size={17}
+                  className="pointer-events-none absolute left-3 top-3.5 text-gray-500"
+                />
 
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                <div className="p-3 rounded-xl bg-black/40 border border-white/10">
-                  <label className="block text-[11px] font-medium text-gray-400 mb-1">
-                    Hours Logged Today
-                  </label>
-                  <input
-                    type="number"
-                    min="1"
-                    max="16"
-                    step="0.5"
-                    value={hoursSpent}
-                    onChange={(e) => setHoursSpent(Number(e.target.value))}
-                    className="w-full px-3 py-1.5 rounded-lg bg-black/60 border border-white/10 text-white text-sm font-semibold focus:outline-none focus:border-blue-500"
-                  />
-                </div>
-
-                <div className="sm:col-span-2 p-3 rounded-xl bg-black/40 border border-white/10">
-                  <label className="block text-[11px] font-medium text-gray-400 mb-1">
-                    Blockers / Dependencies (Optional)
-                  </label>
-                  <input
-                    type="text"
-                    value={blockers}
-                    onChange={(e) => setBlockers(e.target.value)}
-                    placeholder="e.g. Awaiting sandbox payment API credentials from gateway"
-                    className="w-full px-3 py-1.5 rounded-lg bg-black/60 border border-white/10 text-white text-xs focus:outline-none focus:border-blue-500"
-                  />
-                </div>
+                <textarea
+                  value={narration}
+                  onChange={(event) =>
+                    setNarration(event.target.value)
+                  }
+                  disabled={isSubmitting}
+                  rows={5}
+                  placeholder="Describe the work completed today..."
+                  className="w-full resize-none rounded-xl border border-white/10 bg-[#0e0b2e] py-3 pl-10 pr-4 text-sm text-white outline-none placeholder:text-gray-600 focus:border-purple-500/50"
+                />
               </div>
             </div>
-          )}
 
-          {/* Detailed Narration / Work Summary (For All) */}
-          <div className="space-y-1.5">
-            <label className="block text-xs font-semibold text-gray-200">
-              {isDeveloper
-                ? 'Daily Work Narration (What was done today in detail)'
-                : isSales
-                ? 'Detailed Call Remarks & Client Discussion Notes'
-                : 'Daily Operations & Task Notes'}
-            </label>
-            <textarea
-              required
-              rows={4}
-              value={narration}
-              onChange={(e) => setNarration(e.target.value)}
-              placeholder={
-                isDeveloper
-                  ? "Describe the tasks completed, refactored components, and code architecture done today..."
-                  : isSales
-                  ? "Describe which HNI / corporate clients you contacted, responses received, interest in sovereign investment slabs, and scheduled meetings..."
-                  : "Detail the operations, tickets closed, or onboarding actions executed today..."
-              }
-              className="w-full px-3.5 py-2.5 rounded-xl bg-black/60 border border-white/10 text-white text-xs focus:outline-none focus:border-[#5C3FE0] focus:ring-1 focus:ring-[#5C3FE0] leading-relaxed"
-            />
           </div>
 
-          {/* Form Actions */}
-          <div className="pt-3 border-t border-white/10 flex items-center justify-end gap-3">
+          {/* ================================================== */}
+          {/* FOOTER */}
+          {/* ================================================== */}
+
+          <div className="flex items-center justify-end gap-3 border-t border-white/10 px-6 py-4">
+
             <button
               type="button"
-              onClick={() => setIsWorkLogModalOpen(false)}
-              className="px-4 py-2 rounded-xl text-xs font-medium text-gray-400 hover:text-white hover:bg-white/5 transition-colors"
+              onClick={handleClose}
+              disabled={isSubmitting}
+              className="rounded-xl border border-white/10 px-5 py-2.5 text-sm font-medium text-gray-300 transition hover:bg-white/5 hover:text-white disabled:cursor-not-allowed disabled:opacity-50"
             >
               Cancel
             </button>
+
             <button
               type="submit"
-              className="px-5 py-2.5 rounded-xl bg-gradient-to-r from-[#5C3FE0] to-[#7C3AED] hover:from-[#6A4DF4] hover:to-[#8B5CF6] text-white text-xs font-bold shadow-lg shadow-[#5C3FE0]/30 transition-all flex items-center gap-2"
+              disabled={isSubmitting}
+              className="flex items-center gap-2 rounded-xl bg-purple-600 px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-purple-500 disabled:cursor-not-allowed disabled:opacity-60"
             >
-              <Send className="w-3.5 h-3.5" />
-              <span>Submit Daily Work Report</span>
+              <Send size={16} />
+
+              {isSubmitting
+                ? 'Submitting...'
+                : 'Submit Daily Work'}
             </button>
+
           </div>
         </form>
-
       </div>
     </div>
   );

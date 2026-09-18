@@ -35,6 +35,8 @@ import PublicRoute from './PublicRoute';
 import { SuperAdminDashboard } from './components/SuperAdminDashboard';
 import TenantPaymentView from './components/TenantPaymentView';
 import ProfileView from './components/ProfileView';
+import MySalesLeadsView from './components/MySalesLeadsView';
+import SeniorSalesLeadsView from './components/SeniorSalesLeadsView';
 
 
 const AppContent: React.FC = () => {
@@ -43,9 +45,14 @@ const AppContent: React.FC = () => {
   const renderActiveView = () => {
     switch (activeTab) {
       case 'dashboard':
-        if (currentUser?.roleName?.toLowerCase() === 'super_admin') {
+        if (
+          currentUser?.roleName?.toLowerCase() ===
+          'super_admin'
+        ) {
           return <SuperAdminDashboard />;
         }
+
+        return <DashboardView />;
       case 'daily_work':
         return <DailyWorkView />;
       case 'attendance':
@@ -72,6 +79,16 @@ const AppContent: React.FC = () => {
         return <TenantPaymentView />;
       case 'profile':
         return <ProfileView />;
+      case 'sales_leads': {
+        const isSeniorSales =
+          currentUser?.roleName?.toLowerCase() === 'sales_staff' &&
+          currentUser?.designation?.toLowerCase() === 'senior';
+
+        return isSeniorSales
+          ? <SeniorSalesLeadsView />
+          : <MySalesLeadsView currentUser={currentUser} />;
+      }
+
       default:
         return <DashboardView />;
     }
