@@ -37,6 +37,8 @@ import TenantPaymentView from './components/TenantPaymentView';
 import ProfileView from './components/ProfileView';
 import MySalesLeadsView from './components/MySalesLeadsView';
 import SeniorSalesLeadsView from './components/SeniorSalesLeadsView';
+import SeniorDeveloperWorkView from './components/SeniorDeveloperWorkView';
+import JuniorDeveloperWorkView from './components/JuniorDeveloperWorkView';
 
 
 const AppContent: React.FC = () => {
@@ -89,6 +91,17 @@ const AppContent: React.FC = () => {
           : <MySalesLeadsView currentUser={currentUser} />;
       }
 
+      case 'developer_work': {
+        const isSeniorDeveloper =
+          currentUser?.roleName?.toLowerCase() ===
+          'developer' &&
+          currentUser?.designation?.toLowerCase() ===
+          'senior';
+
+        return isSeniorDeveloper
+          ? <SeniorDeveloperWorkView />
+          : <JuniorDeveloperWorkView />;
+      }
       default:
         return <DashboardView />;
     }

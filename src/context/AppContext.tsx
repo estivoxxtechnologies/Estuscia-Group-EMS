@@ -70,7 +70,9 @@ export type AppTab =
   | 'branch_management'
   | 'tenant_payment'
   | 'profile'
-  | 'sales_leads';
+  | 'sales_leads'
+  | 'developer_work'
+  ;
 
 export type ViewMode = 'portal' | 'public_web';
 
@@ -254,8 +256,6 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   // Customer Payment Receipts
   const [selectedReceiptForView, setSelectedReceiptForView] = useState<CustomerPaymentReceipt | null>(null);
   const [isCreateReceiptModalOpen, setIsCreateReceiptModalOpen] = useState<boolean>(false);
-
-  // Desconst [dailyWorkLogs, setDailyWorkLogs] = useState<DailyWorkLog[]>([]);
 
   const [customerReceipts, setCustomerReceipts] =
     useState<CustomerPaymentReceipt[]>([]);
@@ -797,6 +797,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         'dashboard',
         'daily_work',
         'attendance',
+        'developer_work',
         'knowledge_hub',
         'payroll',
       ].includes(tab);

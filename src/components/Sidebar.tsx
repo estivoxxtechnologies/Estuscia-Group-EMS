@@ -171,6 +171,14 @@ export const Sidebar: React.FC = () => {
         ),
         section: 'finance_slabs',
       },
+      {
+        id: 'developer_work',
+        label: 'Developer Work',
+        icon: (
+          <Code2 className="w-4 h-4" />
+        ),
+        section: 'finance_slabs',
+      },
 
       {
         id: 'receipts_slabs',
@@ -259,6 +267,7 @@ export const Sidebar: React.FC = () => {
         section: 'leadership_gov',
         superAdminOnly: true,
       },
+
     ];
 
   // ---------------------------------------------------------
