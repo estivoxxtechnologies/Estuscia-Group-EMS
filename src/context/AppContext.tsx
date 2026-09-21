@@ -3,6 +3,7 @@ import React, {
   useContext,
   useState,
   useEffect,
+  useCallback
 } from 'react';
 import {
   loginUser,
@@ -14,7 +15,6 @@ import {
   User,
   Role,
   SlabVersion,
-  AttendanceRecord,
   AttendanceBatch,
   LeaveRequest,
   TargetCycle,
@@ -48,6 +48,13 @@ import {
   reviewDailyWorkLog as reviewDailyWorkLogBackend,
   BackendDailyWorkLog,
 } from '../api/dailyWork';
+import {
+  AttendanceRecord,
+} from '../types/attendance';
+
+import {
+  getAttendance,
+} from '../api/attendance';
 
 import {
   Branch,
@@ -157,8 +164,18 @@ interface AppContextType {
   activeSlabVersion: SlabVersion;
   addNewSlabVersion: (newVersion: Omit<SlabVersion, 'id' | 'createdAt'>) => void;
 
-  // Attendance & Batch Upload
+  // Attendance
   attendanceRecords: AttendanceRecord[];
+  attendanceLoading: boolean;
+  attendanceError: string | null;
+
+  loadAttendance: (filters?: {
+    branchId?: number;
+    date?: string;
+    userId?: number;
+  }) => Promise<void>;
+
+  // Legacy batch / leave state
   attendanceBatches: AttendanceBatch[];
   leaveRequests: LeaveRequest[];
   uploadAttendanceBatch: (fileName: string, records: Partial<AttendanceRecord>[]) => void;
@@ -269,6 +286,12 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const [attendanceRecords, setAttendanceRecords] =
     useState<AttendanceRecord[]>([]);
 
+  const [attendanceLoading, setAttendanceLoading] =
+    useState(false);
+
+  const [attendanceError, setAttendanceError] =
+    useState<string | null>(null);
+
   const [attendanceBatches, setAttendanceBatches] =
     useState<AttendanceBatch[]>([]);
 
@@ -370,6 +393,41 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }
   };
 
+  const loadAttendance = useCallback(
+    async (
+      filters: {
+        branchId?: number;
+        date?: string;
+        userId?: number;
+      } = {},
+    ) => {
+      try {
+        setAttendanceLoading(true);
+        setAttendanceError(null);
+
+        const records = await getAttendance(filters);
+
+        setAttendanceRecords(records);
+      } catch (error) {
+        console.error(
+          'Failed to load attendance:',
+          error,
+        );
+
+        setAttendanceRecords([]);
+
+        setAttendanceError(
+          error instanceof Error
+            ? error.message
+            : 'Failed to load attendance.',
+        );
+      } finally {
+        setAttendanceLoading(false);
+      }
+    },
+    [],
+  );
+
   useEffect(() => {
     const restoreSession = async () => {
       try {
@@ -451,6 +509,80 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   }, [
     currentUser,
     selectedBranchId,
+  ]);
+
+  useEffect(() => {
+    if (!currentUser) {
+      setAttendanceRecords([]);
+      setAttendanceError(null);
+      return;
+    }
+
+    const role = currentUser.roleName
+      ?.trim()
+      .toLowerCase();
+
+    // ============================================================
+    // SUPER ADMIN
+    // ============================================================
+
+    if (role === 'super_admin') {
+      setAttendanceRecords([]);
+      setAttendanceError(null);
+      return;
+    }
+
+    // ============================================================
+    // SALES STAFF
+    // ============================================================
+
+    if (role === 'sales_staff') {
+      loadAttendance({
+        userId: currentUser.userId,
+      });
+
+      return;
+    }
+
+    // ============================================================
+    // BRANCH MANAGER
+    // ============================================================
+
+    if (role === 'branch_manager') {
+      loadAttendance({
+        branchId:
+          currentUser.branchId ?? undefined,
+      });
+
+      return;
+    }
+
+    // ============================================================
+    // COMPANY ADMIN / HR OPS
+    //
+    // selectedBranchId === null means ALL BRANCHES
+    // ============================================================
+
+    if (
+      role === 'company_admin' ||
+      role === 'hr_ops'
+    ) {
+      loadAttendance(
+        selectedBranchId !== null
+          ? {
+            branchId: selectedBranchId,
+          }
+          : {}
+      );
+
+      return;
+    }
+
+    setAttendanceRecords([]);
+  }, [
+    currentUser,
+    selectedBranchId,
+    loadAttendance,
   ]);
 
   const loadBranches = async () => {
@@ -657,6 +789,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
     setSelectedBranch(branch);
   };
+
 
   // Active Slab Version derived helper
   const activeSlabVersion = slabVersions.find((sv) => sv.status === 'active') || slabVersions[0];
@@ -1120,75 +1253,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     ]);
   };
 
-  // Batch Attendance Upload Handler (Excel/CSV parse commitment)
-  const uploadAttendanceBatch = (fileName: string, records: Partial<AttendanceRecord>[]) => {
-    const batchId = `batch-${Date.now()}`;
-    const today = new Date().toISOString().substring(0, 10);
 
-    const newBatch: AttendanceBatch = {
-      id: batchId,
-      tenantId: currentUser.tenantId,
-      uploadedBy: currentUser.userId,
-      uploadedByName: currentUser.username,
-      uploadedAt: new Date().toISOString().replace('T', ' ').substring(0, 19),
-      fileName,
-      totalRows: records.length,
-      validRows: records.length,
-      errorRows: 0,
-      status: 'completed',
-      previewRecords: records,
-    };
-
-    const newRecords: AttendanceRecord[] = records.map((r, idx) => ({
-      id: `att-${Date.now()}-${idx}`,
-      tenantId: currentUser.tenantId,
-      userId: r.userId || users[idx % users.length].id,
-      userName: r.userName || users[idx % users.length].name,
-      employeeCode: r.employeeCode || users[idx % users.length].employeeCode,
-      department: r.department || users[idx % users.length].department,
-      date: r.date || today,
-      inTime: r.inTime || '09:00 AM',
-      outTime: r.outTime || '06:00 PM',
-      totalHours: r.totalHours || 8.5,
-      status: (r.status as any) || 'Present',
-      uploadBatchId: batchId,
-      uploadedBy: currentUser.username,
-      notes: r.notes || 'Imported via biometric Excel batch',
-    }));
-
-    setAttendanceBatches((prev) => [newBatch, ...prev]);
-    setAttendanceRecords((prev) => [...newRecords, ...prev]);
-    logAuditEvent('UPLOAD_BATCH_ATTENDANCE', `Uploaded ${fileName} containing ${records.length} records`);
-
-    setNotifications((prev) => [
-      {
-        id: `notif-${Date.now()}`,
-        title: 'Attendance Batch Processed',
-        message: `Successfully processed ${records.length} biometric records from "${fileName}".`,
-        type: 'success',
-        timestamp: 'Just now',
-        isRead: false,
-        tag: 'Attendance',
-      },
-      ...prev,
-    ]);
-  };
-
-  const updateAttendanceRecord = (recordId: string, updates: Partial<AttendanceRecord>) => {
-    setAttendanceRecords((prev) =>
-      prev.map((r) => (r.id === recordId ? { ...r, ...updates } : r))
-    );
-    logAuditEvent('UPDATE_ATTENDANCE_RECORD', `Modified attendance record #${recordId}`);
-  };
-
-  const addAttendanceRecord = (recordData: Omit<AttendanceRecord, 'id'>) => {
-    const newRecord: AttendanceRecord = {
-      ...recordData,
-      id: `att-${Date.now()}`,
-    };
-    setAttendanceRecords((prev) => [newRecord, ...prev]);
-    logAuditEvent('ADD_ATTENDANCE_RECORD', `Logged attendance for ${recordData.userName} on ${recordData.date}`);
-  };
 
   const submitLeaveRequest = (reqData: Omit<LeaveRequest, 'id' | 'appliedOn' | 'status'>) => {
     const newReq: LeaveRequest = {
@@ -1584,11 +1649,11 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         activeSlabVersion,
         addNewSlabVersion,
         attendanceRecords,
+        attendanceLoading,
+        attendanceError,
+        loadAttendance,
         attendanceBatches,
         leaveRequests,
-        uploadAttendanceBatch,
-        updateAttendanceRecord,
-        addAttendanceRecord,
         submitLeaveRequest,
         reviewLeaveRequest,
         targetCycles,
