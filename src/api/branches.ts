@@ -5,13 +5,23 @@ export interface CreateBranchRequest {
   branchName: string;
   city: string | null;
   currencyId: number;
+
+  // Working hours
+  standardWorkingHours: number | null;
+  workStartTime: string | null;
+  workEndTime: string | null;
 }
 
 export interface UpdateBranchRequest {
   branchName: string;
   city: string | null;
   isActive: boolean;
-  currencyId: number; 
+  currencyId: number;
+
+  // Working hours
+  standardWorkingHours: number | null;
+  workStartTime: string | null;
+  workEndTime: string | null;
 }
 
 /**

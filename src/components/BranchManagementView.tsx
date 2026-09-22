@@ -13,6 +13,7 @@ import {
   Save,
   Loader2,
   Coins,
+  Clock,
 } from 'lucide-react';
 
 import { useApp } from '../context/AppContext';
@@ -38,6 +39,15 @@ import { Branch } from '../types/branch';
 
 import { toast } from 'react-toastify';
 
+const timeForApi = (value: string): string | null => {
+  if (!value) return null;
+
+  // HTML <input type="time"> returns HH:mm.
+  // ASP.NET TimeOnly expects HH:mm:ss.
+  return value.length === 5
+    ? `${value}:00`
+    : value;
+};
 
 export const BranchManagementView: React.FC = () => {
   const { currentUser } = useApp();
@@ -103,6 +113,25 @@ export const BranchManagementView: React.FC = () => {
     useState('');
 
   // =========================================================
+  // BRANCH WORK SCHEDULE
+  // =========================================================
+
+  const [standardWorkingHours, setStandardWorkingHours] =
+    useState<number>(8);
+
+  const [useTenantDefaultWorkingHours, setUseTenantDefaultWorkingHours] =
+    useState(true);
+
+  const [workStartTime, setWorkStartTime] =
+    useState('09:00');
+
+  const [workEndTime, setWorkEndTime] =
+    useState('17:00');
+
+  const [useTenantDefaultWorkSchedule, setUseTenantDefaultWorkSchedule] =
+    useState(true);
+
+  // =========================================================
   // MODAL
   // =========================================================
 
@@ -149,6 +178,19 @@ export const BranchManagementView: React.FC = () => {
 
   const tenantDefaultCurrency =
     selectedTenant?.defaultCurrency;
+
+  // =========================================================
+  // TENANT DEFAULT WORK SCHEDULE
+  // =========================================================
+
+  const tenantStandardWorkingHours =
+    selectedTenant?.standardWorkingHours ?? 8;
+
+  const tenantWorkStartTime =
+    selectedTenant?.workStartTime ?? '09:00';
+
+  const tenantWorkEndTime =
+    selectedTenant?.workEndTime ?? '17:00';
 
   // =========================================================
   // LOAD TENANTS
@@ -334,8 +376,34 @@ export const BranchManagementView: React.FC = () => {
     setCity('');
     setIsActive(true);
 
-    // New branches use tenant default currency
-    // by default.
+    // -------------------------------------------------------
+    // WORKING HOURS
+    // -------------------------------------------------------
+
+    setUseTenantDefaultWorkingHours(true);
+
+    setStandardWorkingHours(
+      tenantStandardWorkingHours
+    );
+
+    // -------------------------------------------------------
+    // WORK START / END
+    // -------------------------------------------------------
+
+    setUseTenantDefaultWorkSchedule(true);
+
+    setWorkStartTime(
+      tenantWorkStartTime
+    );
+
+    setWorkEndTime(
+      tenantWorkEndTime
+    );
+
+    // -------------------------------------------------------
+    // CURRENCY
+    // -------------------------------------------------------
+
     setUseTenantDefaultCurrency(true);
 
     setCurrencyId(
@@ -351,31 +419,70 @@ export const BranchManagementView: React.FC = () => {
   // OPEN EDIT
   // =========================================================
 
-  const handleEditBranch = (
-    branch: Branch
-  ) => {
+  const handleEditBranch = (branch: Branch) => {
     setEditingBranch(branch);
 
-    setBranchName(
-      branch.branchName
+    setBranchName(branch.branchName);
+    setCity(branch.city ?? '');
+    setIsActive(branch.isActive);
+
+    // =====================================================
+    // WORKING HOURS
+    // =====================================================
+
+    const inheritsTenantWorkingHours =
+      branch.standardWorkingHours == null;
+
+    setUseTenantDefaultWorkingHours(
+      inheritsTenantWorkingHours
     );
 
-    setCity(
-      branch.city ?? ''
+    setStandardWorkingHours(
+      inheritsTenantWorkingHours
+        ? tenantStandardWorkingHours
+        : branch.standardWorkingHours!
     );
 
-    setIsActive(
-      branch.isActive
+    // =====================================================
+    // WORK START / END
+    //
+    // NULL = inherit tenant.
+    //
+    // If both are null, the branch is fully inheriting
+    // the tenant work schedule.
+    //
+    // =====================================================
+
+    const inheritsTenantWorkSchedule =
+      branch.workStartTime == null &&
+      branch.workEndTime == null;
+
+    setUseTenantDefaultWorkSchedule(
+      inheritsTenantWorkSchedule
     );
 
-    // Compare the actual branch currency
-    // with the selected tenant's default currency.
-    const isTenantDefault =
+    setWorkStartTime(
+      branch.workStartTime ??
+      branch.effectiveWorkStartTime ??
+      tenantWorkStartTime
+    );
+
+    setWorkEndTime(
+      branch.workEndTime ??
+      branch.effectiveWorkEndTime ??
+      tenantWorkEndTime
+    );
+
+    // =====================================================
+    // CURRENCY
+    // =====================================================
+
+    const isTenantDefaultCurrency =
       branch.currencyId ===
       selectedTenant?.defaultCurrencyId;
 
     setUseTenantDefaultCurrency(
-      isTenantDefault
+      isTenantDefaultCurrency
     );
 
     setCurrencyId(
@@ -401,6 +508,46 @@ export const BranchManagementView: React.FC = () => {
     if (checked) {
       setCurrencyId(
         selectedTenant?.defaultCurrencyId ?? null
+      );
+    }
+  };
+
+  // =========================================================
+  // TENANT DEFAULT WORKING HOURS CHECKBOX
+  // =========================================================
+
+  const handleTenantDefaultWorkingHoursChange = (
+    checked: boolean
+  ) => {
+    setUseTenantDefaultWorkingHours(
+      checked
+    );
+
+    if (checked) {
+      setStandardWorkingHours(
+        tenantStandardWorkingHours
+      );
+    }
+  };
+
+  // =========================================================
+  // TENANT DEFAULT WORK SCHEDULE CHECKBOX
+  // =========================================================
+
+  const handleTenantDefaultWorkScheduleChange = (
+    checked: boolean
+  ) => {
+    setUseTenantDefaultWorkSchedule(
+      checked
+    );
+
+    if (checked) {
+      setWorkStartTime(
+        tenantWorkStartTime
+      );
+
+      setWorkEndTime(
+        tenantWorkEndTime
       );
     }
   };
@@ -445,6 +592,41 @@ export const BranchManagementView: React.FC = () => {
       return;
     }
 
+    if (
+      !Number.isFinite(standardWorkingHours) ||
+      standardWorkingHours <= 0 ||
+      standardWorkingHours > 24
+    ) {
+      setFormError(
+        'Standard working hours must be greater than 0 and cannot exceed 24 hours.'
+      );
+      return;
+    }
+
+    // -------------------------------------------------------
+    // WORK TIME VALIDATION
+    // -------------------------------------------------------
+
+    if (!useTenantDefaultWorkSchedule) {
+      if (!workStartTime || !workEndTime) {
+        setFormError(
+          'Work start time and work end time are required.'
+        );
+        return;
+      }
+
+      if (workStartTime >= workEndTime) {
+        setFormError(
+          'Work start time must be earlier than work end time.'
+        );
+        return;
+      }
+    }
+
+    // -------------------------------------------------------
+    // CURRENCY
+    // -------------------------------------------------------
+
     if (!currencyId) {
       setFormError(
         'Please select a branch currency.'
@@ -456,31 +638,55 @@ export const BranchManagementView: React.FC = () => {
       setIsSaving(true);
       setFormError(null);
 
-      // -----------------------------------------------------
+      // =====================================================
+      // EFFECTIVE PAYLOAD
+      //
+      // When tenant defaults are selected:
+      // null = inherit tenant value
+      // =====================================================
+      const branchStandardWorkingHours =
+        useTenantDefaultWorkingHours
+          ? null
+          : standardWorkingHours;
+
+      const branchWorkStartTime =
+        useTenantDefaultWorkSchedule
+          ? null
+          : timeForApi(workStartTime);
+
+      const branchWorkEndTime =
+        useTenantDefaultWorkSchedule
+          ? null
+          : timeForApi(workEndTime);
+
+      // =====================================================
       // UPDATE
-      // -----------------------------------------------------
+      // =====================================================
 
       if (editingBranch) {
-        const updated =
-          await updateBranch(
-            editingBranch.id,
-            {
-              branchName:
-                trimmedName,
+        const updated = await updateBranch(
+          editingBranch.id,
+          {
+            branchName: trimmedName,
+            city: trimmedCity || null,
+            currencyId,
 
-              city:
-                trimmedCity || null,
+            standardWorkingHours:
+              branchStandardWorkingHours,
 
-              currencyId,
+            workStartTime:
+              branchWorkStartTime,
 
-              isActive,
-            }
-          );
+            workEndTime:
+              branchWorkEndTime,
+
+            isActive,
+          }
+        );
 
         setBranches((current) =>
           current.map((branch) =>
-            branch.id ===
-              editingBranch.id
+            branch.id === editingBranch.id
               ? updated
               : branch
           )
@@ -491,24 +697,28 @@ export const BranchManagementView: React.FC = () => {
         );
       }
 
-      // -----------------------------------------------------
+      // =====================================================
       // CREATE
-      // -----------------------------------------------------
+      // =====================================================
 
       else {
-        const created =
-          await createBranch(
-            selectedTenant.id,
-            {
-              branchName:
-                trimmedName,
+        const created = await createBranch(
+          selectedTenant.id,
+          {
+            branchName: trimmedName,
+            city: trimmedCity || null,
+            currencyId,
 
-              city:
-                trimmedCity || null,
+            standardWorkingHours:
+              branchStandardWorkingHours,
 
-              currencyId,
-            }
-          );
+            workStartTime:
+              branchWorkStartTime,
+
+            workEndTime:
+              branchWorkEndTime,
+          }
+        );
 
         setBranches((current) => [
           ...current,
@@ -576,8 +786,7 @@ export const BranchManagementView: React.FC = () => {
 
       setBranches((current) =>
         current.map((item) =>
-          item.id ===
-            branchToToggle.id
+          item.id === branchToToggle.id
             ? updated
             : item
         )
@@ -651,8 +860,6 @@ export const BranchManagementView: React.FC = () => {
     return (
       <div className="space-y-6 pb-12">
 
-        {/* Header */}
-
         <div className="p-6 rounded-2xl bg-[#09071e] border border-[#2d2770]/70">
 
           <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
@@ -696,8 +903,6 @@ export const BranchManagementView: React.FC = () => {
 
         </div>
 
-        {/* Search */}
-
         <div className="p-4 rounded-2xl bg-[#09071e] border border-[#231e54]">
 
           <div className="relative">
@@ -707,9 +912,7 @@ export const BranchManagementView: React.FC = () => {
             <input
               value={tenantSearch}
               onChange={(e) =>
-                setTenantSearch(
-                  e.target.value
-                )
+                setTenantSearch(e.target.value)
               }
               placeholder="Search organization..."
               className="w-full pl-9 pr-3 py-2.5 rounded-xl bg-[#0e0b2e] border border-[#2d2770] text-white text-xs placeholder-slate-500 focus:outline-none focus:border-[#5C3FE0]"
@@ -718,8 +921,6 @@ export const BranchManagementView: React.FC = () => {
           </div>
 
         </div>
-
-        {/* Loading */}
 
         {isLoadingTenants && (
           <div className="p-8 rounded-2xl bg-[#09071e] border border-[#231e54] flex items-center justify-center gap-2 text-sm text-slate-400">
@@ -731,15 +932,11 @@ export const BranchManagementView: React.FC = () => {
           </div>
         )}
 
-        {/* Error */}
-
         {tenantError && (
           <div className="p-4 rounded-2xl bg-red-950/30 border border-red-900/50 text-sm text-red-400">
             {tenantError}
           </div>
         )}
-
-        {/* Tenant Cards */}
 
         {!isLoadingTenants &&
           !tenantError && (
@@ -751,9 +948,7 @@ export const BranchManagementView: React.FC = () => {
                     key={tenant.id}
                     type="button"
                     onClick={() =>
-                      setSelectedTenant(
-                        tenant
-                      )
+                      setSelectedTenant(tenant)
                     }
                     className="text-left p-5 rounded-2xl bg-[#09071e] border border-[#2d2770]/80 hover:border-[#5C3FE0] hover:bg-[#0c0925] transition-all shadow-lg group cursor-pointer"
                   >
@@ -795,8 +990,6 @@ export const BranchManagementView: React.FC = () => {
 
                         </div>
 
-                        {/* Tenant Currency */}
-
                         {tenant.defaultCurrency && (
                           <div className="flex items-center gap-1.5 mt-2 text-[11px]">
 
@@ -813,6 +1006,37 @@ export const BranchManagementView: React.FC = () => {
 
                           </div>
                         )}
+
+                        <div className="flex items-center justify-between text-xs mt-2">
+
+                          <span className="text-slate-500">
+                            Working Hours
+                          </span>
+
+                          <span className="text-white font-semibold">
+                            {(
+                              tenant.standardWorkingHours ??
+                              8
+                            ).toFixed(2)} hrs/day
+                          </span>
+
+                        </div>
+
+                        {/* Tenant Work Schedule */}
+
+                        <div className="flex items-center justify-between text-[10px] mt-1">
+
+                          <span className="text-slate-500">
+                            Schedule
+                          </span>
+
+                          <span className="text-[#A78BFA] font-semibold">
+                            {tenant.workStartTime ?? '09:00'}
+                            {' – '}
+                            {tenant.workEndTime ?? '17:00'}
+                          </span>
+
+                        </div>
 
                       </div>
 
@@ -862,7 +1086,9 @@ export const BranchManagementView: React.FC = () => {
   return (
     <div className="space-y-6 pb-12">
 
-      {/* Header */}
+      {/* =====================================================
+          HEADER
+      ===================================================== */}
 
       <div className="p-6 rounded-2xl bg-[#09071e] border border-[#2d2770]/70">
 
@@ -936,12 +1162,16 @@ export const BranchManagementView: React.FC = () => {
 
       </div>
 
-      {/* Tenant Currency Information */}
+      {/* =====================================================
+          TENANT DEFAULT SETTINGS
+      ===================================================== */}
 
-      {tenantDefaultCurrency && (
-        <div className="p-4 rounded-2xl bg-[#09071e] border border-[#231e54]">
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
 
-          <div className="flex items-center justify-between gap-4">
+        {/* Currency */}
+
+        {tenantDefaultCurrency && (
+          <div className="p-4 rounded-2xl bg-[#09071e] border border-[#231e54]">
 
             <div className="flex items-center gap-3">
 
@@ -958,28 +1188,67 @@ export const BranchManagementView: React.FC = () => {
                 </p>
 
                 <p className="text-xs text-white font-semibold mt-0.5">
+
                   {tenantDefaultCurrency.symbol}{' '}
                   {tenantDefaultCurrency.code}
+
                   <span className="text-slate-500 font-normal">
                     {' — '}
                     {tenantDefaultCurrency.name}
                   </span>
+
                 </p>
 
               </div>
 
             </div>
 
-            <span className="text-[10px] text-slate-500">
-              New branches use this by default
-            </span>
+          </div>
+        )}
+
+        {/* Work Schedule */}
+
+        <div className="p-4 rounded-2xl bg-[#09071e] border border-[#231e54]">
+
+          <div className="flex items-center gap-3">
+
+            <div className="w-9 h-9 rounded-lg bg-[#5C3FE0]/20 border border-[#5C3FE0]/30 flex items-center justify-center">
+
+              <Clock className="w-4 h-4 text-[#A78BFA]" />
+
+            </div>
+
+            <div>
+
+              <p className="text-[10px] text-slate-500 uppercase tracking-wider font-bold">
+                Tenant Default Work Schedule
+              </p>
+
+              <p className="text-xs text-white font-semibold mt-0.5">
+
+                {tenantStandardWorkingHours.toFixed(2)}
+                {' hrs/day'}
+
+                <span className="text-slate-500 font-normal">
+                  {' • '}
+                  {tenantWorkStartTime}
+                  {' – '}
+                  {tenantWorkEndTime}
+                </span>
+
+              </p>
+
+            </div>
 
           </div>
 
         </div>
-      )}
 
-      {/* Statistics */}
+      </div>
+
+      {/* =====================================================
+          STATISTICS
+      ===================================================== */}
 
       <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
 
@@ -1002,11 +1271,13 @@ export const BranchManagementView: React.FC = () => {
           </span>
 
           <span className="text-xl font-bold text-emerald-400">
+
             {
               branches.filter(
                 (b) => b.isActive
               ).length
             }
+
           </span>
 
         </div>
@@ -1018,18 +1289,22 @@ export const BranchManagementView: React.FC = () => {
           </span>
 
           <span className="text-xl font-bold text-red-400">
+
             {
               branches.filter(
                 (b) => !b.isActive
               ).length
             }
+
           </span>
 
         </div>
 
       </div>
 
-      {/* Search */}
+      {/* =====================================================
+          SEARCH
+      ===================================================== */}
 
       <div className="p-4 rounded-2xl bg-[#09071e] border border-[#231e54]">
 
@@ -1052,7 +1327,9 @@ export const BranchManagementView: React.FC = () => {
 
       </div>
 
-      {/* Error */}
+      {/* =====================================================
+          ERRORS
+      ===================================================== */}
 
       {branchError && (
         <div className="p-4 rounded-2xl bg-red-950/30 border border-red-900/50 text-sm text-red-400">
@@ -1060,15 +1337,15 @@ export const BranchManagementView: React.FC = () => {
         </div>
       )}
 
-      {/* Currency Error */}
-
       {currencyError && (
         <div className="p-4 rounded-2xl bg-red-950/30 border border-red-900/50 text-sm text-red-400">
           {currencyError}
         </div>
       )}
 
-      {/* Loading */}
+      {/* =====================================================
+          LOADING
+      ===================================================== */}
 
       {isLoadingBranches && (
         <div className="p-8 rounded-2xl bg-[#09071e] border border-[#231e54] flex items-center justify-center gap-2 text-sm text-slate-400">
@@ -1080,7 +1357,9 @@ export const BranchManagementView: React.FC = () => {
         </div>
       )}
 
-      {/* Branches */}
+      {/* =====================================================
+          BRANCHES
+      ===================================================== */}
 
       {!isLoadingBranches && (
         <>
@@ -1118,180 +1397,251 @@ export const BranchManagementView: React.FC = () => {
             <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
 
               {filteredBranches.map(
-                (branch) => (
+                (branch) => {
 
-                  <div
-                    key={branch.id}
-                    className="p-5 rounded-2xl bg-[#09071e] border border-[#2d2770]/80 hover:border-[#5C3FE0]/70 transition-all"
-                  >
+                  const effectiveHours =
+                    branch.standardWorkingHours ??
+                    branch.effectiveStandardWorkingHours ??
+                    tenantStandardWorkingHours;
 
-                    {/* Branch Header */}
+                  const effectiveStart =
+                    branch.workStartTime ??
+                    branch.effectiveWorkStartTime ??
+                    tenantWorkStartTime;
 
-                    <div className="flex items-start justify-between gap-3">
+                  const effectiveEnd =
+                    branch.workEndTime ??
+                    branch.effectiveWorkEndTime ??
+                    tenantWorkEndTime;
 
-                      <div className="flex items-center gap-3 min-w-0">
+                  const usesTenantSchedule =
+                    branch.standardWorkingHours == null &&
+                    branch.workStartTime == null &&
+                    branch.workEndTime == null;
 
-                        <div className="w-11 h-11 rounded-xl bg-[#1a144b] border border-[#2d2770] flex items-center justify-center text-[#A78BFA] shrink-0">
+                  return (
+                    <div
+                      key={branch.id}
+                      className="p-5 rounded-2xl bg-[#09071e] border border-[#2d2770]/80 hover:border-[#5C3FE0]/70 transition-all"
+                    >
 
-                          <GitBranch className="w-5 h-5" />
+                      {/* Branch Header */}
 
-                        </div>
+                      <div className="flex items-start justify-between gap-3">
 
-                        <div className="min-w-0">
+                        <div className="flex items-center gap-3 min-w-0">
 
-                          <h3 className="text-sm font-bold text-white truncate">
-                            {branch.branchName}
-                          </h3>
+                          <div className="w-11 h-11 rounded-xl bg-[#1a144b] border border-[#2d2770] flex items-center justify-center text-[#A78BFA] shrink-0">
 
-                          <div className="flex items-center gap-1 mt-1 text-[11px] text-slate-400">
+                            <GitBranch className="w-5 h-5" />
 
-                            <MapPin className="w-3 h-3" />
+                          </div>
 
-                            {branch.city ||
-                              'No city'}
+                          <div className="min-w-0">
+
+                            <h3 className="text-sm font-bold text-white truncate">
+                              {branch.branchName}
+                            </h3>
+
+                            <div className="flex items-center gap-1 mt-1 text-[11px] text-slate-400">
+
+                              <MapPin className="w-3 h-3" />
+
+                              {branch.city ||
+                                'No city'}
+
+                            </div>
 
                           </div>
 
                         </div>
 
-                      </div>
+                        <span
+                          className={
+                            branch.isActive
+                              ? 'px-2 py-0.5 rounded text-[9px] font-bold bg-emerald-950/40 text-emerald-400 border border-emerald-900/50'
+                              : 'px-2 py-0.5 rounded text-[9px] font-bold bg-red-950/40 text-red-400 border border-red-900/50'
+                          }
+                        >
 
-                      <span
-                        className={
-                          branch.isActive
-                            ? 'px-2 py-0.5 rounded text-[9px] font-bold bg-emerald-950/40 text-emerald-400 border border-emerald-900/50'
-                            : 'px-2 py-0.5 rounded text-[9px] font-bold bg-red-950/40 text-red-400 border border-red-900/50'
-                        }
-                      >
-
-                        {branch.isActive
-                          ? 'ACTIVE'
-                          : 'INACTIVE'}
-
-                      </span>
-
-                    </div>
-
-                    {/* Branch Information */}
-
-                    <div className="mt-4 p-3 rounded-xl bg-[#0e0b2e] border border-[#231e54] space-y-2.5">
-
-                      {/* Branch ID */}
-
-                      <div className="flex items-center justify-between text-xs">
-
-                        <span className="text-slate-500">
-                          Branch ID
-                        </span>
-
-                        <span className="font-mono text-white">
-                          #{branch.id}
-                        </span>
-
-                      </div>
-
-                      {/* Currency */}
-
-                      <div className="flex items-center justify-between text-xs">
-
-                        <span className="text-slate-500">
-                          Currency
-                        </span>
-
-                        <span className="flex items-center gap-1.5 text-white font-semibold">
-
-                          {branch.currency ? (
-                            <>
-                              <span className="text-[#A78BFA]">
-                                {branch.currency.symbol}
-                              </span>
-
-                              <span>
-                                {branch.currency.code}
-                              </span>
-
-                              {branch.currencyId ===
-                                selectedTenant.defaultCurrencyId && (
-                                  <span className="ml-1 text-[8px] px-1.5 py-0.5 rounded bg-[#5C3FE0]/20 text-[#A78BFA] border border-[#5C3FE0]/30">
-                                    DEFAULT
-                                  </span>
-                                )}
-                            </>
-                          ) : (
-                            <span className="text-red-400">
-                              Not configured
-                            </span>
-                          )}
+                          {branch.isActive
+                            ? 'ACTIVE'
+                            : 'INACTIVE'}
 
                         </span>
 
                       </div>
 
-                      {/* Currency Name */}
+                      {/* Branch Information */}
 
-                      {branch.currency && (
-                        <div className="flex items-center justify-between text-[10px]">
+                      <div className="mt-4 p-3 rounded-xl bg-[#0e0b2e] border border-[#231e54] space-y-2.5">
+
+                        {/* Branch ID */}
+
+                        <div className="flex items-center justify-between text-xs">
 
                           <span className="text-slate-500">
-                            Currency Name
+                            Branch ID
                           </span>
 
-                          <span className="text-slate-300">
-                            {branch.currency.name}
+                          <span className="font-mono text-white">
+                            #{branch.id}
                           </span>
 
                         </div>
-                      )}
+
+                        {/* Currency */}
+
+                        <div className="flex items-center justify-between text-xs">
+
+                          <span className="text-slate-500">
+                            Currency
+                          </span>
+
+                          <span className="flex items-center gap-1.5 text-white font-semibold">
+
+                            {branch.currency ? (
+                              <>
+
+                                <span className="text-[#A78BFA]">
+                                  {branch.currency.symbol}
+                                </span>
+
+                                <span>
+                                  {branch.currency.code}
+                                </span>
+
+                                {branch.currencyId ===
+                                  selectedTenant.defaultCurrencyId && (
+                                    <span className="ml-1 text-[8px] px-1.5 py-0.5 rounded bg-[#5C3FE0]/20 text-[#A78BFA] border border-[#5C3FE0]/30">
+                                      DEFAULT
+                                    </span>
+                                  )}
+
+                              </>
+                            ) : (
+                              <span className="text-red-400">
+                                Not configured
+                              </span>
+                            )}
+
+                          </span>
+
+                        </div>
+
+                        {/* Currency Name */}
+
+                        {branch.currency && (
+                          <div className="flex items-center justify-between text-[10px]">
+
+                            <span className="text-slate-500">
+                              Currency Name
+                            </span>
+
+                            <span className="text-slate-300">
+                              {branch.currency.name}
+                            </span>
+
+                          </div>
+                        )}
+
+                        {/* Working Hours */}
+
+                        <div className="flex items-center justify-between text-xs">
+
+                          <span className="text-slate-500">
+                            Working Hours
+                          </span>
+
+                          <span className="text-white font-semibold">
+
+                            {Number(
+                              effectiveHours
+                            ).toFixed(2)} hrs/day
+
+                            {usesTenantSchedule && (
+                              <span className="ml-1.5 text-[8px] px-1.5 py-0.5 rounded bg-[#5C3FE0]/20 text-[#A78BFA] border border-[#5C3FE0]/30">
+                                TENANT DEFAULT
+                              </span>
+                            )}
+
+                          </span>
+
+                        </div>
+
+                        {/* Work Schedule */}
+
+                        <div className="flex items-center justify-between text-xs">
+
+                          <span className="text-slate-500">
+                            Work Schedule
+                          </span>
+
+                          <span className="text-white font-semibold">
+
+                            {effectiveStart}
+                            {' – '}
+                            {effectiveEnd}
+
+                            {usesTenantSchedule && (
+                              <span className="ml-1.5 text-[8px] px-1.5 py-0.5 rounded bg-[#5C3FE0]/20 text-[#A78BFA] border border-[#5C3FE0]/30">
+                                TENANT DEFAULT
+                              </span>
+                            )}
+
+                          </span>
+
+                        </div>
+
+                      </div>
+
+                      {/* Actions */}
+
+                      <div className="mt-4 pt-3 border-t border-[#1e1950] flex items-center gap-2">
+
+                        <button
+                          type="button"
+                          onClick={() =>
+                            handleEditBranch(
+                              branch
+                            )
+                          }
+                          className="flex-1 flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg bg-white/5 hover:bg-[#5C3FE0]/20 text-slate-300 hover:text-white border border-white/10 text-xs font-semibold transition-colors"
+                        >
+
+                          <Pencil className="w-3.5 h-3.5" />
+
+                          Edit
+
+                        </button>
+
+                        <button
+                          type="button"
+                          onClick={() =>
+                            handleToggleStatus(
+                              branch
+                            )
+                          }
+                          className={
+                            branch.isActive
+                              ? 'flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg bg-red-500/10 hover:bg-red-500/20 text-red-300 border border-red-500/20 text-xs font-semibold'
+                              : 'flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-300 border border-emerald-500/20 text-xs font-semibold'
+                          }
+                        >
+
+                          <Power className="w-3.5 h-3.5" />
+
+                          {branch.isActive
+                            ? 'Disable'
+                            : 'Enable'}
+
+                        </button>
+
+                      </div>
 
                     </div>
-
-                    {/* Actions */}
-
-                    <div className="mt-4 pt-3 border-t border-[#1e1950] flex items-center gap-2">
-
-                      <button
-                        type="button"
-                        onClick={() =>
-                          handleEditBranch(
-                            branch
-                          )
-                        }
-                        className="flex-1 flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg bg-white/5 hover:bg-[#5C3FE0]/20 text-slate-300 hover:text-white border border-white/10 text-xs font-semibold transition-colors"
-                      >
-
-                        <Pencil className="w-3.5 h-3.5" />
-
-                        Edit
-
-                      </button>
-
-                      <button
-                        type="button"
-                        onClick={() =>
-                          handleToggleStatus(
-                            branch
-                          )
-                        }
-                        className={
-                          branch.isActive
-                            ? 'flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg bg-red-500/10 hover:bg-red-500/20 text-red-300 border border-red-500/20 text-xs font-semibold'
-                            : 'flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-300 border border-emerald-500/20 text-xs font-semibold'
-                        }
-                      >
-
-                        <Power className="w-3.5 h-3.5" />
-
-                        {branch.isActive
-                          ? 'Disable'
-                          : 'Enable'}
-
-                      </button>
-
-                    </div>
-
-                  </div>
-
-                )
+                  );
+                }
               )}
 
             </div>
@@ -1305,9 +1655,9 @@ export const BranchManagementView: React.FC = () => {
       ===================================================== */}
 
       {isBranchModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-md">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-md overflow-y-auto">
 
-          <div className="w-full max-w-lg bg-[#09071e] border border-[#2d2770] rounded-2xl shadow-2xl overflow-hidden">
+          <div className="w-full max-w-lg my-8 bg-[#09071e] border border-[#2d2770] rounded-2xl shadow-2xl overflow-hidden">
 
             {/* Modal Header */}
 
@@ -1439,8 +1789,6 @@ export const BranchManagementView: React.FC = () => {
                   Branch Currency
                 </label>
 
-                {/* Tenant Default Checkbox */}
-
                 <label
                   className={`mt-2 flex items-center gap-3 p-3 rounded-xl bg-[#0e0b2e] border border-[#231e54] ${isSaving
                     ? 'opacity-60 cursor-not-allowed'
@@ -1466,16 +1814,12 @@ export const BranchManagementView: React.FC = () => {
                   <div className="flex-1">
 
                     <div className="text-xs font-semibold text-white">
-
                       Use Tenant Default Currency
-
                     </div>
 
                     <div className="text-[10px] text-slate-500 mt-0.5">
-
                       Automatically use the currency
                       configured for this organization.
-
                     </div>
 
                   </div>
@@ -1490,8 +1834,6 @@ export const BranchManagementView: React.FC = () => {
                   )}
 
                 </label>
-
-                {/* Currency Dropdown */}
 
                 <div className="relative mt-2">
 
@@ -1560,8 +1902,6 @@ export const BranchManagementView: React.FC = () => {
 
                 </div>
 
-                {/* Selected Currency Information */}
-
                 {currencyId && (
                   <div className="mt-2 flex items-center justify-between text-[10px]">
 
@@ -1570,6 +1910,7 @@ export const BranchManagementView: React.FC = () => {
                     </span>
 
                     {(() => {
+
                       const selectedCurrency =
                         currencies.find(
                           (currency) =>
@@ -1601,6 +1942,7 @@ export const BranchManagementView: React.FC = () => {
 
                         </span>
                       );
+
                     })()}
 
                   </div>
@@ -1608,7 +1950,268 @@ export const BranchManagementView: React.FC = () => {
 
               </div>
 
-              {/* Status */}
+              {/* =================================================
+                  WORK SCHEDULE
+              ================================================= */}
+
+              <div>
+
+                <label className="text-[10px] uppercase tracking-wider text-slate-500 font-bold">
+                  Work Schedule
+                </label>
+
+                {/* Tenant Default Schedule */}
+
+                <label
+                  className={`mt-2 flex items-center gap-3 p-3 rounded-xl bg-[#0e0b2e] border border-[#231e54] ${isSaving
+                    ? 'opacity-60 cursor-not-allowed'
+                    : 'cursor-pointer'
+                    }`}
+                >
+
+                  <input
+                    type="checkbox"
+                    checked={
+                      useTenantDefaultWorkSchedule
+                    }
+                    onChange={(e) =>
+                      handleTenantDefaultWorkScheduleChange(
+                        e.target.checked
+                      )
+                    }
+                    disabled={isSaving}
+                    className="w-4 h-4 accent-[#5C3FE0]"
+                  />
+
+                  <div className="flex-1">
+
+                    <div className="text-xs font-semibold text-white">
+                      Use Tenant Default Work Schedule
+                    </div>
+
+                    <div className="text-[10px] text-slate-500 mt-0.5">
+                      Automatically inherit the tenant's
+                      start and end time.
+                    </div>
+
+                  </div>
+
+                  <span className="text-[10px] text-[#A78BFA] font-semibold whitespace-nowrap">
+
+                    {tenantWorkStartTime}
+                    {' – '}
+                    {tenantWorkEndTime}
+
+                  </span>
+
+                </label>
+
+                {/* Start / End */}
+
+                <div className="grid grid-cols-2 gap-3 mt-2">
+
+                  {/* Start */}
+
+                  <div>
+
+                    <label className="text-[10px] text-slate-500">
+                      Work Start Time
+                    </label>
+
+                    <div className="relative mt-1">
+
+                      <Clock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[#A78BFA] pointer-events-none" />
+
+                      <input
+                        type="time"
+                        value={workStartTime}
+                        onChange={(e) =>
+                          setWorkStartTime(
+                            e.target.value
+                          )
+                        }
+                        disabled={
+                          isSaving ||
+                          useTenantDefaultWorkSchedule
+                        }
+                        className={`w-full pl-9 pr-3 py-2.5 rounded-xl bg-[#0e0b2e] border border-[#2d2770] text-white text-xs focus:outline-none focus:border-[#5C3FE0] ${useTenantDefaultWorkSchedule
+                          ? 'opacity-60 cursor-not-allowed'
+                          : ''
+                          }`}
+                      />
+
+                    </div>
+
+                  </div>
+
+                  {/* End */}
+
+                  <div>
+
+                    <label className="text-[10px] text-slate-500">
+                      Work End Time
+                    </label>
+
+                    <div className="relative mt-1">
+
+                      <Clock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[#A78BFA] pointer-events-none" />
+
+                      <input
+                        type="time"
+                        value={workEndTime}
+                        onChange={(e) =>
+                          setWorkEndTime(
+                            e.target.value
+                          )
+                        }
+                        disabled={
+                          isSaving ||
+                          useTenantDefaultWorkSchedule
+                        }
+                        className={`w-full pl-9 pr-3 py-2.5 rounded-xl bg-[#0e0b2e] border border-[#2d2770] text-white text-xs focus:outline-none focus:border-[#5C3FE0] ${useTenantDefaultWorkSchedule
+                          ? 'opacity-60 cursor-not-allowed'
+                          : ''
+                          }`}
+                      />
+
+                    </div>
+
+                  </div>
+
+                </div>
+
+                <div className="mt-2 flex items-center justify-between text-[10px]">
+
+                  <span className="text-slate-500">
+                    Tenant default
+                  </span>
+
+                  <span className="text-[#A78BFA] font-semibold">
+                    {tenantWorkStartTime}
+                    {' – '}
+                    {tenantWorkEndTime}
+                  </span>
+
+                </div>
+
+                {!useTenantDefaultWorkSchedule && (
+                  <p className="text-[10px] text-slate-500 mt-1">
+                    Custom branch start and end times will
+                    override the tenant schedule.
+                  </p>
+                )}
+
+              </div>
+
+              {/* =================================================
+                  STANDARD WORKING HOURS
+              ================================================= */}
+
+              <div>
+
+                <label className="text-[10px] uppercase tracking-wider text-slate-500 font-bold">
+                  Standard Working Hours
+                </label>
+
+                <label
+                  className={`mt-2 flex items-center gap-3 p-3 rounded-xl bg-[#0e0b2e] border border-[#231e54] ${isSaving
+                    ? 'opacity-60 cursor-not-allowed'
+                    : 'cursor-pointer'
+                    }`}
+                >
+
+                  <input
+                    type="checkbox"
+                    checked={
+                      useTenantDefaultWorkingHours
+                    }
+                    onChange={(e) =>
+                      handleTenantDefaultWorkingHoursChange(
+                        e.target.checked
+                      )
+                    }
+                    disabled={isSaving}
+                    className="w-4 h-4 accent-[#5C3FE0]"
+                  />
+
+                  <div className="flex-1">
+
+                    <div className="text-xs font-semibold text-white">
+                      Use Tenant Default Working Hours
+                    </div>
+
+                    <div className="text-[10px] text-slate-500 mt-0.5">
+                      Automatically use the working hours
+                      configured for this organization.
+                    </div>
+
+                  </div>
+
+                  <span className="text-[10px] text-[#A78BFA] font-semibold whitespace-nowrap">
+
+                    {tenantStandardWorkingHours.toFixed(2)}
+                    {' hrs/day'}
+
+                  </span>
+
+                </label>
+
+                {/* Custom Hours */}
+
+                <div className="relative mt-2">
+
+                  <input
+                    type="number"
+                    min="0.01"
+                    max="24"
+                    step="0.01"
+                    value={standardWorkingHours}
+                    onChange={(e) => {
+                      setStandardWorkingHours(
+                        Number(e.target.value)
+                      );
+                    }}
+                    disabled={
+                      isSaving ||
+                      useTenantDefaultWorkingHours
+                    }
+                    className={`w-full px-3 pr-14 py-2.5 rounded-xl bg-[#0e0b2e] border border-[#2d2770] text-white text-xs focus:outline-none focus:border-[#5C3FE0] ${useTenantDefaultWorkingHours
+                      ? 'opacity-60 cursor-not-allowed'
+                      : ''
+                      }`}
+                  />
+
+                  <span className="absolute right-3 top-1/2 -translate-y-1/2 text-[10px] text-slate-500">
+                    hrs/day
+                  </span>
+
+                </div>
+
+                <div className="mt-2 flex items-center justify-between text-[10px]">
+
+                  <span className="text-slate-500">
+                    Tenant default
+                  </span>
+
+                  <span className="text-[#A78BFA] font-semibold">
+                    {tenantStandardWorkingHours.toFixed(2)}
+                    {' hrs/day'}
+                  </span>
+
+                </div>
+
+                {!useTenantDefaultWorkingHours && (
+                  <p className="text-[10px] text-slate-500 mt-1">
+                    Custom branch working hours will
+                    override the tenant default.
+                  </p>
+                )}
+
+              </div>
+
+              {/* =================================================
+                  STATUS
+              ================================================= */}
 
               {editingBranch && (
                 <label className="flex items-center justify-between p-3 rounded-xl bg-[#0e0b2e] border border-[#231e54] cursor-pointer">
@@ -1703,8 +2306,6 @@ export const BranchManagementView: React.FC = () => {
 
           <div className="w-full max-w-md bg-[#09071e] border border-[#2d2770] rounded-2xl shadow-2xl overflow-hidden">
 
-            {/* Header */}
-
             <div className="px-6 py-5 border-b border-[#231e54]">
 
               <div className="flex items-center gap-3">
@@ -1747,8 +2348,6 @@ export const BranchManagementView: React.FC = () => {
 
             </div>
 
-            {/* Content */}
-
             <div className="px-6 py-5">
 
               <p className="text-sm text-slate-300 leading-relaxed">
@@ -1781,11 +2380,7 @@ export const BranchManagementView: React.FC = () => {
 
               </p>
 
-              {/* Branch Information */}
-
               <div className="mt-4 p-3 rounded-xl bg-[#0e0b2e] border border-[#231e54]">
-
-                {/* Organization */}
 
                 <div className="flex items-center justify-between text-xs">
 
@@ -1799,8 +2394,6 @@ export const BranchManagementView: React.FC = () => {
 
                 </div>
 
-                {/* Branch */}
-
                 <div className="flex items-center justify-between text-xs mt-2">
 
                   <span className="text-slate-500">
@@ -1812,8 +2405,6 @@ export const BranchManagementView: React.FC = () => {
                   </span>
 
                 </div>
-
-                {/* Currency */}
 
                 {branchToToggle.currency && (
                   <div className="flex items-center justify-between text-xs mt-2">
@@ -1832,7 +2423,60 @@ export const BranchManagementView: React.FC = () => {
                   </div>
                 )}
 
-                {/* Current Status */}
+                {/* Working Hours */}
+
+                <div className="flex items-center justify-between text-xs mt-2">
+
+                  <span className="text-slate-500">
+                    Working Hours
+                  </span>
+
+                  <span className="text-white font-semibold">
+
+                    {Number(
+                      branchToToggle.standardWorkingHours ??
+                      branchToToggle.effectiveStandardWorkingHours ??
+                      selectedTenant.standardWorkingHours ??
+                      8
+                    ).toFixed(2)}
+                    {' hrs/day'}
+
+                  </span>
+
+                </div>
+
+                {/* Work Schedule */}
+
+                <div className="flex items-center justify-between text-xs mt-2">
+
+                  <span className="text-slate-500">
+                    Work Schedule
+                  </span>
+
+                  <span className="text-white font-semibold">
+
+                    {branchToToggle.workStartTime ??
+                      branchToToggle.effectiveWorkStartTime ??
+                      selectedTenant.workStartTime ??
+                      '09:00'}
+
+                    {' – '}
+
+                    {branchToToggle.workEndTime ??
+                      branchToToggle.effectiveWorkEndTime ??
+                      selectedTenant.workEndTime ??
+                      '17:00'}
+
+                    {branchToToggle.workStartTime == null &&
+                      branchToToggle.workEndTime == null && (
+                        <span className="ml-1.5 text-[8px] px-1.5 py-0.5 rounded bg-[#5C3FE0]/20 text-[#A78BFA] border border-[#5C3FE0]/30">
+                          TENANT DEFAULT
+                        </span>
+                      )}
+
+                  </span>
+
+                </div>
 
                 <div className="flex items-center justify-between text-xs mt-2">
 
@@ -1855,8 +2499,6 @@ export const BranchManagementView: React.FC = () => {
                   </span>
 
                 </div>
-
-                {/* New Status */}
 
                 <div className="flex items-center justify-between text-xs mt-2">
 
@@ -1882,8 +2524,6 @@ export const BranchManagementView: React.FC = () => {
 
               </div>
 
-              {/* Warning */}
-
               {branchToToggle.isActive && (
                 <p className="mt-4 text-[11px] text-slate-500 leading-relaxed">
 
@@ -1896,11 +2536,7 @@ export const BranchManagementView: React.FC = () => {
 
             </div>
 
-            {/* Footer */}
-
             <div className="flex items-center justify-end gap-2 px-6 py-4 border-t border-[#231e54]">
-
-              {/* Cancel */}
 
               <button
                 type="button"
@@ -1916,8 +2552,6 @@ export const BranchManagementView: React.FC = () => {
                 Cancel
 
               </button>
-
-              {/* Confirm */}
 
               <button
                 type="button"

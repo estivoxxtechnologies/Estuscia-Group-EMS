@@ -72,6 +72,15 @@ export const TenantView: React.FC = () => {
     const [tenantCurrencyId, setTenantCurrencyId] =
         useState<number>(2); // INR fallback
 
+    const [tenantStandardWorkingHours, setTenantStandardWorkingHours] =
+        useState<number>(8);
+
+    const [tenantWorkStartTime, setTenantWorkStartTime] =
+        useState<string>('09:00');
+
+    const [tenantWorkEndTime, setTenantWorkEndTime] =
+        useState<string>('17:00');
+
     const [tenantIsActive, setTenantIsActive] =
         useState(true);
 
@@ -238,11 +247,18 @@ export const TenantView: React.FC = () => {
         setTenantCode('');
         setTenantDomain('');
         setTenantPlan('Enterprise Pro');
+
         const inr = currencies.find(
             (currency) => currency.code === 'INR'
         );
 
         setTenantCurrencyId(inr?.id ?? 2);
+
+        // Default company working hours
+        setTenantStandardWorkingHours(8);
+        setTenantWorkStartTime('09:00');
+        setTenantWorkEndTime('17:00');
+
         setTenantIsActive(true);
 
         setIsTenantFormOpen(true);
@@ -266,6 +282,18 @@ export const TenantView: React.FC = () => {
             tenant.defaultCurrencyId
         );
 
+        setTenantStandardWorkingHours(
+            tenant.standardWorkingHours ?? 8
+        );
+
+        setTenantWorkStartTime(
+            tenant.workStartTime?.substring(0, 5) ?? '09:00'
+        );
+
+        setTenantWorkEndTime(
+            tenant.workEndTime?.substring(0, 5) ?? '17:00'
+        );
+
         setTenantIsActive(tenant.isActive);
 
         setIsTenantFormOpen(true);
@@ -286,6 +314,20 @@ export const TenantView: React.FC = () => {
     // ---------------------------------------------------------
     // Save Tenant
     // ---------------------------------------------------------
+
+    const normalizeTimeForApi = (value: string): string => {
+        if (!value) {
+            return value;
+        }
+
+        // HTML <input type="time"> normally returns HH:mm
+        if (/^\d{2}:\d{2}$/.test(value)) {
+            return `${value}:00`;
+        }
+
+        // Already HH:mm:ss
+        return value;
+    };
 
     const handleSaveTenant = async (
         e: React.FormEvent
@@ -312,8 +354,53 @@ export const TenantView: React.FC = () => {
             return;
         }
 
+        if (
+            !Number.isFinite(tenantStandardWorkingHours) ||
+            tenantStandardWorkingHours <= 0 ||
+            tenantStandardWorkingHours > 24
+        ) {
+            toast.error(
+                'Standard working hours must be greater than 0 and cannot exceed 24 hours.'
+            );
+            return;
+        }
+
+        if (!tenantWorkStartTime || !tenantWorkEndTime) {
+            toast.error(
+                'Work start and end times are required.'
+            );
+            return;
+        }
+
+        // ---------------------------------------------------------
+        // NORMALIZE TIME FOR ASP.NET TimeOnly
+        // ---------------------------------------------------------
+
+        const workStartTime = normalizeTimeForApi(
+            tenantWorkStartTime
+        );
+
+        const workEndTime = normalizeTimeForApi(
+            tenantWorkEndTime
+        );
+
+        // ---------------------------------------------------------
+        // CLIENT-SIDE TIME VALIDATION
+        // ---------------------------------------------------------
+
+        if (workStartTime >= workEndTime) {
+            toast.error(
+                'Work start time must be earlier than work end time.'
+            );
+            return;
+        }
+
         try {
             setIsSavingTenant(true);
+
+            // =====================================================
+            // UPDATE TENANT
+            // =====================================================
 
             if (isEditingTenant && selectedTenant) {
                 const updated = await updateTenant(
@@ -324,6 +411,10 @@ export const TenantView: React.FC = () => {
                         domain: tenantDomain.trim(),
                         plan: tenantPlan.trim(),
                         defaultCurrencyId: tenantCurrencyId,
+                        standardWorkingHours:
+                            tenantStandardWorkingHours,
+                        workStartTime,
+                        workEndTime,
                         isActive: tenantIsActive,
                     }
                 );
@@ -341,13 +432,23 @@ export const TenantView: React.FC = () => {
                 toast.success(
                     'Tenant updated successfully.'
                 );
-            } else {
+            }
+
+            // =====================================================
+            // CREATE TENANT
+            // =====================================================
+
+            else {
                 const created = await createTenant({
                     name: tenantName.trim(),
                     code: tenantCode.trim(),
                     domain: tenantDomain.trim(),
                     plan: tenantPlan.trim(),
                     defaultCurrencyId: tenantCurrencyId,
+                    standardWorkingHours:
+                        tenantStandardWorkingHours,
+                    workStartTime,
+                    workEndTime,
                     isActive: true,
                 });
 
@@ -364,7 +465,6 @@ export const TenantView: React.FC = () => {
             }
 
             setIsTenantFormOpen(false);
-
         } catch (error) {
             console.error(
                 'Failed to save tenant:',
@@ -809,6 +909,48 @@ export const TenantView: React.FC = () => {
 
                             </div>
 
+                            {/* Required Working Hours */}
+
+                            <div className="p-3 rounded-xl bg-[#0e0b2e] border border-[#231e54]">
+
+                                <span className="text-[10px] text-slate-400 uppercase block">
+                                    Required Hours
+                                </span>
+
+                                <span className="text-white font-bold">
+                                    {selectedTenant.standardWorkingHours?.toFixed(2)} hrs/day
+                                </span>
+
+                            </div>
+
+                            {/* Work Start */}
+
+                            <div className="p-3 rounded-xl bg-[#0e0b2e] border border-[#231e54]">
+
+                                <span className="text-[10px] text-slate-400 uppercase block">
+                                    Work Start
+                                </span>
+
+                                <span className="text-white font-bold">
+                                    {selectedTenant.workStartTime?.substring(0, 5) || 'N/A'}
+                                </span>
+
+                            </div>
+
+                            {/* Work End */}
+
+                            <div className="p-3 rounded-xl bg-[#0e0b2e] border border-[#231e54]">
+
+                                <span className="text-[10px] text-slate-400 uppercase block">
+                                    Work End
+                                </span>
+
+                                <span className="text-white font-bold">
+                                    {selectedTenant.workEndTime?.substring(0, 5) || 'N/A'}
+                                </span>
+
+                            </div>
+
                             {/* Status */}
 
                             <div className="p-3 rounded-xl bg-[#0e0b2e] border border-[#231e54]">
@@ -1036,6 +1178,8 @@ export const TenantView: React.FC = () => {
 
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
 
+                                {/* Plan */}
+
                                 <div>
 
                                     <label className="block text-[11px] font-semibold text-slate-300 uppercase tracking-wider mb-1">
@@ -1046,9 +1190,7 @@ export const TenantView: React.FC = () => {
                                         required
                                         value={tenantPlan}
                                         onChange={(e) =>
-                                            setTenantPlan(
-                                                e.target.value
-                                            )
+                                            setTenantPlan(e.target.value)
                                         }
                                         disabled={isSavingTenant}
                                         className="w-full px-3 py-2.5 rounded-xl bg-[#0e0b2e] border border-[#2d2770] text-white focus:outline-none focus:border-[#5C3FE0] disabled:opacity-50"
@@ -1068,10 +1210,11 @@ export const TenantView: React.FC = () => {
                                         <option value="Basic">
                                             Basic
                                         </option>
-
                                     </select>
 
                                 </div>
+
+                                {/* Currency */}
 
                                 <div>
 
@@ -1102,6 +1245,117 @@ export const TenantView: React.FC = () => {
                                             </option>
                                         ))}
                                     </select>
+
+                                </div>
+
+                            </div>
+
+                            {/* =========================================================
+    WORKING SCHEDULE
+========================================================= */}
+
+                            <div className="p-4 rounded-xl bg-[#0e0b2e] border border-[#231e54] space-y-4">
+
+                                <div>
+                                    <h3 className="text-xs font-bold text-white">
+                                        Default Working Schedule
+                                    </h3>
+
+                                    <p className="text-[10px] text-slate-500 mt-1">
+                                        These values become the default schedule for all branches.
+                                        Branches can override them individually.
+                                    </p>
+                                </div>
+
+                                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+
+                                    {/* Required Hours */}
+
+                                    <div>
+
+                                        <label className="block text-[11px] font-semibold text-slate-300 uppercase tracking-wider mb-1">
+                                            Required Hours *
+                                        </label>
+
+                                        <div className="relative">
+
+                                            <input
+                                                type="number"
+                                                required
+                                                min="0.01"
+                                                max="24"
+                                                step="0.01"
+                                                value={tenantStandardWorkingHours}
+                                                onChange={(e) =>
+                                                    setTenantStandardWorkingHours(
+                                                        Number(e.target.value)
+                                                    )
+                                                }
+                                                disabled={isSavingTenant}
+                                                className="w-full px-3 pr-12 py-2.5 rounded-xl bg-[#09071e] border border-[#2d2770] text-white focus:outline-none focus:border-[#5C3FE0] disabled:opacity-50"
+                                            />
+
+                                            <span className="absolute right-3 top-2.5 text-slate-500">
+                                                hrs
+                                            </span>
+
+                                        </div>
+
+                                        <p className="text-[10px] text-slate-500 mt-1">
+                                            Actual hours required per working day.
+                                        </p>
+
+                                    </div>
+
+                                    {/* Work Start */}
+
+                                    <div>
+
+                                        <label className="block text-[11px] font-semibold text-slate-300 uppercase tracking-wider mb-1">
+                                            Work Start *
+                                        </label>
+
+                                        <input
+                                            type="time"
+                                            required
+                                            value={tenantWorkStartTime}
+                                            onChange={(e) =>
+                                                setTenantWorkStartTime(e.target.value)
+                                            }
+                                            disabled={isSavingTenant}
+                                            className="w-full px-3 py-2.5 rounded-xl bg-[#09071e] border border-[#2d2770] text-white focus:outline-none focus:border-[#5C3FE0] disabled:opacity-50"
+                                        />
+
+                                        <p className="text-[10px] text-slate-500 mt-1">
+                                            Used for late-arrival rules.
+                                        </p>
+
+                                    </div>
+
+                                    {/* Work End */}
+
+                                    <div>
+
+                                        <label className="block text-[11px] font-semibold text-slate-300 uppercase tracking-wider mb-1">
+                                            Work End *
+                                        </label>
+
+                                        <input
+                                            type="time"
+                                            required
+                                            value={tenantWorkEndTime}
+                                            onChange={(e) =>
+                                                setTenantWorkEndTime(e.target.value)
+                                            }
+                                            disabled={isSavingTenant}
+                                            className="w-full px-3 py-2.5 rounded-xl bg-[#09071e] border border-[#2d2770] text-white focus:outline-none focus:border-[#5C3FE0] disabled:opacity-50"
+                                        />
+
+                                        <p className="text-[10px] text-slate-500 mt-1">
+                                            Used for early-leaving rules.
+                                        </p>
+
+                                    </div>
 
                                 </div>
 

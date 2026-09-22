@@ -10,8 +10,11 @@ export interface BackendTenant {
   createdAtUtc: string;
   updatedAtUtc: string | null;
   createdByUserId: number | null;
-
+  standardWorkingHours: number;
+  workStartTime: string;
+  workEndTime: string;
   defaultCurrencyId: number;
+
 
   defaultCurrency: {
     id: number;
@@ -27,6 +30,9 @@ export interface CreateTenantRequest {
   domain: string;
   plan: string;
   defaultCurrencyId: number;
+  standardWorkingHours: number;
+  workStartTime: string;
+  workEndTime: string;
   isActive: boolean;
 }
 
@@ -36,6 +42,9 @@ export interface UpdateTenantRequest {
   domain: string;
   plan: string;
   defaultCurrencyId: number;
+  standardWorkingHours: number;
+  workStartTime: string;
+  workEndTime: string;
   isActive: boolean;
 }
 
