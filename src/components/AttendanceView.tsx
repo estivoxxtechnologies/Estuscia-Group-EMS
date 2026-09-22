@@ -5,13 +5,20 @@ import {
   RefreshCw,
   AlertCircle,
   Users,
-  UserCheck,
 } from 'lucide-react';
 
 import { useApp } from '../context/AppContext';
 import { MyAttendance } from '../components/MyAttendance';
 import { AttendanceRecords } from '../components/AttendanceRecords';
 import { LeaveManagement } from '../components/LeaveManagement';
+
+const normalizeTime = (
+  value: string | null | undefined,
+): string | null => {
+  if (!value) return null;
+
+  return value.slice(0, 5);
+};
 
 export const AttendanceView: React.FC = () => {
   const {
@@ -25,9 +32,8 @@ export const AttendanceView: React.FC = () => {
     'records' | 'leaves' | 'batches'
   >('records');
 
-  const [actionError, setActionError] = useState<string | null>(
-    null,
-  );
+  const [actionError, setActionError] =
+    useState<string | null>(null);
 
   if (!currentUser) {
     return (
@@ -37,9 +43,10 @@ export const AttendanceView: React.FC = () => {
     );
   }
 
-  const role = currentUser.roleName
-    ?.trim()
-    .toLowerCase();
+  const role =
+    currentUser.roleName
+      ?.trim()
+      .toLowerCase();
 
   const isEmployee =
     role === 'sales_staff';
@@ -49,6 +56,34 @@ export const AttendanceView: React.FC = () => {
     role === 'hr_ops' ||
     role === 'branch_manager';
 
+  const isSuperAdmin =
+    role === 'super_admin';
+
+  /*
+   * ============================================================
+   * ATTENDANCE SCOPE
+   * ============================================================
+   */
+
+  const attendanceScope = {
+    tenantId:
+      currentUser.tenantId ?? undefined,
+
+    branchId:
+      currentUser.branchId ?? undefined,
+
+    userId:
+      isEmployee
+        ? currentUser.userId
+        : undefined,
+  };
+
+  /*
+   * ============================================================
+   * REFRESH
+   * ============================================================
+   */
+
   const handleRefresh = async () => {
     try {
       setActionError(null);
@@ -56,6 +91,8 @@ export const AttendanceView: React.FC = () => {
       if (isEmployee) {
         await loadAttendance({
           userId: currentUser.userId,
+          branchId:
+            currentUser.branchId ?? undefined,
         });
 
         return;
@@ -63,6 +100,9 @@ export const AttendanceView: React.FC = () => {
 
       if (role === 'branch_manager') {
         await loadAttendance({
+          tenantId:
+            currentUser.tenantId ?? undefined,
+
           branchId:
             currentUser.branchId ?? undefined,
         });
@@ -74,6 +114,19 @@ export const AttendanceView: React.FC = () => {
         role === 'company_admin' ||
         role === 'hr_ops'
       ) {
+        await loadAttendance({
+          tenantId:
+            currentUser.tenantId ?? undefined,
+        });
+
+        return;
+      }
+
+      /*
+       * SuperAdmin should not accidentally inherit
+       * an employee/branch attendance scope.
+       */
+      if (isSuperAdmin) {
         await loadAttendance();
       }
     } catch (error) {
@@ -120,14 +173,51 @@ export const AttendanceView: React.FC = () => {
           className="px-4 py-2 rounded-xl bg-[#140f3d] hover:bg-[#1f175a] border border-[#2d2770] text-slate-200 text-xs font-semibold transition-colors flex items-center gap-2 disabled:opacity-50"
         >
           <RefreshCw
-            className={`w-4 h-4 ${attendanceLoading
-              ? 'animate-spin'
-              : ''
-              }`}
+            className={`w-4 h-4 ${
+              attendanceLoading
+                ? 'animate-spin'
+                : ''
+            }`}
           />
 
           Refresh
         </button>
+
+      </div>
+
+      {/* ============================================================
+          TENANT / BRANCH CONTEXT
+          ============================================================ */}
+
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+
+        <div className="p-4 rounded-2xl bg-[#09071e] border border-[#2d2770]/70">
+
+          <p className="text-[10px] uppercase tracking-wider text-slate-500">
+            Tenant
+          </p>
+
+          <p className="text-sm font-bold text-white mt-1">
+            {currentUser.tenantName ?? 'All Tenants'}
+          </p>
+
+        </div>
+
+        <div className="p-4 rounded-2xl bg-[#09071e] border border-[#2d2770]/70">
+
+          <p className="text-[10px] uppercase tracking-wider text-slate-500">
+            Attendance Scope
+          </p>
+
+          <p className="text-sm font-bold text-white mt-1">
+            {isEmployee
+              ? currentUser.branchName ?? 'Assigned Branch'
+              : role === 'branch_manager'
+                ? currentUser.branchName ?? 'Assigned Branch'
+                : 'All Branches'}
+          </p>
+
+        </div>
 
       </div>
 
@@ -147,11 +237,10 @@ export const AttendanceView: React.FC = () => {
           </span>
 
           <span>
-            Attendance is managed through authenticated
-            backend records. Employees can check in and
-            check out, while authorized HR, administrators
-            and branch managers can manage attendance
-            according to their access scope.
+            Attendance is calculated using the effective
+            working schedule configured for the tenant and
+            branch. Branch-specific schedules override the
+            tenant defaults when configured.
           </span>
         </div>
 
@@ -178,12 +267,13 @@ export const AttendanceView: React.FC = () => {
       {isEmployee && (
         <>
           <MyAttendance />
+
           <LeaveManagement />
         </>
       )}
 
       {/* ============================================================
-          MANAGEMENT SUB TABS
+          MANAGEMENT
       ============================================================ */}
 
       {isManagement && (
@@ -195,10 +285,11 @@ export const AttendanceView: React.FC = () => {
               onClick={() =>
                 setActiveSubTab('records')
               }
-              className={`px-4 py-2 rounded-xl font-bold transition-colors flex items-center gap-2 ${activeSubTab === 'records'
-                ? 'bg-[#5C3FE0] text-white'
-                : 'text-slate-400 hover:text-white hover:bg-[#120e38]'
-                }`}
+              className={`px-4 py-2 rounded-xl font-bold transition-colors flex items-center gap-2 ${
+                activeSubTab === 'records'
+                  ? 'bg-[#5C3FE0] text-white'
+                  : 'text-slate-400 hover:text-white hover:bg-[#120e38]'
+              }`}
             >
               <Users className="w-3.5 h-3.5" />
 
@@ -210,10 +301,11 @@ export const AttendanceView: React.FC = () => {
               onClick={() =>
                 setActiveSubTab('leaves')
               }
-              className={`px-4 py-2 rounded-xl font-bold transition-colors ${activeSubTab === 'leaves'
-                ? 'bg-[#5C3FE0] text-white'
-                : 'text-slate-400 hover:text-white hover:bg-[#120e38]'
-                }`}
+              className={`px-4 py-2 rounded-xl font-bold transition-colors ${
+                activeSubTab === 'leaves'
+                  ? 'bg-[#5C3FE0] text-white'
+                  : 'text-slate-400 hover:text-white hover:bg-[#120e38]'
+              }`}
             >
               Leave Management
             </button>
@@ -223,35 +315,24 @@ export const AttendanceView: React.FC = () => {
               onClick={() =>
                 setActiveSubTab('batches')
               }
-              className={`px-4 py-2 rounded-xl font-bold transition-colors ${activeSubTab === 'batches'
-                ? 'bg-[#5C3FE0] text-white'
-                : 'text-slate-400 hover:text-white hover:bg-[#120e38]'
-                }`}
+              className={`px-4 py-2 rounded-xl font-bold transition-colors ${
+                activeSubTab === 'batches'
+                  ? 'bg-[#5C3FE0] text-white'
+                  : 'text-slate-400 hover:text-white hover:bg-[#120e38]'
+              }`}
             >
               Batch Upload
             </button>
 
           </div>
 
-          {/* ========================================================
-              ATTENDANCE RECORDS
-          ======================================================== */}
-
           {activeSubTab === 'records' && (
             <AttendanceRecords />
           )}
 
-          {/* ========================================================
-              LEAVE MANAGEMENT
-          ======================================================== */}
-
           {activeSubTab === 'leaves' && (
             <LeaveManagement />
           )}
-
-          {/* ========================================================
-              BATCH UPLOAD
-          ======================================================== */}
 
           {activeSubTab === 'batches' && (
             <div className="p-8 rounded-2xl bg-[#09071e] border border-[#2d2770]/80 text-center">
@@ -270,6 +351,7 @@ export const AttendanceView: React.FC = () => {
 
             </div>
           )}
+
         </>
       )}
 
