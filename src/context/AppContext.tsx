@@ -15,7 +15,7 @@ import {
   User,
   Role,
   SlabVersion,
-  AttendanceBatch,
+  // AttendanceBatch,
   LeaveRequest,
   TargetCycle,
   StaffTarget,
@@ -172,11 +172,13 @@ interface AppContextType {
   loadAttendance: (filters?: {
     branchId?: number;
     date?: string;
+    fromDate?: string;
+    toDate?: string;
     userId?: number;
   }) => Promise<void>;
 
   // Legacy batch / leave state
-  attendanceBatches: AttendanceBatch[];
+  // attendanceBatches: AttendanceBatch[];
   leaveRequests: LeaveRequest[];
   uploadAttendanceBatch: (fileName: string, records: Partial<AttendanceRecord>[]) => void;
   updateAttendanceRecord: (recordId: string, updates: Partial<AttendanceRecord>) => void;
@@ -292,8 +294,10 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const [attendanceError, setAttendanceError] =
     useState<string | null>(null);
 
-  const [attendanceBatches, setAttendanceBatches] =
-    useState<AttendanceBatch[]>([]);
+  const [todayAttendanceRecord, setTodayAttendanceRecord] =
+    useState<AttendanceRecord | null>(null);
+  // const [attendanceBatches, setAttendanceBatches] =
+  //   useState<AttendanceBatch[]>([]);
 
   const [leaveRequests, setLeaveRequests] =
     useState<LeaveRequest[]>([]);
@@ -398,6 +402,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       filters: {
         branchId?: number;
         date?: string;
+        fromDate?: string;
+        toDate?: string;
         userId?: number;
       } = {},
     ) => {
@@ -426,6 +432,66 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       }
     },
     [],
+  );
+
+  const loadTodayAttendance = useCallback(
+    async () => {
+      if (!currentUser) {
+        setTodayAttendanceRecord(null);
+        return;
+      }
+
+      const role = currentUser.roleName
+        ?.trim()
+        .toLowerCase();
+
+      // Super admin does not use attendance.
+      if (role === 'super_admin') {
+        setTodayAttendanceRecord(null);
+        return;
+      }
+
+      try {
+        const today = new Date();
+
+        const year = today.getFullYear();
+
+        const month = String(
+          today.getMonth() + 1
+        ).padStart(2, '0');
+
+        const day = String(
+          today.getDate()
+        ).padStart(2, '0');
+
+        const todayString =
+          `${year}-${month}-${day}`;
+
+        // Always request the CURRENT USER's attendance.
+        const records = await getAttendance({
+          userId: currentUser.userId,
+          date: todayString,
+        });
+
+        const record =
+          records.find(
+            (item) =>
+              Number(item.userId) === currentUser.userId &&
+              item.date === todayString
+          ) ?? null;
+
+        setTodayAttendanceRecord(record);
+
+      } catch (error) {
+        console.error(
+          'Failed to load today attendance:',
+          error
+        );
+
+        setTodayAttendanceRecord(null);
+      }
+    },
+    [currentUser],
   );
 
   useEffect(() => {
@@ -514,6 +580,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   useEffect(() => {
     if (!currentUser) {
       setAttendanceRecords([]);
+      setTodayAttendanceRecord(null);
       setAttendanceError(null);
       return;
     }
@@ -528,12 +595,17 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
     if (role === 'super_admin') {
       setAttendanceRecords([]);
+      setTodayAttendanceRecord(null);
       setAttendanceError(null);
+
       return;
     }
 
     // ============================================================
-    // SALES STAFF
+    // LOAD DEFAULT ATTENDANCE HISTORY
+    //
+    // Keep the existing role-based behavior for all other
+    // Attendance pages.
     // ============================================================
 
     if (role === 'sales_staff') {
@@ -541,12 +613,10 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         userId: currentUser.userId,
       });
 
+      loadTodayAttendance();
+
       return;
     }
-
-    // ============================================================
-    // BRANCH MANAGER
-    // ============================================================
 
     if (role === 'branch_manager') {
       loadAttendance({
@@ -554,14 +624,10 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           currentUser.branchId ?? undefined,
       });
 
+      loadTodayAttendance();
+
       return;
     }
-
-    // ============================================================
-    // COMPANY ADMIN / HR OPS
-    //
-    // selectedBranchId === null means ALL BRANCHES
-    // ============================================================
 
     if (
       role === 'company_admin' ||
@@ -575,14 +641,18 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           : {}
       );
 
+      loadTodayAttendance();
+
       return;
     }
 
     setAttendanceRecords([]);
+    setTodayAttendanceRecord(null);
   }, [
     currentUser,
     selectedBranchId,
     loadAttendance,
+    loadTodayAttendance,
   ]);
 
   const loadBranches = async () => {
@@ -1652,7 +1722,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         attendanceLoading,
         attendanceError,
         loadAttendance,
-        attendanceBatches,
+        todayAttendanceRecord,
+        loadTodayAttendance,
+        // attendanceBatches,
         leaveRequests,
         submitLeaveRequest,
         reviewLeaveRequest,

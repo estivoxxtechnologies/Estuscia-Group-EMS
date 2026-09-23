@@ -151,44 +151,44 @@ export interface SlabVersion {
   createdAt: string;
 }
 
-export type AttendanceStatus =
-  | 'Present'
-  | 'Absent'
-  | 'Half Day'
-  | 'Late'
-  | 'On Leave'
-  | 'Overtime';
+// export type AttendanceStatus =
+//   | 'Present'
+//   | 'Absent'
+//   | 'Half Day'
+//   | 'Late'
+//   | 'On Leave'
+//   | 'Overtime';
 
-export interface AttendanceRecord {
-  id: string;
-  tenantId: string;
-  userId: string;
-  userName: string;
-  employeeCode: string;
-  department: string;
-  date: string;
-  inTime: string;
-  outTime: string;
-  totalHours: number;
-  status: AttendanceStatus;
-  uploadBatchId?: string;
-  uploadedBy: string;
-  notes?: string;
-}
+// export interface AttendanceRecord {
+//   id: string;
+//   tenantId: string;
+//   userId: string;
+//   userName: string;
+//   employeeCode: string;
+//   department: string;
+//   date: string;
+//   inTime: string;
+//   outTime: string;
+//   totalHours: number;
+//   status: AttendanceStatus;
+//   uploadBatchId?: string;
+//   uploadedBy: string;
+//   notes?: string;
+// }
 
-export interface AttendanceBatch {
-  id: string;
-  tenantId: string;
-  uploadedBy: string;
-  uploadedByName: string;
-  uploadedAt: string;
-  fileName: string;
-  totalRows: number;
-  validRows: number;
-  errorRows: number;
-  status: 'completed' | 'processing' | 'review_needed';
-  previewRecords: Partial<AttendanceRecord>[];
-}
+// export interface AttendanceBatch {
+//   id: string;
+//   tenantId: string;
+//   uploadedBy: string;
+//   uploadedByName: string;
+//   uploadedAt: string;
+//   fileName: string;
+//   totalRows: number;
+//   validRows: number;
+//   errorRows: number;
+//   status: 'completed' | 'processing' | 'review_needed';
+//   previewRecords: Partial<>[];
+// }
 
 export interface LeaveRequest {
   id: string;

@@ -9,8 +9,9 @@ import {
 
 import { useApp } from '../context/AppContext';
 import { MyAttendance } from '../components/MyAttendance';
-import { AttendanceRecords } from '../components/AttendanceRecords';
 import { LeaveManagement } from '../components/LeaveManagement';
+import AttendanceRecords from './AttendanceRecords';
+import AttendanceBatchUpload from './AttendanceBatchUpload';
 
 const normalizeTime = (
   value: string | null | undefined,
@@ -173,11 +174,10 @@ export const AttendanceView: React.FC = () => {
           className="px-4 py-2 rounded-xl bg-[#140f3d] hover:bg-[#1f175a] border border-[#2d2770] text-slate-200 text-xs font-semibold transition-colors flex items-center gap-2 disabled:opacity-50"
         >
           <RefreshCw
-            className={`w-4 h-4 ${
-              attendanceLoading
+            className={`w-4 h-4 ${attendanceLoading
                 ? 'animate-spin'
                 : ''
-            }`}
+              }`}
           />
 
           Refresh
@@ -285,11 +285,10 @@ export const AttendanceView: React.FC = () => {
               onClick={() =>
                 setActiveSubTab('records')
               }
-              className={`px-4 py-2 rounded-xl font-bold transition-colors flex items-center gap-2 ${
-                activeSubTab === 'records'
+              className={`px-4 py-2 rounded-xl font-bold transition-colors flex items-center gap-2 ${activeSubTab === 'records'
                   ? 'bg-[#5C3FE0] text-white'
                   : 'text-slate-400 hover:text-white hover:bg-[#120e38]'
-              }`}
+                }`}
             >
               <Users className="w-3.5 h-3.5" />
 
@@ -301,11 +300,10 @@ export const AttendanceView: React.FC = () => {
               onClick={() =>
                 setActiveSubTab('leaves')
               }
-              className={`px-4 py-2 rounded-xl font-bold transition-colors ${
-                activeSubTab === 'leaves'
+              className={`px-4 py-2 rounded-xl font-bold transition-colors ${activeSubTab === 'leaves'
                   ? 'bg-[#5C3FE0] text-white'
                   : 'text-slate-400 hover:text-white hover:bg-[#120e38]'
-              }`}
+                }`}
             >
               Leave Management
             </button>
@@ -315,11 +313,10 @@ export const AttendanceView: React.FC = () => {
               onClick={() =>
                 setActiveSubTab('batches')
               }
-              className={`px-4 py-2 rounded-xl font-bold transition-colors ${
-                activeSubTab === 'batches'
+              className={`px-4 py-2 rounded-xl font-bold transition-colors ${activeSubTab === 'batches'
                   ? 'bg-[#5C3FE0] text-white'
                   : 'text-slate-400 hover:text-white hover:bg-[#120e38]'
-              }`}
+                }`}
             >
               Batch Upload
             </button>
@@ -335,21 +332,7 @@ export const AttendanceView: React.FC = () => {
           )}
 
           {activeSubTab === 'batches' && (
-            <div className="p-8 rounded-2xl bg-[#09071e] border border-[#2d2770]/80 text-center">
-
-              <CalendarCheck className="w-8 h-8 mx-auto text-[#A78BFA] mb-3" />
-
-              <h3 className="text-sm font-bold text-white">
-                Attendance Batch Upload
-              </h3>
-
-              <p className="text-xs text-slate-400 mt-1">
-                Biometric Excel/CSV upload will be
-                connected after the attendance records
-                module.
-              </p>
-
-            </div>
+            <AttendanceBatchUpload />
           )}
 
         </>
