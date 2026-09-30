@@ -62,15 +62,15 @@ export const Sidebar: React.FC = () => {
   // Badges / Counts
   // ---------------------------------------------------------
 
-  const pendingLeavesCount = leaveRequests.filter(
-    (l) => l.status === 'Pending'
-  ).length;
+  // const pendingLeavesCount = leaveRequests.filter(
+  //   (l) => l.status === 'Pending'
+  // ).length;
 
-  const pendingDealsCount = incentiveTransactions.filter(
-    (t) =>
-      t.status === 'Pending_Manager' ||
-      t.status === 'Verified_Manager'
-  ).length;
+  // const pendingDealsCount = incentiveTransactions.filter(
+  //   (t) =>
+  //     t.status === 'Pending_Manager' ||
+  //     t.status === 'Verified_Manager'
+  // ).length;
 
   const todayLogsCount = dailyWorkLogs.filter(
     (d) =>
@@ -108,26 +108,26 @@ export const Sidebar: React.FC = () => {
         section: 'daily_ops',
       },
 
-      {
-        id: 'daily_work',
-        label:
-          currentUser.roleName === 'developer'
-            ? 'Daily Code & Tasks'
-            : 'Daily Work & Calls',
-        icon:
-          currentUser.roleName === 'developer'
-            ? <Code2 className="w-4 h-4" />
-            : <PhoneCall className="w-4 h-4" />,
-        badge:
-          todayLogsCount > 0
-            ? `${todayLogsCount} Logged`
-            : 'Action Req',
-        badgeColor:
-          todayLogsCount > 0
-            ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30'
-            : 'bg-purple-500/20 text-purple-300 border border-purple-500/30',
-        section: 'daily_ops',
-      },
+      // {
+      //   id: 'daily_work',
+      //   label:
+      //     currentUser.roleName === 'developer'
+      //       ? 'Daily Code & Tasks'
+      //       : 'Daily Work & Calls',
+      //   icon:
+      //     currentUser.roleName === 'developer'
+      //       ? <Code2 className="w-4 h-4" />
+      //       : <PhoneCall className="w-4 h-4" />,
+      //   badge:
+      //     todayLogsCount > 0
+      //       ? `${todayLogsCount} Logged`
+      //       : 'Action Req',
+      //   badgeColor:
+      //     todayLogsCount > 0
+      //       ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30'
+      //       : 'bg-purple-500/20 text-purple-300 border border-purple-500/30',
+      //   section: 'daily_ops',
+      // },
 
       {
         id: 'attendance',
@@ -135,10 +135,10 @@ export const Sidebar: React.FC = () => {
         icon: (
           <CalendarCheck className="w-4 h-4" />
         ),
-        badge:
-          pendingLeavesCount > 0
-            ? `${pendingLeavesCount} Leaves`
-            : undefined,
+        // badge:
+        //   pendingLeavesCount > 0
+        //     ? `${pendingLeavesCount} Leaves`
+        //     : undefined,
         badgeColor:
           'bg-amber-500/20 text-amber-300 border border-amber-500/30',
         section: 'daily_ops',
@@ -148,37 +148,37 @@ export const Sidebar: React.FC = () => {
       // BUSINESS & COMPENSATION
       // =======================================================
 
-      {
-        id: 'targets_incentives',
-        label: 'Targets & Incentives',
-        icon: (
-          <Target className="w-4 h-4" />
-        ),
-        badge:
-          pendingDealsCount > 0
-            ? `${pendingDealsCount} Deals`
-            : undefined,
-        badgeColor:
-          'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30',
-        section: 'finance_slabs',
-      },
+      // {
+      //   id: 'targets_incentives',
+      //   label: 'Targets & Incentives',
+      //   icon: (
+      //     <Target className="w-4 h-4" />
+      //   ),
+      //   badge:
+      //     pendingDealsCount > 0
+      //       ? `${pendingDealsCount} Deals`
+      //       : undefined,
+      //   badgeColor:
+      //     'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30',
+      //   section: 'finance_slabs',
+      // },
 
-      {
-        id: 'sales_leads',
-        label: 'Sales Leads',
-        icon: (
-          <Target className="w-4 h-4" />
-        ),
-        section: 'finance_slabs',
-      },
-      {
-        id: 'developer_work',
-        label: 'Developer Work',
-        icon: (
-          <Code2 className="w-4 h-4" />
-        ),
-        section: 'finance_slabs',
-      },
+      // {
+      //   id: 'sales_leads',
+      //   label: 'Sales Leads',
+      //   icon: (
+      //     <Target className="w-4 h-4" />
+      //   ),
+      //   section: 'finance_slabs',
+      // },
+      // {
+      //   id: 'developer_work',
+      //   label: 'Developer Work',
+      //   icon: (
+      //     <Code2 className="w-4 h-4" />
+      //   ),
+      //   section: 'finance_slabs',
+      // },
 
       {
         id: 'receipts_slabs',

@@ -1,193 +1,413 @@
-import React, { useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import {
   CreditCard,
-  Building2,
-  DollarSign,
-  CheckCircle2,
   Printer,
-  Sparkles,
-  ArrowUpRight,
-  ShieldCheck,
-  Calendar,
-  Lock,
+  Users,
+  WalletCards,
+  Plus,
 } from 'lucide-react';
 import { useApp } from '../context/AppContext';
-import { PayrollCycle, Payslip } from '../types';
+import EmployeeSalariesPage from './EmployeeSalariesPage';
+import MonthlyPayrollPage from './MonthlyPayrollPage';
+import PayslipsPage from './PayslipsPage';
+
+type PayrollSection =
+  | 'salaries'
+  | 'payroll'
+  | 'payslips';
 
 export const PayrollView: React.FC = () => {
   const {
-    payrollCycles,
-    payslips,
     currentUser,
-    generateMonthlyPayroll,
-    disbursePayroll,
-    setSelectedPayslipForView,
+    selectedBranch,
+    selectedBranchId,
   } = useApp();
 
-  const [selectedCycleId, setSelectedCycleId] = useState<string>(payrollCycles[0]?.id || '');
+  /*
+   * ------------------------------------------------------------
+   * USER ROLE
+   * ------------------------------------------------------------
+   */
 
-  const displayedCycle = payrollCycles.find((c) => c.id === selectedCycleId) || payrollCycles[0];
+  const role =
+    currentUser?.roleName?.trim().toLowerCase() ?? '';
 
-  const filteredPayslips = payslips.filter((slip) => {
-    if (currentUser.role === 'staff') {
-      return slip.userId === currentUser.id;
+  const isEmployee =
+    role === 'staff' ||
+    role === 'sales_staff' ||
+    role === 'developer' ||
+    role === 'support_staff' ||
+    role === 'knowledge_trainer';
+
+  const isPayrollManager =
+    role === 'hr_ops' ||
+    role === 'branch_manager';
+
+  const isCompanyAdmin =
+    role === 'company_admin';
+
+  const isSuperAdmin =
+    role === 'super_admin';
+
+  /*
+   * ------------------------------------------------------------
+   * COMMON BRANCH ACCESS
+   *
+   * This follows the same logic used by StaffView.
+   *
+   * Company Admin:
+   *   Header branch selector controls the branch.
+   *
+   * HR:
+   *   If HR has an assigned branch, they are locked to it.
+   *   If HR has no assigned branch, header selection controls it.
+   *
+   * Branch Manager:
+   *   Always locked to assigned branch.
+   *
+   * Super Admin:
+   *   Header branch selector controls the branch.
+   *
+   * Employee:
+   *   Own assigned branch.
+   * ------------------------------------------------------------
+   */
+
+  const hasFixedHrBranch =
+    role === 'hr_ops' &&
+    currentUser?.branchId !== null &&
+    currentUser?.branchId !== undefined;
+
+  const effectiveBranchId = useMemo(() => {
+    if (isCompanyAdmin) {
+      return selectedBranchId;
     }
-    return !displayedCycle || slip.payrollCycleId === displayedCycle.id;
-  });
 
-  return (
-    <div className="space-y-6 pb-12">
-      {/* Top Header */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 p-6 rounded-2xl bg-[#09071e] border border-[#2d2770]/70">
-        <div>
-          <div className="flex items-center gap-2">
-            <div className="p-2 rounded-lg bg-[#5C3FE0]/20 text-[#A78BFA] border border-[#5C3FE0]/30">
-              <CreditCard className="w-5 h-5" />
-            </div>
-            <div>
-              <h1 className="text-xl font-bold text-white leading-tight">
-                Salary & Payroll Operations
-              </h1>
-              <p className="text-xs text-slate-400">
-                Consolidated earnings, attendance deductions, approved slab commissions, and digital payslips
-              </p>
-            </div>
-          </div>
-        </div>
+    if (role === 'hr_ops') {
+      return currentUser?.branchId ?? selectedBranchId;
+    }
 
-        {/* HR Controls */}
-        {(currentUser.role === 'hr_ops' || currentUser.role === 'company_admin' || currentUser.role === 'super_admin') && (
-          <div className="flex items-center gap-2">
-            <button
-              onClick={() => generateMonthlyPayroll('April 2026')}
-              className="px-3.5 py-2 rounded-xl bg-[#140f3d] hover:bg-[#1f175a] border border-[#2d2770] text-slate-200 text-xs font-semibold transition-colors"
-            >
-              Generate Next Cycle (April 2026)
-            </button>
+    if (role === 'branch_manager') {
+      return currentUser?.branchId ?? null;
+    }
 
-            {displayedCycle && displayedCycle.status === 'Draft' && (
-              <button
-                onClick={() => disbursePayroll(displayedCycle.id)}
-                className="px-4 py-2 rounded-xl bg-[#5C3FE0] hover:bg-[#7152FF] text-white text-xs font-bold shadow-lg shadow-[#5C3FE0]/30 transition-all flex items-center gap-1.5"
-              >
-                <CheckCircle2 className="w-4 h-4" />
-                <span>Disburse & Lock ({displayedCycle.monthYear})</span>
-              </button>
-            )}
-          </div>
-        )}
-      </div>
+    if (isSuperAdmin) {
+      return selectedBranchId;
+    }
 
-      {/* Cycle Selector Cards (if HR/Admin) */}
-      {currentUser.role !== 'staff' && (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-          {payrollCycles.map((cycle) => (
-            <div
-              key={cycle.id}
-              onClick={() => setSelectedCycleId(cycle.id)}
-              className={`p-5 rounded-2xl border transition-all cursor-pointer space-y-3 ${
-                selectedCycleId === cycle.id
-                  ? 'bg-gradient-to-r from-[#120e3b] to-[#18124b] border-[#5C3FE0] shadow-lg shadow-[#5C3FE0]/20'
-                  : 'bg-[#09071e] border-[#2d2770]/70 hover:border-[#5C3FE0]/50'
-              }`}
-            >
-              <div className="flex items-center justify-between">
-                <span className="text-sm font-bold text-white">{cycle.monthYear}</span>
-                <span
-                  className={`px-2 py-0.5 rounded text-[10px] font-mono uppercase font-bold border ${
-                    cycle.status === 'Disbursed'
-                      ? 'bg-emerald-500/20 text-emerald-300 border-emerald-500/30'
-                      : 'bg-amber-500/20 text-amber-300 border-amber-500/30'
-                  }`}
-                >
-                  {cycle.status}
+    return currentUser?.branchId ?? null;
+  }, [
+    currentUser?.branchId,
+    isCompanyAdmin,
+    isSuperAdmin,
+    role,
+    selectedBranchId,
+  ]);
+
+  /*
+   * ------------------------------------------------------------
+   * DISPLAYED BRANCH
+   * ------------------------------------------------------------
+   */
+
+  const displayedBranchName =
+    hasFixedHrBranch
+      ? currentUser?.branchName ?? 'Assigned Branch'
+      : selectedBranch?.branchName ?? 'All Branches';
+
+  /*
+   * ------------------------------------------------------------
+   * PAYROLL ACCESS
+   * ------------------------------------------------------------
+   */
+
+  const canManagePayroll =
+    isPayrollManager ||
+    isCompanyAdmin ||
+    isSuperAdmin;
+
+  /*
+   * ------------------------------------------------------------
+   * DEFAULT SECTION
+   *
+   * Employees should directly see Payslips.
+   * Management users start on Payroll.
+   * ------------------------------------------------------------
+   */
+
+  const [activeSection, setActiveSection] =
+    useState<PayrollSection>(() => {
+      if (
+        role === 'sales_staff' ||
+        role === 'developer' ||
+        role === 'support_staff' ||
+        role === 'knowledge_trainer' ||
+        role === 'staff'
+      ) {
+        return 'payslips';
+      }
+
+      return 'payroll';
+    });
+
+  /*
+   * ------------------------------------------------------------
+   * KEEP EMPLOYEE SECTION SAFE
+   *
+   * If the role changes after the component has mounted,
+   * employees should not remain on Salary/Payroll sections.
+   * ------------------------------------------------------------
+   */
+
+  useEffect(() => {
+    if (isEmployee) {
+      setActiveSection('payslips');
+    }
+  }, [isEmployee]);
+
+  /*
+   * ------------------------------------------------------------
+   * EMPLOYEE VIEW
+   *
+   * Employees only see their payslips.
+   * ------------------------------------------------------------
+   */
+
+  if (isEmployee) {
+    return (
+      <div className="space-y-6 pb-12">
+
+        {/* Payroll Header */}
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 p-6 rounded-2xl bg-[#09071e] border border-[#2d2770]/70">
+
+          <div>
+            <div className="flex items-center gap-2">
+
+              <div className="p-2 rounded-lg bg-[#5C3FE0]/20 text-[#A78BFA] border border-[#5C3FE0]/30">
+                <WalletCards className="w-5 h-5" />
+              </div>
+
+              <div className="flex items-center gap-2">
+                <h1 className="text-xl font-bold text-white">
+                  Payroll & Payslips
+                </h1>
+
+                <span className="px-2 py-0.5 rounded-md bg-[#5C3FE0]/15 border border-[#5C3FE0]/30 text-[10px] font-semibold text-[#A78BFA]">
+                  {displayedBranchName}
                 </span>
               </div>
 
-              <div className="grid grid-cols-2 gap-2 text-xs">
-                <div>
-                  <span className="text-[10px] text-slate-400 block">Total Net Payout</span>
-                  <span className="font-mono text-emerald-400 font-bold text-sm">
-                    ${cycle.totalNetPayout.toLocaleString()}
-                  </span>
-                </div>
-                <div>
-                  <span className="text-[10px] text-slate-400 block">Incentives Included</span>
-                  <span className="font-mono text-[#A78BFA] font-bold text-sm">
-                    +${cycle.totalIncentivesPaid.toLocaleString()}
-                  </span>
-                </div>
-              </div>
             </div>
-          ))}
-        </div>
-      )}
 
-      {/* Payslips Table */}
-      <div className="space-y-4">
-        <div className="p-4 rounded-2xl bg-[#09071e] border border-[#231e54] flex items-center justify-between text-xs">
-          <span className="font-bold text-white uppercase tracking-wider">
-            {currentUser.role === 'staff' ? 'My Salary Payslips History' : `Generated Payslips for ${displayedCycle.monthYear}`} ({filteredPayslips.length})
-          </span>
-          <span className="text-slate-400">Direct wire transfer via corporate treasury</span>
+            <p className="text-xs text-slate-400 mt-2">
+              View your salary and payroll information
+            </p>
+          </div>
+
         </div>
 
-        <div className="overflow-x-auto rounded-2xl border border-[#2d2770]/80 bg-[#09071e]">
-          <table className="w-full text-left text-xs">
-            <thead className="bg-[#120e38] text-slate-400 font-semibold border-b border-[#231e54]">
-              <tr>
-                <th className="p-3.5">Employee</th>
-                <th className="p-3.5">Period</th>
-                <th className="p-3.5">Days</th>
-                <th className="p-3.5">Basic + Allowances</th>
-                <th className="p-3.5">Slab Incentives</th>
-                <th className="p-3.5">Deductions (PF/Tax)</th>
-                <th className="p-3.5">Net Payable</th>
-                <th className="p-3.5">Status</th>
-                <th className="p-3.5">Actions</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-[#1c164a]/60 text-slate-200">
-              {filteredPayslips.map((slip) => (
-                <tr key={slip.id} className="hover:bg-[#140f3d]/60 transition-colors">
-                  <td className="p-3.5">
-                    <div className="font-bold text-white">{slip.userName}</div>
-                    <div className="text-[10px] text-slate-400 font-mono">{slip.employeeCode} • {slip.designation}</div>
-                  </td>
-                  <td className="p-3.5 font-mono text-slate-300">{slip.monthYear}</td>
-                  <td className="p-3.5 font-mono text-slate-300">{slip.workedDays}d</td>
-                  <td className="p-3.5 font-mono text-white">
-                    ${(slip.basicPay + slip.hra + slip.specialAllowance).toLocaleString()}
-                  </td>
-                  <td className="p-3.5 font-mono text-emerald-400 font-bold">
-                    +${slip.performanceIncentive.toLocaleString()}
-                  </td>
-                  <td className="p-3.5 font-mono text-rose-400">
-                    -${slip.deductionsTotal.toLocaleString()}
-                  </td>
-                  <td className="p-3.5 font-mono text-emerald-400 font-black text-sm">
-                    ${slip.netPayable.toLocaleString()}
-                  </td>
-                  <td className="p-3.5">
-                    <span className="px-2 py-0.5 rounded text-[10px] font-mono bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
-                      {slip.status.toUpperCase()}
-                    </span>
-                  </td>
-                  <td className="p-3.5">
-                    <button
-                      onClick={() => setSelectedPayslipForView(slip)}
-                      className="px-3 py-1.5 rounded-lg bg-[#1a144b] hover:bg-[#251d68] border border-[#2d2770] text-[#A78BFA] hover:text-white text-xs font-medium transition-colors flex items-center gap-1"
-                    >
-                      <Printer className="w-3 h-3" />
-                      <span>Print Slip</span>
-                    </button>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+        <PayslipsPage showEmployee={true} />
       </div>
+    );
+  }
+
+  /*
+   * ------------------------------------------------------------
+   * MANAGEMENT PAYROLL VIEW
+   * ------------------------------------------------------------
+   */
+
+  if (!canManagePayroll) {
+    return (
+      <div className="space-y-6 pb-12">
+
+        <div className="p-8 rounded-2xl bg-[#09071e] border border-[#231e54] text-center">
+
+          <WalletCards className="w-10 h-10 mx-auto text-slate-500 mb-3" />
+
+          <h2 className="text-sm font-bold text-white">
+            Payroll Access Restricted
+          </h2>
+
+          <p className="text-xs text-slate-400 mt-2">
+            You do not have permission to manage payroll.
+          </p>
+
+        </div>
+
+      </div>
+    );
+  }
+
+  /*
+   * ------------------------------------------------------------
+   * MANAGEMENT PAYROLL UI
+   * ------------------------------------------------------------
+   */
+
+  return (
+    <div className="space-y-6 pb-12">
+
+      {/* ======================================================
+          PAYROLL HEADER
+          ====================================================== */}
+
+      <div className="flex flex-col xl:flex-row xl:items-center justify-between gap-4 p-6 rounded-2xl bg-[#09071e] border border-[#2d2770]/70">
+
+        <div>
+
+          <div className="flex items-center gap-2">
+
+            <div className="p-2 rounded-lg bg-[#5C3FE0]/20 text-[#A78BFA] border border-[#5C3FE0]/30">
+              <WalletCards className="w-5 h-5" />
+            </div>
+
+            <div className="flex items-center gap-2">
+
+              <h1 className="text-xl font-bold text-white">
+                Payroll Management
+              </h1>
+
+              {/* Common branch context */}
+              <span className="px-2 py-0.5 rounded-md bg-[#5C3FE0]/15 border border-[#5C3FE0]/30 text-[10px] font-semibold text-[#A78BFA]">
+                {displayedBranchName}
+              </span>
+
+            </div>
+
+          </div>
+
+          <p className="text-xs text-slate-400 mt-2">
+            Manage employee salaries, monthly payroll, approvals,
+            and payslips
+            {effectiveBranchId !== null &&
+              effectiveBranchId !== undefined
+              ? ` for ${displayedBranchName}`
+              : ' across all branches'}
+          </p>
+
+        </div>
+
+      </div>
+
+      {/* ======================================================
+          PAYROLL NAVIGATION
+          ====================================================== */}
+
+      <div className="flex flex-col sm:flex-row gap-2 p-2 rounded-2xl bg-[#09071e] border border-[#231e54]">
+
+        {/* Salary Details */}
+        <button
+          type="button"
+          onClick={() => setActiveSection('salaries')}
+          className={`
+            flex-1
+            flex
+            items-center
+            justify-center
+            gap-2
+            px-4
+            py-3
+            rounded-xl
+            text-xs
+            font-bold
+            transition-all
+            ${activeSection === 'salaries'
+              ? 'bg-[#5C3FE0] text-white shadow-lg shadow-[#5C3FE0]/20'
+              : 'text-slate-400 hover:text-white hover:bg-[#0e0b2e]'
+            }
+          `}
+        >
+          <Users className="w-4 h-4" />
+          <span>Employee Salaries</span>
+        </button>
+
+        {/* Monthly Payroll */}
+        <button
+          type="button"
+          onClick={() => setActiveSection('payroll')}
+          className={`
+            flex-1
+            flex
+            items-center
+            justify-center
+            gap-2
+            px-4
+            py-3
+            rounded-xl
+            text-xs
+            font-bold
+            transition-all
+            ${activeSection === 'payroll'
+              ? 'bg-[#5C3FE0] text-white shadow-lg shadow-[#5C3FE0]/20'
+              : 'text-slate-400 hover:text-white hover:bg-[#0e0b2e]'
+            }
+          `}
+        >
+          <CreditCard className="w-4 h-4" />
+          <span>Monthly Payroll</span>
+        </button>
+
+        {/* Payslips */}
+        <button
+          type="button"
+          onClick={() => setActiveSection('payslips')}
+          className={`
+            flex-1
+            flex
+            items-center
+            justify-center
+            gap-2
+            px-4
+            py-3
+            rounded-xl
+            text-xs
+            font-bold
+            transition-all
+            ${activeSection === 'payslips'
+              ? 'bg-[#5C3FE0] text-white shadow-lg shadow-[#5C3FE0]/20'
+              : 'text-slate-400 hover:text-white hover:bg-[#0e0b2e]'
+            }
+          `}
+        >
+          <Printer className="w-4 h-4" />
+          <span>Payslips</span>
+        </button>
+
+      </div>
+
+      {/* ======================================================
+          ACTIVE PAYROLL SECTION
+          ====================================================== */}
+
+      <div className="min-h-[400px]">
+
+        {activeSection === 'salaries' && (
+          <EmployeeSalariesPage
+            key={`salary-${effectiveBranchId ?? 'all'}`}
+            effectiveBranchId={effectiveBranchId}
+          />
+        )}
+
+        {activeSection === 'payroll' && (
+          <MonthlyPayrollPage
+            key={`monthly-payroll-${effectiveBranchId ?? 'all'}`}
+            effectiveBranchId={effectiveBranchId}
+          />
+        )}
+
+        {activeSection === 'payslips' && (
+          <PayslipsPage
+            key={`payslips-${effectiveBranchId ?? 'all'}`}
+            effectiveBranchId={effectiveBranchId}
+            showEmployee={true}
+          />
+        )}
+
+      </div>
+
     </div>
   );
 };
+
+export default PayrollView;

@@ -16,12 +16,12 @@ import {
   Role,
   SlabVersion,
   // AttendanceBatch,
-  LeaveRequest,
-  TargetCycle,
-  StaffTarget,
-  IncentiveTransaction,
-  PayrollCycle,
-  Payslip,
+  // LeaveRequest,
+  // TargetCycle,
+  // StaffTarget,
+  // IncentiveTransaction,
+  // PayrollCycle,
+  // Payslip,
   Course,
   Certificate,
   UserCourseProgress,
@@ -63,9 +63,9 @@ import {
 
 export type AppTab =
   | 'dashboard'
-  | 'daily_work'
+  // | 'daily_work'
   | 'attendance'
-  | 'targets_incentives'
+  // | 'targets_incentives'
   | 'receipts_slabs'
   | 'staff'
   | 'payroll'
@@ -77,8 +77,8 @@ export type AppTab =
   | 'branch_management'
   | 'tenant_payment'
   | 'profile'
-  | 'sales_leads'
-  | 'developer_work'
+  // | 'sales_leads'
+  // | 'developer_work'
   ;
 
 export type ViewMode = 'portal' | 'public_web';
@@ -179,18 +179,18 @@ interface AppContextType {
 
   // Legacy batch / leave state
   // attendanceBatches: AttendanceBatch[];
-  leaveRequests: LeaveRequest[];
-  uploadAttendanceBatch: (fileName: string, records: Partial<AttendanceRecord>[]) => void;
-  updateAttendanceRecord: (recordId: string, updates: Partial<AttendanceRecord>) => void;
-  addAttendanceRecord: (record: Omit<AttendanceRecord, 'id'>) => void;
-  submitLeaveRequest: (req: Omit<LeaveRequest, 'id' | 'appliedOn' | 'status'>) => void;
-  reviewLeaveRequest: (id: string, status: 'Approved' | 'Rejected', reviewNotes?: string) => void;
+  // leaveRequests: LeaveRequest[];
+  // uploadAttendanceBatch: (fileName: string, records: Partial<AttendanceRecord>[]) => void;
+  // updateAttendanceRecord: (recordId: string, updates: Partial<AttendanceRecord>) => void;
+  // addAttendanceRecord: (record: Omit<AttendanceRecord, 'id'>) => void;
+  // submitLeaveRequest: (req: Omit<LeaveRequest, 'id' | 'appliedOn' | 'status'>) => void;
+  // reviewLeaveRequest: (id: string, status: 'Approved' | 'Rejected', reviewNotes?: string) => void;
 
-  // Targets & Slab Incentives
-  targetCycles: TargetCycle[];
-  staffTargets: StaffTarget[];
-  incentiveTransactions: IncentiveTransaction[];
-  logIncentiveDeal: (deal: Omit<IncentiveTransaction, 'id' | 'date' | 'status'>) => void;
+  // // Targets & Slab Incentives
+  // targetCycles: TargetCycle[];
+  // staffTargets: StaffTarget[];
+  // incentiveTransactions: IncentiveTransaction[];
+  // logIncentiveDeal: (deal: Omit<IncentiveTransaction, 'id' | 'date' | 'status'>) => void;
   updateIncentiveStatus: (
     id: string,
     status: 'Verified_Manager' | 'Approved_HR' | 'Paid_Payroll' | 'Rejected',
@@ -198,8 +198,8 @@ interface AppContextType {
   ) => void;
 
   // Payroll & Payslips
-  payrollCycles: PayrollCycle[];
-  payslips: Payslip[];
+  // payrollCycles: PayrollCycle[];
+  // payslips: Payslip[];
   generateMonthlyPayroll: (monthYear: string) => void;
   disbursePayroll: (cycleId: string) => void;
 
@@ -235,8 +235,8 @@ interface AppContextType {
   setSelectedCourseForPlayer: (course: Course | null) => void;
   selectedCertificateForView: Certificate | null;
   setSelectedCertificateForView: (cert: Certificate | null) => void;
-  selectedPayslipForView: Payslip | null;
-  setSelectedPayslipForView: (slip: Payslip | null) => void;
+  // selectedPayslipForView: Payslip | null;
+  // setSelectedPayslipForView: (slip: Payslip | null) => void;
 }
 
 const AppContext = createContext<AppContextType | undefined>(undefined);
@@ -299,23 +299,23 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   // const [attendanceBatches, setAttendanceBatches] =
   //   useState<AttendanceBatch[]>([]);
 
-  const [leaveRequests, setLeaveRequests] =
-    useState<LeaveRequest[]>([]);
+  // const [leaveRequests, setLeaveRequests] =
+  //   useState<LeaveRequest[]>([]);
 
-  const [targetCycles, setTargetCycles] =
-    useState<TargetCycle[]>([]);
+  // const [targetCycles, setTargetCycles] =
+  //   useState<TargetCycle[]>([]);
 
-  const [staffTargets, setStaffTargets] =
-    useState<StaffTarget[]>([]);
+  // const [staffTargets, setStaffTargets] =
+  //   useState<StaffTarget[]>([]);
 
-  const [incentiveTransactions, setIncentiveTransactions] =
-    useState<IncentiveTransaction[]>([]);
+  // const [incentiveTransactions, setIncentiveTransactions] =
+  //   useState<IncentiveTransaction[]>([]);
 
-  const [payrollCycles, setPayrollCycles] =
-    useState<PayrollCycle[]>([]);
+  // const [payrollCycles, setPayrollCycles] =
+  //   useState<PayrollCycle[]>([]);
 
-  const [payslips, setPayslips] =
-    useState<Payslip[]>([]);
+  // const [payslips, setPayslips] =
+  //   useState<Payslip[]>([]);
 
   const [courses, setCourses] =
     useState<Course[]>([]);
@@ -339,7 +339,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const [isLogDealOpen, setIsLogDealOpen] = useState(false);
   const [selectedCourseForPlayer, setSelectedCourseForPlayer] = useState<Course | null>(null);
   const [selectedCertificateForView, setSelectedCertificateForView] = useState<Certificate | null>(null);
-  const [selectedPayslipForView, setSelectedPayslipForView] = useState<Payslip | null>(null);
+  // const [selectedPayslipForView, setSelectedPayslipForView] = useState<Payslip | null>(null);
 
   const getBranchStorageKey = (user: CurrentUser) => {
     return `selectedBranchId_${user.tenantId}_${user.userId}`;
@@ -1325,177 +1325,177 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
 
 
-  const submitLeaveRequest = (reqData: Omit<LeaveRequest, 'id' | 'appliedOn' | 'status'>) => {
-    const newReq: LeaveRequest = {
-      ...reqData,
-      id: `leave-${Date.now()}`,
-      appliedOn: new Date().toISOString().substring(0, 10),
-      status: 'Pending',
-    };
-    setLeaveRequests((prev) => [newReq, ...prev]);
-    logAuditEvent('SUBMIT_LEAVE_REQUEST', `Submitted ${reqData.type} leave for ${reqData.days} days`);
+  // const submitLeaveRequest = (reqData: Omit<LeaveRequest, 'id' | 'appliedOn' | 'status'>) => {
+  //   const newReq: LeaveRequest = {
+  //     ...reqData,
+  //     id: `leave-${Date.now()}`,
+  //     appliedOn: new Date().toISOString().substring(0, 10),
+  //     status: 'Pending',
+  //   };
+  //   setLeaveRequests((prev) => [newReq, ...prev]);
+  //   logAuditEvent('SUBMIT_LEAVE_REQUEST', `Submitted ${reqData.type} leave for ${reqData.days} days`);
 
-    setNotifications((prev) => [
-      {
-        id: `notif-${Date.now()}`,
-        title: 'Leave Request Submitted',
-        message: `Your ${reqData.days}-day ${reqData.type} leave application has been routed to HR.`,
-        type: 'info',
-        timestamp: 'Just now',
-        isRead: false,
-        tag: 'Attendance',
-      },
-      ...prev,
-    ]);
-  };
+  //   setNotifications((prev) => [
+  //     {
+  //       id: `notif-${Date.now()}`,
+  //       title: 'Leave Request Submitted',
+  //       message: `Your ${reqData.days}-day ${reqData.type} leave application has been routed to HR.`,
+  //       type: 'info',
+  //       timestamp: 'Just now',
+  //       isRead: false,
+  //       tag: 'Attendance',
+  //     },
+  //     ...prev,
+  //   ]);
+  // };
 
-  const reviewLeaveRequest = (id: string, status: 'Approved' | 'Rejected', reviewNotes?: string) => {
-    setLeaveRequests((prev) =>
-      prev.map((req) =>
-        req.id === id
-          ? {
-            ...req,
-            status,
-            reviewedBy: currentUser.username,
-            reviewNotes,
-          }
-          : req
-      )
-    );
-    logAuditEvent('REVIEW_LEAVE_REQUEST', `Leave request #${id} marked as ${status}`);
-  };
+  // const reviewLeaveRequest = (id: string, status: 'Approved' | 'Rejected', reviewNotes?: string) => {
+  //   setLeaveRequests((prev) =>
+  //     prev.map((req) =>
+  //       req.id === id
+  //         ? {
+  //           ...req,
+  //           status,
+  //           reviewedBy: currentUser.username,
+  //           reviewNotes,
+  //         }
+  //         : req
+  //     )
+  //   );
+  //   logAuditEvent('REVIEW_LEAVE_REQUEST', `Leave request #${id} marked as ${status}`);
+  // };
 
-  // Log Incentive Deal
-  const logIncentiveDeal = (deal: Omit<IncentiveTransaction, 'id' | 'date' | 'status'>) => {
-    const newDeal: IncentiveTransaction = {
-      ...deal,
-      id: `inc-tx-${Date.now()}`,
-      date: new Date().toISOString().substring(0, 10),
-      status: 'Pending_Manager',
-    };
+  // // Log Incentive Deal
+  // const logIncentiveDeal = (deal: Omit<IncentiveTransaction, 'id' | 'date' | 'status'>) => {
+  //   const newDeal: IncentiveTransaction = {
+  //     ...deal,
+  //     id: `inc-tx-${Date.now()}`,
+  //     date: new Date().toISOString().substring(0, 10),
+  //     status: 'Pending_Manager',
+  //   };
 
-    setIncentiveTransactions((prev) => [newDeal, ...prev]);
-    logAuditEvent(
-      'LOG_INCENTIVE_DEAL',
-      `Logged deal of $${deal.investmentAmount.toLocaleString()} with incentive $${deal.calculatedIncentive.toLocaleString()}`
-    );
+  //   setIncentiveTransactions((prev) => [newDeal, ...prev]);
+  //   logAuditEvent(
+  //     'LOG_INCENTIVE_DEAL',
+  //     `Logged deal of $${deal.investmentAmount.toLocaleString()} with incentive $${deal.calculatedIncentive.toLocaleString()}`
+  //   );
 
-    setNotifications((prev) => [
-      {
-        id: `notif-${Date.now()}`,
-        title: 'New Deal Submitted for Verification',
-        message: `Client ${deal.clientName} deal ($${deal.investmentAmount.toLocaleString()}) logged. Manager verification pending.`,
-        type: 'info',
-        timestamp: 'Just now',
-        isRead: false,
-        tag: 'Incentives',
-      },
-      ...prev,
-    ]);
-  };
+  //   setNotifications((prev) => [
+  //     {
+  //       id: `notif-${Date.now()}`,
+  //       title: 'New Deal Submitted for Verification',
+  //       message: `Client ${deal.clientName} deal ($${deal.investmentAmount.toLocaleString()}) logged. Manager verification pending.`,
+  //       type: 'info',
+  //       timestamp: 'Just now',
+  //       isRead: false,
+  //       tag: 'Incentives',
+  //     },
+  //     ...prev,
+  //   ]);
+  // };
 
-  const updateIncentiveStatus = (
-    id: string,
-    status: 'Verified_Manager' | 'Approved_HR' | 'Paid_Payroll' | 'Rejected',
-    notes?: string
-  ) => {
-    setIncentiveTransactions((prev) =>
-      prev.map((deal) => {
-        if (deal.id === id) {
-          return {
-            ...deal,
-            status,
-            ...(currentUser.roleName === 'branch_manager' ? { managerNotes: notes } : { hrNotes: notes }),
-          };
-        }
-        return deal;
-      })
-    );
-    logAuditEvent('UPDATE_INCENTIVE_STATUS', `Incentive deal #${id} moved to ${status}`);
-  };
+  // const updateIncentiveStatus = (
+  //   id: string,
+  //   status: 'Verified_Manager' | 'Approved_HR' | 'Paid_Payroll' | 'Rejected',
+  //   notes?: string
+  // ) => {
+  //   setIncentiveTransactions((prev) =>
+  //     prev.map((deal) => {
+  //       if (deal.id === id) {
+  //         return {
+  //           ...deal,
+  //           status,
+  //           ...(currentUser.roleName === 'branch_manager' ? { managerNotes: notes } : { hrNotes: notes }),
+  //         };
+  //       }
+  //       return deal;
+  //     })
+  //   );
+  //   logAuditEvent('UPDATE_INCENTIVE_STATUS', `Incentive deal #${id} moved to ${status}`);
+  // };
 
-  // Payroll Processing
-  const generateMonthlyPayroll = (monthYear: string) => {
-    const cycleId = `pay-cycle-${Date.now()}`;
-    const newCycle: PayrollCycle = {
-      id: cycleId,
-      tenantId: currentUser.tenantId,
-      monthYear,
-      processedDate: new Date().toISOString().substring(0, 10),
-      totalEmployees: users.length,
-      totalGrossPayout: 542000,
-      totalIncentivesPaid: 82400,
-      totalNetPayout: 479000,
-      status: 'Draft',
-    };
+  // // Payroll Processing
+  // const generateMonthlyPayroll = (monthYear: string) => {
+  //   const cycleId = `pay-cycle-${Date.now()}`;
+  //   const newCycle: PayrollCycle = {
+  //     id: cycleId,
+  //     tenantId: currentUser.tenantId,
+  //     monthYear,
+  //     processedDate: new Date().toISOString().substring(0, 10),
+  //     totalEmployees: users.length,
+  //     totalGrossPayout: 542000,
+  //     totalIncentivesPaid: 82400,
+  //     totalNetPayout: 479000,
+  //     status: 'Draft',
+  //   };
 
-    const newPayslips: Payslip[] = users.map((u) => {
-      const userApprovedIncentives = incentiveTransactions
-        .filter((t) => t.userId === u.id && (t.status === 'Approved_HR' || t.status === 'Paid_Payroll'))
-        .reduce((sum, t) => sum + t.calculatedIncentive, 0);
+  //   const newPayslips: Payslip[] = users.map((u) => {
+  //     const userApprovedIncentives = incentiveTransactions
+  //       .filter((t) => t.userId === u.id && (t.status === 'Approved_HR' || t.status === 'Paid_Payroll'))
+  //       .reduce((sum, t) => sum + t.calculatedIncentive, 0);
 
-      const gross = u.salaryBase + u.salaryHra + u.salaryAllowances + (userApprovedIncentives || 2500);
-      const pf = Math.round(u.salaryBase * 0.1);
-      const tax = Math.round(gross * 0.08);
-      const totalDeductions = pf + tax;
-      const net = gross - totalDeductions;
+  //     const gross = u.salaryBase + u.salaryHra + u.salaryAllowances + (userApprovedIncentives || 2500);
+  //     const pf = Math.round(u.salaryBase * 0.1);
+  //     const tax = Math.round(gross * 0.08);
+  //     const totalDeductions = pf + tax;
+  //     const net = gross - totalDeductions;
 
-      return {
-        id: `slip-${u.id}-${Date.now()}`,
-        tenantId: currentUser.tenantId,
-        payrollCycleId: cycleId,
-        userId: u.id,
-        userName: u.name,
-        employeeCode: u.employeeCode,
-        designation: u.designation,
-        department: u.department,
-        monthYear,
-        workedDays: 22,
-        paidLeaves: 1,
-        unpaidLeaves: 0,
-        grossSalary: gross,
-        basicPay: u.salaryBase,
-        hra: u.salaryHra,
-        specialAllowance: u.salaryAllowances,
-        performanceIncentive: userApprovedIncentives || 2500,
-        deductionsTotal: totalDeductions,
-        providentFund: pf,
-        taxDeduction: tax,
-        attendanceDeduction: 0,
-        netPayable: net,
-        generatedAt: new Date().toISOString().substring(0, 10),
-        status: 'Generated',
-        paymentMode: 'Direct Bank Wire',
-      };
-    });
+  //     return {
+  //       id: `slip-${u.id}-${Date.now()}`,
+  //       tenantId: currentUser.tenantId,
+  //       payrollCycleId: cycleId,
+  //       userId: u.id,
+  //       userName: u.name,
+  //       employeeCode: u.employeeCode,
+  //       designation: u.designation,
+  //       department: u.department,
+  //       monthYear,
+  //       workedDays: 22,
+  //       paidLeaves: 1,
+  //       unpaidLeaves: 0,
+  //       grossSalary: gross,
+  //       basicPay: u.salaryBase,
+  //       hra: u.salaryHra,
+  //       specialAllowance: u.salaryAllowances,
+  //       performanceIncentive: userApprovedIncentives || 2500,
+  //       deductionsTotal: totalDeductions,
+  //       providentFund: pf,
+  //       taxDeduction: tax,
+  //       attendanceDeduction: 0,
+  //       netPayable: net,
+  //       generatedAt: new Date().toISOString().substring(0, 10),
+  //       status: 'Generated',
+  //       paymentMode: 'Direct Bank Wire',
+  //     };
+  //   });
 
-    setPayrollCycles((prev) => [newCycle, ...prev]);
-    setPayslips((prev) => [...newPayslips, ...prev]);
-    logAuditEvent('GENERATE_PAYROLL_CYCLE', `Generated draft payroll for ${monthYear} (${users.length} payslips)`);
-  };
+  //   setPayrollCycles((prev) => [newCycle, ...prev]);
+  //   setPayslips((prev) => [...newPayslips, ...prev]);
+  //   logAuditEvent('GENERATE_PAYROLL_CYCLE', `Generated draft payroll for ${monthYear} (${users.length} payslips)`);
+  // };
 
-  const disbursePayroll = (cycleId: string) => {
-    setPayrollCycles((prev) =>
-      prev.map((c) => (c.id === cycleId ? { ...c, status: 'Disbursed' } : c))
-    );
-    setPayslips((prev) =>
-      prev.map((p) => (p.payrollCycleId === cycleId ? { ...p, status: 'Paid' } : p))
-    );
-    logAuditEvent('DISBURSE_PAYROLL', `Disbursed and locked payroll cycle #${cycleId}`);
+  // const disbursePayroll = (cycleId: string) => {
+  //   setPayrollCycles((prev) =>
+  //     prev.map((c) => (c.id === cycleId ? { ...c, status: 'Disbursed' } : c))
+  //   );
+  //   setPayslips((prev) =>
+  //     prev.map((p) => (p.payrollCycleId === cycleId ? { ...p, status: 'Paid' } : p))
+  //   );
+  //   logAuditEvent('DISBURSE_PAYROLL', `Disbursed and locked payroll cycle #${cycleId}`);
 
-    setNotifications((prev) => [
-      {
-        id: `notif-${Date.now()}`,
-        title: 'Payroll Disbursed',
-        message: 'Monthly payroll has been executed and bank transfers initiated.',
-        type: 'success',
-        timestamp: 'Just now',
-        isRead: false,
-        tag: 'Payroll',
-      },
-      ...prev,
-    ]);
-  };
+  //   setNotifications((prev) => [
+  //     {
+  //       id: `notif-${Date.now()}`,
+  //       title: 'Payroll Disbursed',
+  //       message: 'Monthly payroll has been executed and bank transfers initiated.',
+  //       type: 'success',
+  //       timestamp: 'Just now',
+  //       isRead: false,
+  //       tag: 'Payroll',
+  //     },
+  //     ...prev,
+  //   ]);
+  // };
 
   // Video & Course Knowledge Hub
   const addNewCourse = (newCourseData: Omit<Course, 'id' | 'enrolledCount' | 'rating'>) => {
@@ -1725,18 +1725,18 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         todayAttendanceRecord,
         loadTodayAttendance,
         // attendanceBatches,
-        leaveRequests,
-        submitLeaveRequest,
-        reviewLeaveRequest,
-        targetCycles,
-        staffTargets,
-        incentiveTransactions,
-        logIncentiveDeal,
-        updateIncentiveStatus,
-        payrollCycles,
-        payslips,
-        generateMonthlyPayroll,
-        disbursePayroll,
+        // leaveRequests,
+        // submitLeaveRequest,
+        // reviewLeaveRequest,
+        // targetCycles,
+        // staffTargets,
+        // incentiveTransactions,
+        // logIncentiveDeal,
+        // updateIncentiveStatus,
+        // payrollCycles,
+        // payslips,
+        // generateMonthlyPayroll,
+        // disbursePayroll,
         courses,
         userProgress,
         certificates,
@@ -1764,8 +1764,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         setSelectedCourseForPlayer,
         selectedCertificateForView,
         setSelectedCertificateForView,
-        selectedPayslipForView,
-        setSelectedPayslipForView,
+        // selectedPayslipForView,
+        // setSelectedPayslipForView,
       }}
     >
       {children}

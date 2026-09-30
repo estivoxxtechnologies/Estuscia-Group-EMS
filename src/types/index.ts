@@ -190,114 +190,114 @@ export interface SlabVersion {
 //   previewRecords: Partial<>[];
 // }
 
-export interface LeaveRequest {
-  id: string;
-  tenantId: string;
-  userId: string;
-  userName: string;
-  department: string;
-  type: 'Casual' | 'Sick' | 'Earned' | 'Maternity/Paternity';
-  startDate: string;
-  endDate: string;
-  days: number;
-  reason: string;
-  status: 'Pending' | 'Approved' | 'Rejected';
-  appliedOn: string;
-  reviewedBy?: string;
-  reviewNotes?: string;
-}
+// export interface LeaveRequest {
+//   id: string;
+//   tenantId: string;
+//   userId: string;
+//   userName: string;
+//   department: string;
+//   type: 'Casual' | 'Sick' | 'Earned' | 'Maternity/Paternity';
+//   startDate: string;
+//   endDate: string;
+//   days: number;
+//   reason: string;
+//   status: 'Pending' | 'Approved' | 'Rejected';
+//   appliedOn: string;
+//   reviewedBy?: string;
+//   reviewNotes?: string;
+// }
 
-export interface TargetCycle {
-  id: string;
-  tenantId: string;
-  name: string;
-  period: 'Monthly' | 'Quarterly' | 'Annual';
-  startDate: string;
-  endDate: string;
-  status: 'active' | 'closed';
-  totalTargetFund: number;
-  totalAchievedFund: number;
-}
+// export interface TargetCycle {
+//   id: string;
+//   tenantId: string;
+//   name: string;
+//   period: 'Monthly' | 'Quarterly' | 'Annual';
+//   startDate: string;
+//   endDate: string;
+//   status: 'active' | 'closed';
+//   totalTargetFund: number;
+//   totalAchievedFund: number;
+// }
 
-export interface StaffTarget {
-  id: string;
-  tenantId: string;
-  userId: string;
-  userName: string;
-  department: string;
-  cycleId: string;
-  cycleName: string;
-  targetAmount: number;
-  achievedAmount: number;
-  dealsCount: number;
-  status: 'in_progress' | 'met' | 'exceeded';
-}
+// export interface StaffTarget {
+//   id: string;
+//   tenantId: string;
+//   userId: string;
+//   userName: string;
+//   department: string;
+//   cycleId: string;
+//   cycleName: string;
+//   targetAmount: number;
+//   achievedAmount: number;
+//   dealsCount: number;
+//   status: 'in_progress' | 'met' | 'exceeded';
+// }
 
-export type IncentiveStatus =
-  | 'Pending_Manager'
-  | 'Verified_Manager'
-  | 'Approved_HR'
-  | 'Paid_Payroll'
-  | 'Rejected';
+// export type IncentiveStatus =
+//   | 'Pending_Manager'
+//   | 'Verified_Manager'
+//   | 'Approved_HR'
+//   | 'Paid_Payroll'
+//   | 'Rejected';
 
-export interface IncentiveTransaction {
-  id: string;
-  tenantId: string;
-  userId: string;
-  userName: string;
-  clientName: string;
-  investmentAmount: number;
-  slabTierId: string;
-  slabTierName: string;
-  slabVersion: string;
-  appliedCommissionRate: number;
-  calculatedIncentive: number;
-  date: string;
-  status: IncentiveStatus;
-  managerNotes?: string;
-  hrNotes?: string;
-  payoutCycleMonth: string;
-}
+// export interface IncentiveTransaction {
+//   id: string;
+//   tenantId: string;
+//   userId: string;
+//   userName: string;
+//   clientName: string;
+//   investmentAmount: number;
+//   slabTierId: string;
+//   slabTierName: string;
+//   slabVersion: string;
+//   appliedCommissionRate: number;
+//   calculatedIncentive: number;
+//   date: string;
+//   status: IncentiveStatus;
+//   managerNotes?: string;
+//   hrNotes?: string;
+//   payoutCycleMonth: string;
+// }
 
-export interface PayrollCycle {
-  id: string;
-  tenantId: string;
-  monthYear: string;
-  processedDate: string;
-  totalEmployees: number;
-  totalGrossPayout: number;
-  totalIncentivesPaid: number;
-  totalNetPayout: number;
-  status: 'Draft' | 'Approved' | 'Disbursed';
-}
+// export interface PayrollCycle {
+//   id: string;
+//   tenantId: string;
+//   monthYear: string;
+//   processedDate: string;
+//   totalEmployees: number;
+//   totalGrossPayout: number;
+//   totalIncentivesPaid: number;
+//   totalNetPayout: number;
+//   status: 'Draft' | 'Approved' | 'Disbursed';
+// }
 
-export interface Payslip {
-  id: string;
-  tenantId: string;
-  payrollCycleId: string;
-  userId: string;
-  userName: string;
-  employeeCode: string;
-  designation: string;
-  department: string;
-  monthYear: string;
-  workedDays: number;
-  paidLeaves: number;
-  unpaidLeaves: number;
-  grossSalary: number;
-  basicPay: number;
-  hra: number;
-  specialAllowance: number;
-  performanceIncentive: number;
-  deductionsTotal: number;
-  providentFund: number;
-  taxDeduction: number;
-  attendanceDeduction: number;
-  netPayable: number;
-  generatedAt: string;
-  status: 'Generated' | 'Paid';
-  paymentMode: 'Direct Bank Wire' | 'NEFT / RTGS';
-}
+// export interface Payslip {
+//   id: string;
+//   tenantId: string;
+//   payrollCycleId: string;
+//   userId: string;
+//   userName: string;
+//   employeeCode: string;
+//   designation: string;
+//   department: string;
+//   monthYear: string;
+//   workedDays: number;
+//   paidLeaves: number;
+//   unpaidLeaves: number;
+//   grossSalary: number;
+//   basicPay: number;
+//   hra: number;
+//   specialAllowance: number;
+//   performanceIncentive: number;
+//   deductionsTotal: number;
+//   providentFund: number;
+//   taxDeduction: number;
+//   attendanceDeduction: number;
+//   netPayable: number;
+//   generatedAt: string;
+//   status: 'Generated' | 'Paid';
+//   paymentMode: 'Direct Bank Wire' | 'NEFT / RTGS';
+// }
 
 export type LessonType = 'video' | 'pdf' | 'document' | 'presentation' | 'quiz';
 

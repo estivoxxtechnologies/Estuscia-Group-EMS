@@ -55,12 +55,12 @@ const AppContent: React.FC = () => {
         }
 
         return <DashboardView />;
-      case 'daily_work':
-        return <DailyWorkView />;
+      // case 'daily_work':
+      //   return <DailyWorkView />;
       case 'attendance':
         return <AttendanceView />;
-      case 'targets_incentives':
-        return <TargetsIncentivesView />;
+      // case 'targets_incentives':
+      //   return <TargetsIncentivesView />;
       case 'receipts_slabs':
       case 'slabs':
         return <ReceiptsSlabsView />;
@@ -81,27 +81,27 @@ const AppContent: React.FC = () => {
         return <TenantPaymentView />;
       case 'profile':
         return <ProfileView />;
-      case 'sales_leads': {
-        const isSeniorSales =
-          currentUser?.roleName?.toLowerCase() === 'sales_staff' &&
-          currentUser?.designation?.toLowerCase() === 'senior';
+      // case 'sales_leads': {
+      //   const isSeniorSales =
+      //     currentUser?.roleName?.toLowerCase() === 'sales_staff' &&
+      //     currentUser?.designation?.toLowerCase() === 'senior';
 
-        return isSeniorSales
-          ? <SeniorSalesLeadsView />
-          : <MySalesLeadsView currentUser={currentUser} />;
-      }
+      //   return isSeniorSales
+      //     ? <SeniorSalesLeadsView />
+      //     : <MySalesLeadsView currentUser={currentUser} />;
+      // }
 
-      case 'developer_work': {
-        const isSeniorDeveloper =
-          currentUser?.roleName?.toLowerCase() ===
-          'developer' &&
-          currentUser?.designation?.toLowerCase() ===
-          'senior';
+      // case 'developer_work': {
+      //   const isSeniorDeveloper =
+      //     currentUser?.roleName?.toLowerCase() ===
+      //     'developer' &&
+      //     currentUser?.designation?.toLowerCase() ===
+      //     'senior';
 
-        return isSeniorDeveloper
-          ? <SeniorDeveloperWorkView />
-          : <JuniorDeveloperWorkView />;
-      }
+      //   return isSeniorDeveloper
+      //     ? <SeniorDeveloperWorkView />
+      //     : <JuniorDeveloperWorkView />;
+      // }
       default:
         return <DashboardView />;
     }
