@@ -79,6 +79,7 @@ export type AppTab =
   | 'profile'
   // | 'sales_leads'
   // | 'developer_work'
+  | 'company_details'
   ;
 
 export type ViewMode = 'portal' | 'public_web';

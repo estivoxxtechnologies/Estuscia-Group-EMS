@@ -1,7 +1,7 @@
 export type PayrollCycleStatus =
   | 'Draft'
-  | 'Submitted'
-  | 'Approved'
+  | 'SubmittedByHr'
+  | 'ApprovedByCompanyAdmin'
   | 'Rejected'
   | 'Processing'
   | 'Paid'
@@ -11,7 +11,7 @@ export type PayrollAdjustmentType = 'Bonus' | 'Deduction';
 
 export type PayrollAdjustmentStatus =
   | 'PendingApproval'
-  | 'Approved'
+  | 'ApprovedByCompanyAdmin'
   | 'Rejected';
 
 export interface PayrollCycle {
@@ -50,7 +50,6 @@ export interface PayrollCycle {
 export interface PayrollRecord {
   id: number;
   tenantId?: number | null;
-
   payrollCycleId: number;
   userId: number;
 
@@ -70,11 +69,12 @@ export interface PayrollRecord {
   paidByUserId?: number | null;
   paidAtUtc?: string | null;
 
+  paymentStatus: PayrollPaymentStatus;
+
   isLocked: boolean;
 
   employeeName: string;
   employeeCode: string;
-
   designation?: string;
   department?: string;
 
@@ -85,6 +85,10 @@ export interface PayrollRecord {
 
   adjustments?: PayrollAdjustment[];
 }
+
+export type PayrollPaymentStatus =
+  | 'Pending'
+  | 'Paid';
 
 export interface PayrollAdjustment {
   id: number;

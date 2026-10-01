@@ -14,13 +14,9 @@ import {
   RefreshCw,
   Loader2,
   Trash2,
-  Gift,
-  MinusCircle,
   AlertTriangle,
   ShieldCheck,
   Clock3,
-  CircleCheck,
-  CircleX,
 } from 'lucide-react';
 
 import { toast } from 'react-toastify';
@@ -33,7 +29,6 @@ import {
   generatePayroll,
   approvePayroll,
   rejectPayroll,
-  payPayroll,
   createPayrollAdjustment,
   getPayrollAdjustments,
   deletePayroll,
@@ -47,6 +42,21 @@ import {
   PayrollAdjustment,
   CreatePayrollAdjustmentRequest,
 } from '../types/payrollCycle';
+
+import PayrollRecordsTable from './PayrollRecordsTable';
+import ConfirmationModal from './ConfirmationModal';
+import RejectModal from './RejectModal';
+import BonusModal from './BonusModal';
+import DeductionModal from './DeductionModal';
+import AdjustmentApprovalModal from './AdjustmentApprovalModal';
+import AdjustmentRejectModal from './AdjustmentRejectModal';
+
+import {
+  formatCurrency,
+  getAdjustmentEmployeeName,
+} from '../services/payrollHelpers';
+
+import { StatusBadge, Summary } from './PayrollUI';
 
 /* =========================================================
    PROPS
@@ -66,17 +76,13 @@ interface MonthlyPayrollPageProps {
 
 type AdjustmentStatus =
   | 'PendingApproval'
-  | 'Approved'
+  | 'ApprovedByCompanyAdmin'
   | 'Rejected';
 
 type AdjustmentWithOptionalStatus =
   PayrollAdjustment & {
     status?: AdjustmentStatus | string | number;
   };
-
-interface AdjustmentRejectTarget {
-  adjustment: PayrollAdjustment;
-}
 
 /* =========================================================
    PAGE
@@ -111,7 +117,31 @@ const MonthlyPayrollPage: React.FC<
   const [error, setError] =
     useState<string | null>(null);
 
-  const [selectedRecordIds, setSelectedRecordIds] =
+  /*
+   * YEAR FILTER
+   *
+   * Current year is selected by default.
+   *
+   * Example:
+   * 2026
+   * 2025
+   * 2024
+   */
+  const currentYear =
+    new Date().getFullYear();
+
+  const [selectedPayrollYear, setSelectedPayrollYear] =
+    useState<number>(currentYear);
+
+  /*
+   * IMPORTANT:
+   *
+   * This selection is ONLY for choosing which employees
+   * should be paid in the current payment batch.
+   *
+   * It is NOT used for payroll submission.
+   */
+  const [selectedPaymentRecordIds, setSelectedPaymentRecordIds] =
     useState<number[]>([]);
 
   /* =======================================================
@@ -191,10 +221,6 @@ const MonthlyPayrollPage: React.FC<
   /*
    * HR, Company Admin and Super Admin can create
    * payroll adjustments.
-   *
-   * Branch Manager is intentionally excluded because
-   * the current backend permission model does not allow
-   * them to create payroll adjustments.
    */
   const canManageAdjustments =
     role === 'hr_ops' ||
@@ -264,12 +290,171 @@ const MonthlyPayrollPage: React.FC<
     ]
   );
 
+  /*
+   * =======================================================
+   * AVAILABLE YEARS
+   * =======================================================
+   *
+   * Always include the current year.
+   *
+   * Other years come from the payroll data returned
+   * by the backend.
+   */
+  const availablePayrollYears =
+    useMemo(() => {
+      const years = new Set<number>();
+
+      years.add(currentYear);
+
+      payrollCycles.forEach(
+        cycle => {
+          if (
+            Number.isInteger(
+              cycle.year
+            )
+          ) {
+            years.add(
+              cycle.year
+            );
+
+            return;
+          }
+
+          /*
+           * Fallback in case the DTO does not expose
+           * a numeric year property.
+           *
+           * Example:
+           * "September 2026"
+           */
+          if (
+            cycle.monthYear
+          ) {
+            const match =
+              cycle.monthYear.match(
+                /\b(20\d{2})\b/
+              );
+
+            if (
+              match
+            ) {
+              years.add(
+                Number(
+                  match[1]
+                )
+              );
+            }
+          }
+        }
+      );
+
+      return Array.from(
+        years
+      ).sort(
+        (a, b) =>
+          b - a
+      );
+    }, [
+      payrollCycles,
+      currentYear,
+    ]);
+
+  /*
+   * =======================================================
+   * YEAR-FILTERED PAYROLL CYCLES
+   * =======================================================
+   *
+   * Only the selected year's months are shown.
+   */
+  const filteredPayrollCycles =
+    useMemo(() => {
+      return payrollCycles
+        .filter(
+          cycle => {
+            if (
+              Number.isInteger(
+                cycle.year
+              )
+            ) {
+              return (
+                cycle.year ===
+                selectedPayrollYear
+              );
+            }
+
+            if (
+              cycle.monthYear
+            ) {
+              const match =
+                cycle.monthYear.match(
+                  /\b(20\d{2})\b/
+                );
+
+              return (
+                match &&
+                Number(
+                  match[1]
+                ) ===
+                  selectedPayrollYear
+              );
+            }
+
+            return false;
+          }
+        )
+        .sort(
+          (a, b) => {
+            /*
+             * Prefer month number if the API provides it.
+             */
+            if (
+              Number.isInteger(
+                a.month
+              ) &&
+              Number.isInteger(
+                b.month
+              )
+            ) {
+              return (
+                b.month -
+                a.month
+              );
+            }
+
+            /*
+             * Otherwise sort using the month/year text.
+             */
+            return (
+              String(
+                b.monthYear ?? ''
+              ).localeCompare(
+                String(
+                  a.monthYear ?? ''
+                )
+              )
+            );
+          }
+        );
+    }, [
+      payrollCycles,
+      selectedPayrollYear,
+    ]);
+
+  /*
+   * Current month cycle from ALL loaded cycles.
+   *
+   * This is intentionally not restricted by the selected
+   * year because Generate Payroll always concerns the
+   * current month.
+   */
   const currentMonthCycle =
     useMemo(
       () =>
         payrollCycles.find(
           cycle =>
-            isCurrentMonthCycle(cycle)
+            isCurrentMonthCycle(
+              cycle
+            )
         ),
       [
         payrollCycles,
@@ -281,17 +466,150 @@ const MonthlyPayrollPage: React.FC<
     !currentMonthCycle;
 
   /* =======================================================
-     RECORD SELECTION
+     PAYMENT SELECTION
   ======================================================= */
 
-  const allRecordsSelected =
-    records.length > 0 &&
-    records.every(
+  const unpaidRecords = useMemo(
+    () =>
+      records.filter(
+        record =>
+          record.paymentStatus !== 'Paid'
+      ),
+    [
+      records,
+    ]
+  );
+
+  const paidRecords = useMemo(
+    () =>
+      records.filter(
+        record =>
+          record.paymentStatus === 'Paid'
+      ),
+    [
+      records,
+    ]
+  );
+
+  const selectedPaymentRecords =
+    useMemo(
+      () =>
+        records.filter(
+          record =>
+            selectedPaymentRecordIds.includes(
+              record.id
+            ) &&
+            record.paymentStatus !== 'Paid'
+        ),
+      [
+        records,
+        selectedPaymentRecordIds,
+      ]
+    );
+
+  const selectedPaymentCount =
+    selectedPaymentRecords.length;
+
+  const paymentProgress =
+    records.length > 0
+      ? Math.round(
+          (paidRecords.length /
+            records.length) *
+            100
+        )
+      : 0;
+
+  /*
+   * Only records that can actually be paid are considered
+   * for "Select All".
+   *
+   * This prevents selecting records that are not approved
+   * or are locked.
+   */
+  const payableRecords =
+    useMemo(
+      () =>
+        records.filter(
+          record =>
+            record.paymentStatus !==
+              'Paid' &&
+            !record.isLocked &&
+            record.status ===
+              'ApprovedByCompanyAdmin'
+        ),
+      [
+        records,
+      ]
+    );
+
+  const allUnpaidSelected =
+    payableRecords.length > 0 &&
+    payableRecords.every(
       record =>
-        selectedRecordIds.includes(
+        selectedPaymentRecordIds.includes(
           record.id
         )
     );
+
+  /*
+   * Checkbox selection is only for payment.
+   *
+   * Paid employees can never be selected again.
+   */
+  const handlePaymentSelectionChange =
+    (
+      recordId: number,
+      checked: boolean
+    ) => {
+      setSelectedPaymentRecordIds(
+        previous => {
+          if (checked) {
+            if (
+              previous.includes(
+                recordId
+              )
+            ) {
+              return previous;
+            }
+
+            return [
+              ...previous,
+              recordId,
+            ];
+          }
+
+          return previous.filter(
+            id =>
+              id !== recordId
+          );
+        }
+      );
+    };
+
+  const handleSelectAllUnpaid =
+    () => {
+      if (
+        payableRecords.length ===
+        0
+      ) {
+        return;
+      }
+
+      if (allUnpaidSelected) {
+        setSelectedPaymentRecordIds(
+          []
+        );
+
+        return;
+      }
+
+      setSelectedPaymentRecordIds(
+        payableRecords.map(
+          record =>
+            record.id
+        )
+      );
+    };
 
   /* =======================================================
      ADJUSTMENT STATUS HELPERS
@@ -305,34 +623,32 @@ const MonthlyPayrollPage: React.FC<
         adjustment as AdjustmentWithOptionalStatus
       ).status;
 
-    /*
-     * Normal API response.
-     */
     if (
       value === 'PendingApproval' ||
-      value === 'Approved' ||
+      value === 'ApprovedByCompanyAdmin' ||
       value === 'Rejected'
     ) {
       return value;
     }
 
-    /*
-     * Numeric enum compatibility.
-     *
-     * PayrollAdjustmentStatus:
-     * 1 = PendingApproval
-     * 2 = Approved
-     * 3 = Rejected
-     */
-    if (value === 1 || value === '1') {
+    if (
+      value === 1 ||
+      value === '1'
+    ) {
       return 'PendingApproval';
     }
 
-    if (value === 2 || value === '2') {
-      return 'Approved';
+    if (
+      value === 2 ||
+      value === '2'
+    ) {
+      return 'ApprovedByCompanyAdmin';
     }
 
-    if (value === 3 || value === '3') {
+    if (
+      value === 3 ||
+      value === '3'
+    ) {
       return 'Rejected';
     }
 
@@ -346,7 +662,8 @@ const MonthlyPayrollPage: React.FC<
           adjustment =>
             getAdjustmentStatus(
               adjustment
-            ) === 'PendingApproval'
+            ) ===
+            'PendingApproval'
         ),
       [
         adjustments,
@@ -356,121 +673,15 @@ const MonthlyPayrollPage: React.FC<
   const pendingAdjustmentCount =
     pendingAdjustments.length;
 
-  const getPendingAdjustmentsForUser = (
-    userId: number
-  ) =>
-    pendingAdjustments.filter(
-      adjustment =>
-        adjustment.userId === userId
-    );
-
   /* =======================================================
      LOAD CYCLE RECORDS
   ======================================================= */
 
-  const loadCycleRecords = useCallback(
-    async (
-      cycleId: number
-    ) => {
-      if (
-        !Number.isInteger(cycleId) ||
-        cycleId <= 0
-      ) {
-        setRecords([]);
-        setAdjustments([]);
-        return;
-      }
-
-      const cycleRecords =
-        await getPayrollRecords(
-          cycleId
-        );
-
-      setRecords(
-        cycleRecords
-      );
-
-      const cycleAdjustments =
-        await getPayrollAdjustments(
-          cycleId
-        );
-
-      setAdjustments(
-        cycleAdjustments
-      );
-
-      setSelectedRecordIds([]);
-    },
-    []
-  );
-
-  /* =======================================================
-     LOAD PAYROLL CYCLES
-  ======================================================= */
-
-  const loadPayroll = useCallback(
-    async (
-      preferredCycleId?: number | null
-    ) => {
-      try {
-        setLoading(true);
-        setError(null);
-
-        const cycles =
-          await getPayrollCycles();
-
-        setPayrollCycles(
-          cycles
-        );
-
-        if (
-          cycles.length === 0
-        ) {
-          setRecords([]);
-          setAdjustments([]);
-          setSelectedCycleId(null);
-          return;
-        }
-
-        /*
-         * IMPORTANT:
-         *
-         * Never use undefined as a cycle ID.
-         *
-         * If the caller gives an invalid ID, ignore it.
-         */
-        const safePreferredCycleId =
-          Number.isInteger(
-            preferredCycleId
-          ) &&
-          Number(preferredCycleId) > 0
-            ? Number(preferredCycleId)
-            : null;
-
-        const preferredExists =
-          safePreferredCycleId !== null &&
-          cycles.some(
-            cycle =>
-              cycle.id ===
-              safePreferredCycleId
-          );
-
-        const cycleId =
-          preferredExists
-            ? safePreferredCycleId!
-            : (
-                cycles.find(
-                  cycle =>
-                    isCurrentMonthCycle(
-                      cycle
-                    )
-                )?.id ??
-                cycles[0].id
-              );
-
-        /*
-         * Final safety check.
-         */
+  const loadCycleRecords =
+    useCallback(
+      async (
+        cycleId: number
+      ) => {
         if (
           !Number.isInteger(
             cycleId
@@ -479,37 +690,240 @@ const MonthlyPayrollPage: React.FC<
         ) {
           setRecords([]);
           setAdjustments([]);
-          setSelectedCycleId(null);
+          setSelectedPaymentRecordIds(
+            []
+          );
+
           return;
         }
 
-        setSelectedCycleId(
-          cycleId
+        const cycleRecords =
+          await getPayrollRecords(
+            cycleId
+          );
+
+        setRecords(
+          cycleRecords
         );
 
-        await loadCycleRecords(
-          cycleId
-        );
-      } catch (err) {
-        const message =
-          err instanceof Error
-            ? err.message
-            : 'Failed to load payroll.';
+        /*
+         * Remove any previously selected IDs
+         * that are now paid or no longer exist.
+         */
+        const validUnpaidIds =
+          new Set(
+            cycleRecords
+              .filter(
+                record =>
+                  record.paymentStatus !==
+                  'Paid'
+              )
+              .map(
+                record =>
+                  record.id
+              )
+          );
 
-        setError(message);
-
-        toast.error(
-          message
+        setSelectedPaymentRecordIds(
+          previous =>
+            previous.filter(
+              id =>
+                validUnpaidIds.has(
+                  id
+                )
+            )
         );
-      } finally {
-        setLoading(false);
-      }
-    },
-    [
-      isCurrentMonthCycle,
-      loadCycleRecords,
-    ]
-  );
+
+        const cycleAdjustments =
+          await getPayrollAdjustments(
+            cycleId
+          );
+
+        setAdjustments(
+          cycleAdjustments
+        );
+      },
+      []
+    );
+
+  /* =======================================================
+     LOAD PAYROLL CYCLES
+  ======================================================= */
+
+  const loadPayroll =
+    useCallback(
+      async (
+        preferredCycleId?: number | null
+      ) => {
+        try {
+          setLoading(true);
+          setError(null);
+
+          const cycles =
+            await getPayrollCycles();
+
+          setPayrollCycles(
+            cycles
+          );
+
+          if (
+            cycles.length === 0
+          ) {
+            setRecords([]);
+            setAdjustments([]);
+            setSelectedCycleId(
+              null
+            );
+            setSelectedPaymentRecordIds(
+              []
+            );
+
+            return;
+          }
+
+          const safePreferredCycleId =
+            Number.isInteger(
+              preferredCycleId
+            ) &&
+            Number(
+              preferredCycleId
+            ) > 0
+              ? Number(
+                  preferredCycleId
+                )
+              : null;
+
+          const preferredExists =
+            safePreferredCycleId !==
+              null &&
+            cycles.some(
+              cycle =>
+                cycle.id ===
+                safePreferredCycleId
+            );
+
+          /*
+           * First preference:
+           * explicitly requested cycle.
+           *
+           * Second preference:
+           * current month.
+           *
+           * Third preference:
+           * first cycle returned.
+           */
+          const cycleId =
+            preferredExists
+              ? safePreferredCycleId!
+              : (
+                  cycles.find(
+                    cycle =>
+                      isCurrentMonthCycle(
+                        cycle
+                      )
+                  )?.id ??
+                  cycles[0].id
+                );
+
+          if (
+            !Number.isInteger(
+              cycleId
+            ) ||
+            cycleId <= 0
+          ) {
+            setRecords([]);
+            setAdjustments([]);
+            setSelectedCycleId(
+              null
+            );
+            setSelectedPaymentRecordIds(
+              []
+            );
+
+            return;
+          }
+
+          /*
+           * Make sure the selected year follows the
+           * cycle that we selected.
+           */
+          const selectedCycle =
+            cycles.find(
+              cycle =>
+                cycle.id ===
+                cycleId
+            );
+
+          if (
+            selectedCycle
+          ) {
+            let cycleYear:
+              number | null =
+              null;
+
+            if (
+              Number.isInteger(
+                selectedCycle.year
+              )
+            ) {
+              cycleYear =
+                selectedCycle.year;
+            } else if (
+              selectedCycle.monthYear
+            ) {
+              const match =
+                selectedCycle.monthYear.match(
+                  /\b(20\d{2})\b/
+                );
+
+              if (
+                match
+              ) {
+                cycleYear =
+                  Number(
+                    match[1]
+                  );
+              }
+            }
+
+            if (
+              cycleYear
+            ) {
+              setSelectedPayrollYear(
+                cycleYear
+              );
+            }
+          }
+
+          setSelectedCycleId(
+            cycleId
+          );
+
+          await loadCycleRecords(
+            cycleId
+          );
+        } catch (err) {
+          const message =
+            err instanceof Error
+              ? err.message
+              : 'Failed to load payroll.';
+
+          setError(
+            message
+          );
+
+          toast.error(
+            message
+          );
+        } finally {
+          setLoading(false);
+        }
+      },
+      [
+        isCurrentMonthCycle,
+        loadCycleRecords,
+      ]
+    );
 
   /* =======================================================
      INITIAL / BRANCH CHANGE
@@ -521,76 +935,236 @@ const MonthlyPayrollPage: React.FC<
     }
 
     /*
-     * Do not retain the old branch's cycle ID when
-     * All Branches / another branch is selected.
+     * Always return to the current year when:
      *
-     * This is what prevents stale/undefined cycle requests.
+     * - user changes
+     * - branch changes
      */
-    setSelectedCycleId(null);
-    setRecords([]);
-    setAdjustments([]);
-    setSelectedRecordIds([]);
+    setSelectedPayrollYear(
+      currentYear
+    );
 
-    void loadPayroll(null);
+    setSelectedCycleId(
+      null
+    );
+
+    setRecords([]);
+
+    setAdjustments([]);
+
+    setSelectedPaymentRecordIds(
+      []
+    );
+
+    void loadPayroll(
+      null
+    );
   }, [
     currentUser,
     effectiveBranchId,
     loadPayroll,
+    currentYear,
   ]);
+
+  /* =======================================================
+     YEAR CHANGE
+  ======================================================= */
+
+  const handleYearChange =
+    async (
+      year: number
+    ) => {
+      if (
+        !Number.isInteger(
+          year
+        )
+      ) {
+        return;
+      }
+
+      setSelectedPayrollYear(
+        year
+      );
+
+      setSelectedPaymentRecordIds(
+        []
+      );
+
+      /*
+       * Find the newest/most recent cycle
+       * belonging to the selected year.
+       */
+      const yearCycles =
+        payrollCycles
+          .filter(
+            cycle => {
+              if (
+                Number.isInteger(
+                  cycle.year
+                )
+              ) {
+                return (
+                  cycle.year ===
+                  year
+                );
+              }
+
+              if (
+                cycle.monthYear
+              ) {
+                const match =
+                  cycle.monthYear.match(
+                    /\b(20\d{2})\b/
+                  );
+
+                return (
+                  match &&
+                  Number(
+                    match[1]
+                  ) ===
+                    year
+                );
+              }
+
+              return false;
+            }
+          )
+          .sort(
+            (a, b) => {
+              if (
+                Number.isInteger(
+                  a.month
+                ) &&
+                Number.isInteger(
+                  b.month
+                )
+              ) {
+                return (
+                  b.month -
+                  a.month
+                );
+              }
+
+              return String(
+                b.monthYear ?? ''
+              ).localeCompare(
+                String(
+                  a.monthYear ?? ''
+                )
+              );
+            }
+          );
+
+      const nextCycle =
+        yearCycles[0];
+
+      if (
+        nextCycle
+      ) {
+        setSelectedCycleId(
+          nextCycle.id
+        );
+
+        setRecords([]);
+
+        setAdjustments([]);
+
+        try {
+          setLoading(true);
+
+          await loadCycleRecords(
+            nextCycle.id
+          );
+        } catch (err) {
+          const message =
+            err instanceof Error
+              ? err.message
+              : 'Failed to load payroll cycle.';
+
+          setError(
+            message
+          );
+
+          toast.error(
+            message
+          );
+        } finally {
+          setLoading(false);
+        }
+      } else {
+        /*
+         * No payroll exists for this year.
+         */
+        setSelectedCycleId(
+          null
+        );
+
+        setRecords([]);
+
+        setAdjustments([]);
+      }
+    };
 
   /* =======================================================
      MANUAL CYCLE SELECTION
   ======================================================= */
 
-  const handleSelectCycle = async (
-    cycleId: number
-  ) => {
-    /*
-     * Never allow undefined/null/invalid IDs.
-     */
-    if (
-      !Number.isInteger(cycleId) ||
-      cycleId <= 0
-    ) {
-      return;
-    }
+  const handleSelectCycle =
+    async (
+      cycleId: number
+    ) => {
+      if (
+        !Number.isInteger(
+          cycleId
+        ) ||
+        cycleId <= 0
+      ) {
+        return;
+      }
 
-    const exists =
-      payrollCycles.some(
-        cycle =>
-          cycle.id === cycleId
-      );
+      const exists =
+        filteredPayrollCycles.some(
+          cycle =>
+            cycle.id ===
+            cycleId
+        );
 
-    if (!exists) {
-      return;
-    }
+      if (!exists) {
+        return;
+      }
 
-    try {
-      setLoading(true);
-      setError(null);
+      try {
+        setLoading(true);
+        setError(null);
 
-      setSelectedCycleId(
-        cycleId
-      );
+        setSelectedCycleId(
+          cycleId
+        );
 
-      await loadCycleRecords(
-        cycleId
-      );
-    } catch (err) {
-      const message =
-        err instanceof Error
-          ? err.message
-          : 'Failed to load payroll cycle.';
+        setSelectedPaymentRecordIds(
+          []
+        );
 
-      setError(message);
+        await loadCycleRecords(
+          cycleId
+        );
+      } catch (err) {
+        const message =
+          err instanceof Error
+            ? err.message
+            : 'Failed to load payroll cycle.';
 
-      toast.error(
-        message
-      );
-    } finally {
-      setLoading(false);
-    }
-  };
+        setError(
+          message
+        );
+
+        toast.error(
+          message
+        );
+      } finally {
+        setLoading(false);
+      }
+    };
 
   /* =======================================================
      DISPLAYED CYCLE
@@ -616,9 +1190,6 @@ const MonthlyPayrollPage: React.FC<
 
   const handleGeneratePayroll =
     async () => {
-      /*
-       * Frontend duplicate protection.
-       */
       if (
         !canGenerateCurrentMonth
       ) {
@@ -633,7 +1204,10 @@ const MonthlyPayrollPage: React.FC<
         new Date();
 
       try {
-        setActionLoading(true);
+        setActionLoading(
+          true
+        );
+
         setError(null);
 
         const cycle =
@@ -644,19 +1218,16 @@ const MonthlyPayrollPage: React.FC<
           );
 
         setPayrollCycles(
-          prev => [
+          previous => [
             cycle,
-            ...prev.filter(
-              x =>
-                x.id !==
+            ...previous.filter(
+              item =>
+                item.id !==
                 cycle.id
             ),
           ]
         );
 
-        /*
-         * Safe ID validation.
-         */
         if (
           !Number.isInteger(
             cycle.id
@@ -668,8 +1239,21 @@ const MonthlyPayrollPage: React.FC<
           );
         }
 
+        /*
+         * After generating the current payroll,
+         * automatically move the year selector to
+         * the current year.
+         */
+        setSelectedPayrollYear(
+          now.getFullYear()
+        );
+
         setSelectedCycleId(
           cycle.id
+        );
+
+        setSelectedPaymentRecordIds(
+          []
         );
 
         await loadCycleRecords(
@@ -685,13 +1269,17 @@ const MonthlyPayrollPage: React.FC<
             ? err.message
             : 'Failed to generate payroll.';
 
-        setError(message);
+        setError(
+          message
+        );
 
         toast.error(
           message
         );
       } finally {
-        setActionLoading(false);
+        setActionLoading(
+          false
+        );
       }
     };
 
@@ -701,7 +1289,9 @@ const MonthlyPayrollPage: React.FC<
 
   const openSubmitModal =
     () => {
-      if (!displayedCycle) {
+      if (
+        !displayedCycle
+      ) {
         return;
       }
 
@@ -727,23 +1317,8 @@ const MonthlyPayrollPage: React.FC<
       }
 
       if (
-        !allRecordsSelected
-      ) {
-        toast.error(
-          'Select all employee payroll records before submitting the payroll.'
-        );
-
-        return;
-      }
-
-      /*
-       * CRITICAL:
-       *
-       * Pending bonus/deduction adjustments must be
-       * approved or rejected before payroll submission.
-       */
-      if (
-        pendingAdjustmentCount > 0
+        pendingAdjustmentCount >
+        0
       ) {
         toast.error(
           `${pendingAdjustmentCount} bonus/deduction adjustment${pendingAdjustmentCount === 1 ? '' : 's'} still require Company Admin approval.`
@@ -759,7 +1334,9 @@ const MonthlyPayrollPage: React.FC<
 
   const handleSubmit =
     async () => {
-      if (!displayedCycle) {
+      if (
+        !displayedCycle
+      ) {
         return;
       }
 
@@ -785,17 +1362,8 @@ const MonthlyPayrollPage: React.FC<
       }
 
       if (
-        !allRecordsSelected
-      ) {
-        toast.error(
-          'All employee payroll records must be selected before submission.'
-        );
-
-        return;
-      }
-
-      if (
-        pendingAdjustmentCount > 0
+        pendingAdjustmentCount >
+        0
       ) {
         toast.error(
           'Pending bonus/deduction adjustments must be approved or rejected before payroll submission.'
@@ -805,33 +1373,29 @@ const MonthlyPayrollPage: React.FC<
       }
 
       try {
-        setActionLoading(true);
+        setActionLoading(
+          true
+        );
+
         setError(null);
 
-        const userIds =
-          selectedRecordIds
-            .map(
-              id =>
-                records.find(
-                  record =>
-                    record.id ===
-                    id
-                )?.userId
-            )
-            .filter(
-              (
-                id
-              ): id is number =>
-                typeof id ===
-                'number'
-            );
-
+        /*
+         * IMPORTANT:
+         *
+         * There is NO employee selection here.
+         *
+         * Submitting the payroll submits the complete
+         * payroll cycle automatically.
+         */
         await apiRequest(
           `/Payroll/${displayedCycle.id}/submit`,
           {
             method: 'POST',
             body: JSON.stringify({
-              userIds,
+              userIds: records.map(
+                record =>
+                  record.userId
+              ),
             }),
           }
         );
@@ -840,7 +1404,7 @@ const MonthlyPayrollPage: React.FC<
           false
         );
 
-        setSelectedRecordIds(
+        setSelectedPaymentRecordIds(
           []
         );
 
@@ -857,13 +1421,17 @@ const MonthlyPayrollPage: React.FC<
             ? err.message
             : 'Failed to submit payroll.';
 
-        setError(message);
+        setError(
+          message
+        );
 
         toast.error(
           message
         );
       } finally {
-        setActionLoading(false);
+        setActionLoading(
+          false
+        );
       }
     };
 
@@ -873,12 +1441,17 @@ const MonthlyPayrollPage: React.FC<
 
   const handleApprove =
     async () => {
-      if (!displayedCycle) {
+      if (
+        !displayedCycle
+      ) {
         return;
       }
 
       try {
-        setActionLoading(true);
+        setActionLoading(
+          true
+        );
+
         setError(null);
 
         const updated =
@@ -887,8 +1460,8 @@ const MonthlyPayrollPage: React.FC<
           );
 
         setPayrollCycles(
-          prev =>
-            prev.map(
+          previous =>
+            previous.map(
               cycle =>
                 cycle.id ===
                 updated.id
@@ -910,13 +1483,17 @@ const MonthlyPayrollPage: React.FC<
             ? err.message
             : 'Failed to approve payroll.';
 
-        setError(message);
+        setError(
+          message
+        );
 
         toast.error(
           message
         );
       } finally {
-        setActionLoading(false);
+        setActionLoading(
+          false
+        );
       }
     };
 
@@ -926,7 +1503,9 @@ const MonthlyPayrollPage: React.FC<
 
   const openRejectModal =
     () => {
-      if (!displayedCycle) {
+      if (
+        !displayedCycle
+      ) {
         return;
       }
 
@@ -941,7 +1520,9 @@ const MonthlyPayrollPage: React.FC<
 
   const handleReject =
     async () => {
-      if (!displayedCycle) {
+      if (
+        !displayedCycle
+      ) {
         return;
       }
 
@@ -956,7 +1537,10 @@ const MonthlyPayrollPage: React.FC<
       }
 
       try {
-        setActionLoading(true);
+        setActionLoading(
+          true
+        );
+
         setError(null);
 
         const updated =
@@ -966,8 +1550,8 @@ const MonthlyPayrollPage: React.FC<
           );
 
         setPayrollCycles(
-          prev =>
-            prev.map(
+          previous =>
+            previous.map(
               cycle =>
                 cycle.id ===
                 updated.id
@@ -997,34 +1581,51 @@ const MonthlyPayrollPage: React.FC<
             ? err.message
             : 'Failed to reject payroll.';
 
-        setError(message);
+        setError(
+          message
+        );
 
         toast.error(
           message
         );
       } finally {
-        setActionLoading(false);
+        setActionLoading(
+          false
+        );
       }
     };
 
   /* =======================================================
-     PAY
+     PAY SELECTED EMPLOYEES
   ======================================================= */
 
   const openPayModal =
     () => {
-      if (!displayedCycle) {
+      if (
+        !displayedCycle
+      ) {
         return;
       }
 
       if (
         displayedCycle.status !==
-          'Approved' &&
+          'ApprovedByCompanyAdmin' &&
         displayedCycle.status !==
-          'ApprovedByCompanyAdmin'
+          'PartiallyPaid'
       ) {
         toast.error(
-          'Only approved payroll can be marked as paid.'
+          'Only approved payroll can be paid.'
+        );
+
+        return;
+      }
+
+      if (
+        selectedPaymentCount ===
+        0
+      ) {
+        toast.error(
+          'Select at least one unpaid employee to mark as paid.'
         );
 
         return;
@@ -1037,28 +1638,56 @@ const MonthlyPayrollPage: React.FC<
 
   const handlePay =
     async () => {
-      if (!displayedCycle) {
+      if (
+        !displayedCycle
+      ) {
+        return;
+      }
+
+      if (
+        selectedPaymentCount ===
+        0
+      ) {
+        toast.error(
+          'Select at least one unpaid employee.'
+        );
+
         return;
       }
 
       try {
-        setActionLoading(true);
+        setActionLoading(
+          true
+        );
+
         setError(null);
 
-        const updated =
-          await payPayroll(
-            displayedCycle.id
-          );
+        /*
+         * IMPORTANT:
+         *
+         * Only the selected employee IDs are sent.
+         *
+         * Employees already paid are never included.
+         */
+        await apiRequest(
+          `/Payroll/${displayedCycle.id}/pay`,
+          {
+            method: 'POST',
+            body: JSON.stringify({
+              payrollRecordIds:
+                selectedPaymentRecords.map(
+                  record =>
+                    record.id
+                ),
+            }),
+          }
+        );
 
-        setPayrollCycles(
-          prev =>
-            prev.map(
-              cycle =>
-                cycle.id ===
-                updated.id
-                  ? updated
-                  : cycle
-            )
+        const paidCount =
+          selectedPaymentCount;
+
+        setSelectedPaymentRecordIds(
+          []
         );
 
         setShowPayModal(
@@ -1066,9 +1695,17 @@ const MonthlyPayrollPage: React.FC<
         );
 
         toast.success(
-          `${displayedCycle.monthYear} payroll marked as paid and locked.`
+          `${paidCount} employee${paidCount === 1 ? '' : 's'} marked as paid.`
         );
 
+        /*
+         * Reload the cycle so:
+         *
+         * - paid employees show Paid
+         * - unpaid employees remain Unpaid
+         * - cycle status becomes PartiallyPaid or Paid
+         * - cycle becomes locked only when everybody is paid
+         */
         await loadPayroll(
           displayedCycle.id
         );
@@ -1078,13 +1715,17 @@ const MonthlyPayrollPage: React.FC<
             ? err.message
             : 'Failed to process payment.';
 
-        setError(message);
+        setError(
+          message
+        );
 
         toast.error(
           message
         );
       } finally {
-        setActionLoading(false);
+        setActionLoading(
+          false
+        );
       }
     };
 
@@ -1100,7 +1741,9 @@ const MonthlyPayrollPage: React.FC<
         cycle ??
         displayedCycle;
 
-      if (!targetCycle) {
+      if (
+        !targetCycle
+      ) {
         return;
       }
 
@@ -1148,8 +1791,14 @@ const MonthlyPayrollPage: React.FC<
         setSelectedCycleId(
           cycle.id
         );
+
         setRecords([]);
+
         setAdjustments([]);
+
+        setSelectedPaymentRecordIds(
+          []
+        );
       }
 
       setShowDeleteModal(
@@ -1159,7 +1808,9 @@ const MonthlyPayrollPage: React.FC<
 
   const handleDeletePayroll =
     async () => {
-      if (!displayedCycle) {
+      if (
+        !displayedCycle
+      ) {
         return;
       }
 
@@ -1200,7 +1851,10 @@ const MonthlyPayrollPage: React.FC<
       }
 
       try {
-        setActionLoading(true);
+        setActionLoading(
+          true
+        );
+
         setError(null);
 
         await deletePayroll(
@@ -1219,8 +1873,12 @@ const MonthlyPayrollPage: React.FC<
         );
 
         setRecords([]);
+
         setAdjustments([]);
-        setSelectedRecordIds([]);
+
+        setSelectedPaymentRecordIds(
+          []
+        );
 
         setShowDeleteModal(
           false
@@ -1235,7 +1893,9 @@ const MonthlyPayrollPage: React.FC<
           ) ??
           remainingCycles[0];
 
-        if (nextCycle) {
+        if (
+          nextCycle
+        ) {
           setSelectedCycleId(
             nextCycle.id
           );
@@ -1258,13 +1918,17 @@ const MonthlyPayrollPage: React.FC<
             ? err.message
             : 'Failed to delete payroll.';
 
-        setError(message);
+        setError(
+          message
+        );
 
         toast.error(
           message
         );
       } finally {
-        setActionLoading(false);
+        setActionLoading(
+          false
+        );
       }
     };
 
@@ -1328,7 +1992,9 @@ const MonthlyPayrollPage: React.FC<
             ? err.message
             : 'Failed to load payroll adjustments.';
 
-        setError(message);
+        setError(
+          message
+        );
 
         toast.error(
           message
@@ -1396,7 +2062,9 @@ const MonthlyPayrollPage: React.FC<
             ? err.message
             : 'Failed to load payroll adjustments.';
 
-        setError(message);
+        setError(
+          message
+        );
 
         toast.error(
           message
@@ -1410,7 +2078,9 @@ const MonthlyPayrollPage: React.FC<
 
   const closeAdjustmentModals =
     () => {
-      if (actionLoading) {
+      if (
+        actionLoading
+      ) {
         return;
       }
 
@@ -1477,7 +2147,10 @@ const MonthlyPayrollPage: React.FC<
       }
 
       try {
-        setActionLoading(true);
+        setActionLoading(
+          true
+        );
+
         setError(null);
 
         const request:
@@ -1511,13 +2184,17 @@ const MonthlyPayrollPage: React.FC<
             ? err.message
             : 'Failed to add bonus.';
 
-        setError(message);
+        setError(
+          message
+        );
 
         toast.error(
           message
         );
       } finally {
-        setActionLoading(false);
+        setActionLoading(
+          false
+        );
       }
     };
 
@@ -1563,7 +2240,10 @@ const MonthlyPayrollPage: React.FC<
       }
 
       try {
-        setActionLoading(true);
+        setActionLoading(
+          true
+        );
+
         setError(null);
 
         const request:
@@ -1597,13 +2277,17 @@ const MonthlyPayrollPage: React.FC<
             ? err.message
             : 'Failed to add deduction.';
 
-        setError(message);
+        setError(
+          message
+        );
 
         toast.error(
           message
         );
       } finally {
-        setActionLoading(false);
+        setActionLoading(
+          false
+        );
       }
     };
 
@@ -1665,7 +2349,10 @@ const MonthlyPayrollPage: React.FC<
       }
 
       try {
-        setActionLoading(true);
+        setActionLoading(
+          true
+        );
+
         setError(null);
 
         await apiRequest(
@@ -1706,13 +2393,17 @@ const MonthlyPayrollPage: React.FC<
             ? err.message
             : 'Failed to approve adjustment.';
 
-        setError(message);
+        setError(
+          message
+        );
 
         toast.error(
           message
         );
       } finally {
-        setActionLoading(false);
+        setActionLoading(
+          false
+        );
       }
     };
 
@@ -1764,7 +2455,10 @@ const MonthlyPayrollPage: React.FC<
       }
 
       try {
-        setActionLoading(true);
+        setActionLoading(
+          true
+        );
+
         setError(null);
 
         await apiRequest(
@@ -1813,13 +2507,17 @@ const MonthlyPayrollPage: React.FC<
             ? err.message
             : 'Failed to reject adjustment.';
 
-        setError(message);
+        setError(
+          message
+        );
 
         toast.error(
           message
         );
       } finally {
-        setActionLoading(false);
+        setActionLoading(
+          false
+        );
       }
     };
 
@@ -1829,7 +2527,8 @@ const MonthlyPayrollPage: React.FC<
 
   if (
     loading &&
-    payrollCycles.length === 0
+    payrollCycles.length ===
+      0
   ) {
     return (
       <div className="flex items-center justify-center py-24">
@@ -1842,9 +2541,12 @@ const MonthlyPayrollPage: React.FC<
      ERROR
   ======================================================= */
 
-  if (error) {
+  if (
+    error
+  ) {
     return (
       <div className="p-6 rounded-2xl border border-rose-500/30 bg-rose-500/10 text-rose-300">
+
         <div className="font-semibold">
           Payroll Error
         </div>
@@ -1855,7 +2557,10 @@ const MonthlyPayrollPage: React.FC<
 
         <button
           onClick={() => {
-            setError(null);
+            setError(
+              null
+            );
+
             void loadPayroll(
               selectedCycleId
             );
@@ -1864,6 +2569,7 @@ const MonthlyPayrollPage: React.FC<
         >
           Retry
         </button>
+
       </div>
     );
   }
@@ -1876,9 +2582,11 @@ const MonthlyPayrollPage: React.FC<
       =================================================== */}
 
       <div className="p-5 rounded-2xl bg-[#09071e] border border-[#2d2770]/70">
+
         <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
 
           <div>
+
             <div className="flex items-center gap-2 flex-wrap">
 
               <h2 className="text-sm font-bold text-white">
@@ -1894,6 +2602,7 @@ const MonthlyPayrollPage: React.FC<
             <p className="text-[11px] text-slate-400 mt-1">
               Generate, review, approve and process monthly employee payroll.
             </p>
+
           </div>
 
           <div className="flex gap-2">
@@ -1908,6 +2617,7 @@ const MonthlyPayrollPage: React.FC<
               }
               className="px-4 py-2 rounded-xl bg-[#5C3FE0] hover:bg-[#7152FF] disabled:opacity-40 disabled:cursor-not-allowed text-white text-xs font-bold flex items-center gap-2"
             >
+
               {actionLoading ? (
                 <Loader2 className="w-4 h-4 animate-spin" />
               ) : (
@@ -1917,11 +2627,15 @@ const MonthlyPayrollPage: React.FC<
               {currentMonthCycle
                 ? `${currentMonthLabel} Generated`
                 : 'Generate Payroll'}
+
             </button>
 
             <button
               onClick={() => {
-                setError(null);
+                setError(
+                  null
+                );
+
                 void loadPayroll(
                   selectedCycleId
                 );
@@ -1933,6 +2647,7 @@ const MonthlyPayrollPage: React.FC<
               className="p-2 rounded-lg bg-[#17123d] border border-[#2d2770] text-slate-300 hover:text-white disabled:opacity-50"
               title="Refresh"
             >
+
               <RefreshCw
                 className={`w-4 h-4 ${
                   loading
@@ -1940,11 +2655,92 @@ const MonthlyPayrollPage: React.FC<
                     : ''
                 }`}
               />
+
             </button>
 
           </div>
 
         </div>
+
+      </div>
+
+      {/* ===================================================
+          YEAR FILTER
+      =================================================== */}
+
+      <div className="p-4 rounded-2xl bg-[#09071e] border border-[#2d2770]/70">
+
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+
+          <div>
+
+            <div className="text-sm font-bold text-white">
+              Payroll History
+            </div>
+
+            <div className="text-[11px] text-slate-400 mt-1">
+              Select a year to view its monthly payroll cycles.
+            </div>
+
+          </div>
+
+          <div className="flex items-center gap-2">
+
+            <span className="text-[10px] font-semibold text-slate-500 uppercase tracking-wide">
+              Year
+            </span>
+
+            <select
+              value={
+                selectedPayrollYear
+              }
+              onChange={event =>
+                void handleYearChange(
+                  Number(
+                    event.target.value
+                  )
+                )
+              }
+              disabled={
+                actionLoading ||
+                loading
+              }
+              className="
+                min-w-[110px]
+                px-3
+                py-2
+                rounded-xl
+                bg-[#17123d]
+                border
+                border-[#2d2770]
+                text-white
+                text-xs
+                font-bold
+                outline-none
+                cursor-pointer
+                focus:border-[#5C3FE0]
+                disabled:opacity-50
+              "
+            >
+
+              {availablePayrollYears.map(
+                year => (
+                  <option
+                    key={year}
+                    value={year}
+                    className="bg-[#120e38] text-white"
+                  >
+                    {year}
+                  </option>
+                )
+              )}
+
+            </select>
+
+          </div>
+
+        </div>
+
       </div>
 
       {/* ===================================================
@@ -1956,7 +2752,9 @@ const MonthlyPayrollPage: React.FC<
         <div className="flex items-start gap-3">
 
           <div className="p-2 rounded-lg bg-[#5C3FE0]/20 shrink-0">
+
             <ShieldCheck className="w-4 h-4 text-[#A78BFA]" />
+
           </div>
 
           <div className="min-w-0">
@@ -1969,6 +2767,7 @@ const MonthlyPayrollPage: React.FC<
               Only one payroll can be generated for each month.
               Complete all employee payroll details and resolve
               every bonus/deduction approval before submitting.
+              Employee payments can be processed in multiple batches.
             </div>
 
             {currentMonthCycle ? (
@@ -1991,139 +2790,216 @@ const MonthlyPayrollPage: React.FC<
             )}
 
           </div>
+
         </div>
+
       </div>
 
       {/* ===================================================
           CYCLES
       =================================================== */}
 
-      {payrollCycles.length > 0 && (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+      {filteredPayrollCycles.length > 0 ? (
+        <div className="relative">
 
-          {payrollCycles.map(
-            cycle => (
-              <div
-                key={cycle.id}
-                className={`text-left p-5 rounded-2xl border transition-all ${
-                  selectedCycleId ===
-                  cycle.id
-                    ? 'bg-gradient-to-r from-[#120e3b] to-[#18124b] border-[#5C3FE0] shadow-lg shadow-[#5C3FE0]/20'
-                    : 'bg-[#09071e] border-[#2d2770]/70 hover:border-[#5C3FE0]/50'
-                }`}
-              >
+          <div className="flex items-center justify-between mb-3">
 
-                <button
-                  onClick={() =>
-                    handleSelectCycle(
-                      cycle.id
-                    )
-                  }
-                  className="w-full text-left"
+            <div>
+
+              <div className="text-xs font-bold text-white">
+                {selectedPayrollYear} Payroll
+              </div>
+
+              <div className="text-[10px] text-slate-500 mt-1">
+                {filteredPayrollCycles.length}{' '}
+                payroll month
+                {filteredPayrollCycles.length === 1
+                  ? ''
+                  : 's'}
+              </div>
+
+            </div>
+
+            <div className="text-[10px] text-slate-500">
+              Scroll horizontally to view months →
+            </div>
+
+          </div>
+
+          <div
+            className="
+              flex
+              gap-4
+              overflow-x-auto
+              pb-4
+              snap-x
+              snap-mandatory
+              [scrollbar-width:thin]
+              [scrollbar-color:#3b327d_#120e38]
+            "
+          >
+
+            {filteredPayrollCycles.map(
+              cycle => (
+                <div
+                  key={cycle.id}
+                  className={`flex-none w-[300px] snap-start text-left p-5 rounded-2xl border transition-all ${
+                    selectedCycleId ===
+                    cycle.id
+                      ? 'bg-gradient-to-r from-[#120e3b] to-[#18124b] border-[#5C3FE0] shadow-lg shadow-[#5C3FE0]/20'
+                      : 'bg-[#09071e] border-[#2d2770]/70 hover:border-[#5C3FE0]/50'
+                  }`}
                 >
 
-                  <div className="flex justify-between items-center">
+                  <button
+                    onClick={() =>
+                      handleSelectCycle(
+                        cycle.id
+                      )
+                    }
+                    className="w-full text-left"
+                  >
 
-                    <span className="text-sm font-bold text-white">
-                      {cycle.monthYear}
-                    </span>
+                    <div className="flex justify-between items-center gap-3">
 
-                    <StatusBadge
-                      status={
-                        cycle.status
-                      }
-                    />
+                      <span className="text-sm font-bold text-white">
+                        {cycle.monthYear}
+                      </span>
 
-                  </div>
-
-                  <div className="grid grid-cols-3 gap-3 mt-5">
-
-                    <Summary
-                      label="Basic"
-                      value={
-                        Number(
-                          cycle.totalBasicSalary ??
-                          0
-                        )
-                      }
-                    />
-
-                    <Summary
-                      label="Bonus"
-                      value={
-                        Number(
-                          cycle.totalBonus ??
-                          0
-                        )
-                      }
-                    />
-
-                    <Summary
-                      label="Deductions"
-                      value={
-                        Number(
-                          cycle.totalDeduction ??
-                          0
-                        )
-                      }
-                    />
-
-                  </div>
-
-                  <div className="mt-4 pt-4 border-t border-[#231e54]">
-
-                    <span className="text-[10px] text-slate-400 block">
-                      NET PAYROLL
-                    </span>
-
-                    <span className="text-xl font-black text-emerald-400">
-                      ₹
-                      {Number(
-                        cycle.totalNetSalary ??
-                        0
-                      ).toLocaleString()}
-                    </span>
-
-                  </div>
-
-                </button>
-
-                {canDeletePayroll &&
-                  !cycle.isLocked &&
-                  (
-                    cycle.status ===
-                      'Draft' ||
-                    cycle.status ===
-                      'Rejected'
-                  ) && (
-                    <div className="mt-4 pt-4 border-t border-[#231e54]">
-
-                      <button
-                        onClick={event => {
-                          event.stopPropagation();
-
-                          openDeleteModal(
-                            cycle
-                          );
-                        }}
-                        disabled={
-                          actionLoading
+                      <StatusBadge
+                        status={
+                          cycle.status
                         }
-                        className="w-full px-3 py-2 rounded-lg bg-rose-500/10 border border-rose-500/30 text-rose-300 hover:bg-rose-500/15 disabled:opacity-50 text-xs font-semibold flex items-center justify-center gap-2"
-                      >
-
-                        <Trash2 className="w-3.5 h-3.5" />
-
-                        Delete Payroll
-
-                      </button>
+                      />
 
                     </div>
-                  )}
 
-              </div>
-            )
-          )}
+                    <div className="grid grid-cols-3 gap-3 mt-5">
+
+                      <Summary
+                        label="Basic"
+                        value={
+                          Number(
+                            cycle.totalBasicSalary ??
+                            0
+                          )
+                        }
+                      />
+
+                      <Summary
+                        label="Bonus"
+                        value={
+                          Number(
+                            cycle.totalBonus ??
+                            0
+                          )
+                        }
+                      />
+
+                      <Summary
+                        label="Deductions"
+                        value={
+                          Number(
+                            cycle.totalDeduction ??
+                            0
+                          )
+                        }
+                      />
+
+                    </div>
+
+                    <div className="mt-4 pt-4 border-t border-[#231e54]">
+
+                      <span className="text-[10px] text-slate-400 block">
+                        NET PAYROLL
+                      </span>
+
+                      <span className="text-xl font-black text-emerald-400">
+                        ₹
+                        {Number(
+                          cycle.totalNetSalary ??
+                          0
+                        ).toLocaleString()}
+                      </span>
+
+                    </div>
+
+                  </button>
+
+                  {canDeletePayroll &&
+                    !cycle.isLocked &&
+                    (
+                      cycle.status ===
+                        'Draft' ||
+                      cycle.status ===
+                        'Rejected'
+                    ) && (
+                      <div className="mt-4 pt-4 border-t border-[#231e54]">
+
+                        <button
+                          onClick={event => {
+                            event.stopPropagation();
+
+                            openDeleteModal(
+                              cycle
+                            );
+                          }}
+                          disabled={
+                            actionLoading
+                          }
+                          className="w-full px-3 py-2 rounded-lg bg-rose-500/10 border border-rose-500/30 text-rose-300 hover:bg-rose-500/15 disabled:opacity-50 text-xs font-semibold flex items-center justify-center gap-2"
+                        >
+
+                          <Trash2 className="w-3.5 h-3.5" />
+
+                          Delete Payroll
+
+                        </button>
+
+                      </div>
+                    )}
+
+                </div>
+              )
+            )}
+
+          </div>
+
+        </div>
+      ) : (
+        <div className="p-6 rounded-2xl bg-[#09071e] border border-[#2d2770]/70 text-center">
+
+          <div className="text-sm font-bold text-white">
+            No Payroll for {selectedPayrollYear}
+          </div>
+
+          <div className="text-[11px] text-slate-500 mt-1">
+            No payroll cycle has been generated for this year.
+          </div>
+
+          {selectedPayrollYear ===
+            currentYear &&
+            !currentMonthCycle && isPayrollManager && (
+              <button
+                onClick={
+                  handleGeneratePayroll
+                }
+                disabled={
+                  actionLoading
+                }
+                className="mt-4 px-4 py-2 rounded-xl bg-[#5C3FE0] hover:bg-[#7152FF] disabled:opacity-50 text-white text-xs font-bold inline-flex items-center gap-2"
+              >
+
+                {actionLoading ? (
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                ) : (
+                  <Plus className="w-4 h-4" />
+                )}
+
+                Generate {currentMonthLabel}
+
+              </button>
+            )}
 
         </div>
       )}
@@ -2178,12 +3054,13 @@ const MonthlyPayrollPage: React.FC<
                   </button>
                 )}
 
-              {/* COMPANY ADMIN PAYROLL APPROVAL */}
+              {/* COMPANY ADMIN APPROVAL */}
 
               {isCompanyAdmin &&
                 displayedCycle.status ===
                   'SubmittedByHR' && (
                   <>
+
                     <button
                       onClick={
                         openRejectModal
@@ -2221,31 +3098,41 @@ const MonthlyPayrollPage: React.FC<
                       Approve Payroll
 
                     </button>
+
                   </>
                 )}
 
-              {/* PAY */}
+              {/* PAYMENT */}
 
               {isPayrollManager &&
                 (
                   displayedCycle.status ===
-                    'Approved' ||
+                    'ApprovedByCompanyAdmin' ||
                   displayedCycle.status ===
-                    'ApprovedByCompanyAdmin'
-                ) && (
+                    'PartiallyPaid'
+                ) &&
+                !displayedCycle.isLocked &&
+                unpaidRecords.length >
+                  0 && (
+
                   <button
                     onClick={
                       openPayModal
                     }
                     disabled={
-                      actionLoading
+                      actionLoading ||
+                      selectedPaymentCount ===
+                        0
                     }
-                    className="px-4 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-500 disabled:opacity-50 text-white text-xs font-bold flex items-center gap-2"
+                    className="px-4 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-500 disabled:opacity-50 disabled:cursor-not-allowed text-white text-xs font-bold flex items-center gap-2"
                   >
 
                     <CheckCircle2 className="w-3.5 h-3.5" />
 
-                    Mark Paid & Lock
+                    {selectedPaymentCount >
+                    0
+                      ? `Mark ${selectedPaymentCount} Selected as Paid`
+                      : 'Mark Selected as Paid'}
 
                   </button>
                 )}
@@ -2263,7 +3150,105 @@ const MonthlyPayrollPage: React.FC<
               )}
 
             </div>
+
           </div>
+
+          {/* PAYMENT PROGRESS */}
+
+          {(
+            (
+              isPayrollManager &&
+              displayedCycle.status ===
+                'ApprovedByCompanyAdmin'
+            ) ||
+            displayedCycle.status ===
+              'PartiallyPaid' ||
+            displayedCycle.status ===
+              'Paid'
+          ) &&
+            records.length >
+              0 && (
+
+            <div className="mt-5 p-4 rounded-xl bg-[#120e38] border border-[#231e54]">
+
+              <div className="flex items-center justify-between gap-3">
+
+                <div>
+
+                  <div className="text-xs font-bold text-white">
+                    Employee Payment Progress
+                  </div>
+
+                  <div className="text-[10px] text-slate-500 mt-1">
+                    Paid employees remain paid. Only unpaid employees
+                    can be selected for the next payment batch.
+                  </div>
+
+                </div>
+
+                <div className="text-right">
+
+                  <div className="text-lg font-black text-emerald-400">
+                    {paidRecords.length}/{records.length}
+                  </div>
+
+                  <div className="text-[9px] text-slate-500">
+                    {paymentProgress}% paid
+                  </div>
+
+                </div>
+
+              </div>
+
+              <div className="mt-3 h-2 rounded-full bg-[#09071e] overflow-hidden">
+
+                <div
+                  className="h-full bg-emerald-500 transition-all duration-300"
+                  style={{
+                    width: `${paymentProgress}%`,
+                  }}
+                />
+
+              </div>
+
+              <div className="mt-3 flex flex-wrap items-center justify-between gap-3">
+
+                <div className="flex gap-4 text-[10px]">
+
+                  <span className="text-emerald-400">
+                    Paid: {paidRecords.length}
+                  </span>
+
+                  <span className="text-amber-400">
+                    Unpaid: {unpaidRecords.length}
+                  </span>
+
+                  <span className="text-[#A78BFA]">
+                    Selected: {selectedPaymentCount}
+                  </span>
+
+                </div>
+
+                {payableRecords.length >
+                  0 &&
+                  !displayedCycle.isLocked && (
+                    <button
+                      type="button"
+                      onClick={
+                        handleSelectAllUnpaid
+                      }
+                      className="text-[10px] font-semibold text-[#A78BFA] hover:text-white"
+                    >
+                      {allUnpaidSelected
+                        ? 'Clear Selection'
+                        : 'Select All Unpaid'}
+                    </button>
+                  )}
+
+              </div>
+
+            </div>
+          )}
 
           {/* PENDING ADJUSTMENT BLOCKER */}
 
@@ -2316,9 +3301,9 @@ const MonthlyPayrollPage: React.FC<
 
                 <div className="text-[11px] text-slate-400 leading-5">
 
-                  Before submission, select every employee
-                  payroll record and make sure all bonus and
-                  deduction adjustments have been resolved.
+                  All employee payroll records are submitted
+                  automatically. There is no employee selection
+                  during payroll submission.
 
                   {pendingAdjustmentCount >
                     0 && (
@@ -2339,6 +3324,7 @@ const MonthlyPayrollPage: React.FC<
                 </div>
 
               </div>
+
             </div>
           )}
 
@@ -2369,11 +3355,21 @@ const MonthlyPayrollPage: React.FC<
         canApproveAdjustments={
           canApproveAdjustments
         }
-        selectedRecordIds={
-          selectedRecordIds
+        canPay={
+          isPayrollManager &&
+          !displayedCycle?.isLocked &&
+          (
+            displayedCycle?.status ===
+              'ApprovedByCompanyAdmin' ||
+            displayedCycle?.status ===
+              'PartiallyPaid'
+          )
         }
-        onSelectionChange={
-          setSelectedRecordIds
+        selectedPaymentRecordIds={
+          selectedPaymentRecordIds
+        }
+        onPaymentSelectionChange={
+          handlePaymentSelectionChange
         }
         onAddBonus={
           handleOpenBonus
@@ -2410,9 +3406,9 @@ const MonthlyPayrollPage: React.FC<
               },
               {
                 label:
-                  'Selected',
+                  'Payment Selection',
                 value:
-                  `${selectedRecordIds.length}`,
+                  'Not applicable',
               },
               {
                 label:
@@ -2454,7 +3450,7 @@ const MonthlyPayrollPage: React.FC<
               },
             ]}
             warning={
-              'After submission, HR cannot continue editing this payroll unless Company Admin rejects it.'
+              'All employee payroll records in this cycle will be submitted automatically. Employee payment is handled separately after approval.'
             }
             confirmText="Submit for Approval"
             cancelText="Cancel"
@@ -2536,40 +3532,54 @@ const MonthlyPayrollPage: React.FC<
         )}
 
       {/* ===================================================
-          PAY MODAL
+          PAY SELECTED MODAL
       =================================================== */}
 
       {showPayModal &&
         displayedCycle && (
           <ConfirmationModal
-            title="Mark Payroll as Paid"
+            title="Mark Selected Employees as Paid"
             icon={
               <CheckCircle2 className="w-5 h-5 text-emerald-400" />
             }
             iconClass="bg-emerald-500/10 border-emerald-500/30"
             message={
-              `Mark the ${displayedCycle.monthYear} payroll as paid?`
+              `Mark ${selectedPaymentCount} selected employee${selectedPaymentCount === 1 ? '' : 's'} as paid for ${displayedCycle.monthYear}?`
             }
             details={[
               {
                 label:
-                  'Employees',
+                  'Total Employees',
                 value:
                   `${records.length}`,
               },
               {
                 label:
-                  'Net Payroll',
+                  'Already Paid',
                 value:
-                  formatCurrency(
-                    displayedCycle.totalNetSalary
-                  ),
+                  `${paidRecords.length}`,
+              },
+              {
+                label:
+                  'Selected Now',
+                value:
+                  `${selectedPaymentCount}`,
+              },
+              {
+                label:
+                  'Remaining Unpaid',
+                value:
+                  `${Math.max(
+                    unpaidRecords.length -
+                      selectedPaymentCount,
+                    0
+                  )}`,
               },
             ]}
             warning={
-              'Once marked as paid, this payroll will be locked and no further payroll changes will be allowed.'
+              'Only the selected employees will be marked as paid. Other unpaid employees will remain unpaid and can be selected in a later payment batch. The payroll will be locked only after every employee has been paid.'
             }
-            confirmText="Mark Paid & Lock"
+            confirmText="Mark Selected as Paid"
             cancelText="Cancel"
             loading={
               actionLoading
@@ -2803,1863 +3813,5 @@ const MonthlyPayrollPage: React.FC<
     </div>
   );
 };
-
-/* =========================================================
-   PAYROLL RECORD TABLE
-========================================================= */
-
-const PayrollRecordsTable: React.FC<{
-  records: PayrollRecord[];
-  adjustments: PayrollAdjustment[];
-  canEdit: boolean;
-  canApproveAdjustments: boolean;
-  selectedRecordIds: number[];
-  onSelectionChange: React.Dispatch<
-    React.SetStateAction<number[]>
-  >;
-  onAddBonus: (
-    record: PayrollRecord
-  ) => void;
-  onAddDeduction: (
-    record: PayrollRecord
-  ) => void;
-  onPendingAdjustmentClick: (
-    adjustment: PayrollAdjustment
-  ) => void;
-}> = ({
-  records,
-  adjustments,
-  canEdit,
-  canApproveAdjustments,
-  selectedRecordIds,
-  onSelectionChange,
-  onAddBonus,
-  onAddDeduction,
-  onPendingAdjustmentClick,
-}) => {
-  const getAdjustmentStatus = (
-    adjustment: PayrollAdjustment
-  ): AdjustmentStatus => {
-    const value =
-      (
-        adjustment as AdjustmentWithOptionalStatus
-      ).status;
-
-    if (
-      value === 'PendingApproval' ||
-      value === 'Approved' ||
-      value === 'Rejected'
-    ) {
-      return value;
-    }
-
-    if (
-      value === 1 ||
-      value === '1'
-    ) {
-      return 'PendingApproval';
-    }
-
-    if (
-      value === 2 ||
-      value === '2'
-    ) {
-      return 'Approved';
-    }
-
-    if (
-      value === 3 ||
-      value === '3'
-    ) {
-      return 'Rejected';
-    }
-
-    return 'PendingApproval';
-  };
-
-  const getPendingForUser = (
-    userId: number
-  ) =>
-    adjustments.filter(
-      adjustment =>
-        adjustment.userId ===
-          userId &&
-        getAdjustmentStatus(
-          adjustment
-        ) ===
-          'PendingApproval'
-    );
-
-  const allSelected =
-    records.length > 0 &&
-    records.every(
-      record =>
-        selectedRecordIds.includes(
-          record.id
-        )
-    );
-
-  const toggleAll =
-    () => {
-      if (
-        allSelected
-      ) {
-        onSelectionChange(
-          []
-        );
-      } else {
-        onSelectionChange(
-          records.map(
-            record =>
-              record.id
-          )
-        );
-      }
-    };
-
-  const toggleOne =
-    (
-      id: number
-    ) => {
-      onSelectionChange(
-        previous =>
-          previous.includes(
-            id
-          )
-            ? previous.filter(
-                x =>
-                  x !== id
-              )
-            : [
-                ...previous,
-                id,
-              ]
-      );
-    };
-
-  return (
-    <div className="rounded-2xl border border-[#2d2770]/80 bg-[#09071e] overflow-hidden">
-
-      <div className="p-4 border-b border-[#231e54] flex items-center justify-between gap-3">
-
-        <div>
-
-          <h2 className="text-xs font-bold uppercase tracking-wider text-white">
-            Employee Payroll
-          </h2>
-
-          <p className="text-[11px] text-slate-400 mt-1">
-            Complete every employee record before submitting payroll.
-            Pending bonuses and deductions require Company Admin approval.
-          </p>
-
-        </div>
-
-        <div className="text-[11px] text-[#A78BFA] font-semibold whitespace-nowrap">
-          {selectedRecordIds.length}
-          {' / '}
-          {records.length}
-          {' selected'}
-        </div>
-
-      </div>
-
-      <div className="overflow-x-auto">
-
-        <table className="w-full text-left text-xs">
-
-          <thead className="bg-[#120e38] text-slate-400">
-
-            <tr>
-
-              <th className="p-3.5 w-10">
-
-                <input
-                  type="checkbox"
-                  checked={
-                    allSelected
-                  }
-                  onChange={
-                    toggleAll
-                  }
-                  disabled={
-                    !canEdit ||
-                    records.length ===
-                      0
-                  }
-                  className="accent-[#5C3FE0]"
-                />
-
-              </th>
-
-              <th className="p-3.5">
-                Employee
-              </th>
-
-              <th className="p-3.5">
-                Base Salary
-              </th>
-
-              <th className="p-3.5">
-                Bonus
-              </th>
-
-              <th className="p-3.5">
-                Deduction
-              </th>
-
-              <th className="p-3.5">
-                Net Salary
-              </th>
-
-              <th className="p-3.5">
-                Status
-              </th>
-
-              <th className="p-3.5">
-                Actions
-              </th>
-
-            </tr>
-
-          </thead>
-
-          <tbody className="divide-y divide-[#1c164a]/60">
-
-            {records.map(
-              record => {
-                const pending =
-                  getPendingForUser(
-                    record.userId
-                  );
-
-                const pendingBonus =
-                  pending.filter(
-                    adjustment =>
-                      adjustment.type ===
-                      'Bonus'
-                  );
-
-                const pendingDeduction =
-                  pending.filter(
-                    adjustment =>
-                      adjustment.type ===
-                      'Deduction'
-                  );
-
-                return (
-                  <tr
-                    key={
-                      record.id
-                    }
-                    className="hover:bg-[#140f3d]/60"
-                  >
-
-                    {/* CHECKBOX */}
-
-                    <td className="p-3.5 align-top">
-
-                      <input
-                        type="checkbox"
-                        checked={
-                          selectedRecordIds.includes(
-                            record.id
-                          )
-                        }
-                        onChange={() =>
-                          toggleOne(
-                            record.id
-                          )
-                        }
-                        disabled={
-                          !canEdit ||
-                          record.isLocked
-                        }
-                        className="accent-[#5C3FE0]"
-                      />
-
-                    </td>
-
-                    {/* EMPLOYEE */}
-
-                    <td className="p-3.5 align-top">
-
-                      <div className="font-bold text-white">
-                        {record.employeeName ||
-                          '-'}
-                      </div>
-
-                      <div className="text-[10px] text-slate-400 font-mono">
-                        {record.employeeCode ||
-                          '-'}
-                      </div>
-
-                    </td>
-
-                    {/* BASE */}
-
-                    <td className="p-3.5 align-top font-mono text-slate-200">
-
-                      ₹
-                      {Number(
-                        record.basicSalary ??
-                          0
-                      ).toLocaleString()}
-
-                    </td>
-
-                    {/* BONUS */}
-
-                    <td className="p-3.5 align-top">
-
-                      <div className="font-mono text-emerald-400">
-                        ₹
-                        {Number(
-                          record.totalBonus ??
-                            0
-                        ).toLocaleString()}
-                      </div>
-
-                      {pendingBonus.length >
-                        0 && (
-                        <div className="mt-2 space-y-1">
-
-                          {pendingBonus.map(
-                            adjustment => (
-                              <PendingAdjustmentBadge
-                                key={
-                                  adjustment.id
-                                }
-                                adjustment={
-                                  adjustment
-                                }
-                                canApprove={
-                                  canApproveAdjustments
-                                }
-                                onClick={() =>
-                                  onPendingAdjustmentClick(
-                                    adjustment
-                                  )
-                                }
-                              />
-                            )
-                          )}
-
-                        </div>
-                      )}
-
-                    </td>
-
-                    {/* DEDUCTION */}
-
-                    <td className="p-3.5 align-top">
-
-                      <div className="font-mono text-rose-300">
-                        ₹
-                        {Number(
-                          record.totalDeduction ??
-                            0
-                        ).toLocaleString()}
-                      </div>
-
-                      {pendingDeduction.length >
-                        0 && (
-                        <div className="mt-2 space-y-1">
-
-                          {pendingDeduction.map(
-                            adjustment => (
-                              <PendingAdjustmentBadge
-                                key={
-                                  adjustment.id
-                                }
-                                adjustment={
-                                  adjustment
-                                }
-                                canApprove={
-                                  canApproveAdjustments
-                                }
-                                onClick={() =>
-                                  onPendingAdjustmentClick(
-                                    adjustment
-                                  )
-                                }
-                              />
-                            )
-                          )}
-
-                        </div>
-                      )}
-
-                    </td>
-
-                    {/* NET */}
-
-                    <td className="p-3.5 align-top font-mono font-bold text-white">
-
-                      ₹
-                      {Number(
-                        record.netSalary ??
-                          0
-                      ).toLocaleString()}
-
-                      {pending.length >
-                        0 && (
-                        <div className="mt-1 text-[9px] text-amber-400 font-sans">
-                          Pending adjustments excluded
-                        </div>
-                      )}
-
-                    </td>
-
-                    {/* STATUS */}
-
-                    <td className="p-3.5 align-top">
-
-                      <StatusBadge
-                        status={
-                          record.status
-                        }
-                      />
-
-                    </td>
-
-                    {/* ACTIONS */}
-
-                    <td className="p-3.5 align-top">
-
-                      {canEdit &&
-                      !record.isLocked ? (
-                        <div className="flex flex-wrap gap-2">
-
-                          <button
-                            onClick={() =>
-                              onAddBonus(
-                                record
-                              )
-                            }
-                            className="px-3 py-1.5 rounded-lg bg-emerald-500/10 border border-emerald-500/30 text-emerald-300 hover:bg-emerald-500/15 text-xs font-semibold flex items-center gap-1.5"
-                          >
-
-                            <Gift className="w-3.5 h-3.5" />
-
-                            Bonus
-
-                          </button>
-
-                          <button
-                            onClick={() =>
-                              onAddDeduction(
-                                record
-                              )
-                            }
-                            className="px-3 py-1.5 rounded-lg bg-rose-500/10 border border-rose-500/30 text-rose-300 hover:bg-rose-500/15 text-xs font-semibold flex items-center gap-1.5"
-                          >
-
-                            <MinusCircle className="w-3.5 h-3.5" />
-
-                            Deduction
-
-                          </button>
-
-                        </div>
-                      ) : (
-                        <span className="text-[10px] text-slate-500">
-                          {record.isLocked
-                            ? 'Locked'
-                            : 'View only'}
-                        </span>
-                      )}
-
-                    </td>
-
-                  </tr>
-                );
-              }
-            )}
-
-          </tbody>
-
-        </table>
-
-        {records.length ===
-          0 && (
-          <div className="p-12 text-center text-sm text-slate-500">
-            Select or generate a payroll cycle to load employees.
-          </div>
-        )}
-
-      </div>
-
-    </div>
-  );
-};
-
-/* =========================================================
-   PENDING ADJUSTMENT BADGE
-========================================================= */
-
-const PendingAdjustmentBadge: React.FC<{
-  adjustment: PayrollAdjustment;
-  canApprove: boolean;
-  onClick: () => void;
-}> = ({
-  adjustment,
-  canApprove,
-  onClick,
-}) => {
-  const isBonus =
-    adjustment.type ===
-    'Bonus';
-
-  const content = (
-    <div
-      className={`flex items-center justify-between gap-2 px-2.5 py-1.5 rounded-lg border ${
-        isBonus
-          ? 'bg-emerald-500/5 border-emerald-500/20'
-          : 'bg-rose-500/5 border-rose-500/20'
-      }`}
-    >
-
-      <div className="flex items-center gap-1.5 min-w-0">
-
-        <Clock3
-          className={`w-3 h-3 shrink-0 ${
-            isBonus
-              ? 'text-emerald-400'
-              : 'text-rose-400'
-          }`}
-        />
-
-        <span className="text-[9px] font-bold text-amber-300 whitespace-nowrap">
-          Pending Approval
-        </span>
-
-      </div>
-
-      <span
-        className={`text-[9px] font-mono font-bold ${
-          isBonus
-            ? 'text-emerald-300'
-            : 'text-rose-300'
-        }`}
-      >
-        {isBonus
-          ? '+'
-          : '-'}
-        ₹
-        {Number(
-          adjustment.amount ??
-            0
-        ).toLocaleString()}
-      </span>
-
-    </div>
-  );
-
-  if (
-    !canApprove
-  ) {
-    return (
-      <div>
-        {content}
-      </div>
-    );
-  }
-
-  return (
-    <button
-      type="button"
-      onClick={
-        onClick
-      }
-      className="w-full text-left hover:opacity-80 transition-opacity"
-      title="Click to review this adjustment"
-    >
-      {content}
-    </button>
-  );
-};
-
-/* =========================================================
-   ADJUSTMENT APPROVAL MODAL
-========================================================= */
-
-const AdjustmentApprovalModal: React.FC<{
-  adjustment: PayrollAdjustment;
-  employeeName: string;
-  loading: boolean;
-  onClose: () => void;
-  onApprove: () => void;
-  onReject: () => void;
-}> = ({
-  adjustment,
-  employeeName,
-  loading,
-  onClose,
-  onApprove,
-  onReject,
-}) => {
-  const isBonus =
-    adjustment.type ===
-    'Bonus';
-
-  return (
-    <div className="fixed inset-0 z-[80] flex items-center justify-center p-4 bg-black/75 backdrop-blur-sm">
-
-      <div className="w-full max-w-lg rounded-2xl bg-[#0b0824] border border-[#2d2770] shadow-2xl">
-
-        <div className="p-5 border-b border-[#231e54] flex items-center justify-between">
-
-          <div className="flex items-center gap-3">
-
-            <div
-              className={`p-2 rounded-xl border ${
-                isBonus
-                  ? 'bg-emerald-500/10 border-emerald-500/30'
-                  : 'bg-rose-500/10 border-rose-500/30'
-              }`}
-            >
-              {isBonus ? (
-                <Gift className="w-5 h-5 text-emerald-400" />
-              ) : (
-                <MinusCircle className="w-5 h-5 text-rose-400" />
-              )}
-            </div>
-
-            <div>
-
-              <h2 className="text-white font-bold">
-                Review Adjustment
-              </h2>
-
-              <p className="text-[11px] text-slate-400 mt-1">
-                Company Admin approval required
-              </p>
-
-            </div>
-
-          </div>
-
-          <button
-            onClick={
-              onClose
-            }
-            disabled={
-              loading
-            }
-            className="p-2 rounded-lg hover:bg-white/5 text-slate-400 hover:text-white disabled:opacity-50"
-          >
-            <XCircle className="w-4 h-4" />
-          </button>
-
-        </div>
-
-        <div className="p-5 space-y-4">
-
-          <div className="rounded-xl bg-[#120e38] border border-[#231e54] overflow-hidden">
-
-            <DetailRow
-              label="Employee"
-              value={
-                employeeName
-              }
-            />
-
-            <DetailRow
-              label="Type"
-              value={
-                adjustment.type
-              }
-            />
-
-            <DetailRow
-              label="Amount"
-              value={
-                `${isBonus ? '+' : '-'}₹${Number(
-                  adjustment.amount ??
-                    0
-                ).toLocaleString()}`
-              }
-              valueClass={
-                isBonus
-                  ? 'text-emerald-400'
-                  : 'text-rose-400'
-              }
-            />
-
-            <DetailRow
-              label="Status"
-              value="Pending Approval"
-              valueClass="text-amber-300"
-            />
-
-            <DetailRow
-              label="Reason"
-              value={
-                adjustment.reason ||
-                '-'
-              }
-            />
-
-          </div>
-
-          <div className="p-3 rounded-xl bg-amber-500/10 border border-amber-500/30">
-
-            <div className="flex items-start gap-2">
-
-              <AlertTriangle className="w-4 h-4 text-amber-400 mt-0.5 shrink-0" />
-
-              <div className="text-[11px] text-amber-300 leading-5">
-
-                This adjustment is currently excluded from
-                the employee's Net Salary. Approving it will
-                update the payroll totals.
-
-              </div>
-
-            </div>
-
-          </div>
-
-        </div>
-
-        <div className="p-5 border-t border-[#231e54] flex justify-end gap-2">
-
-          <button
-            onClick={
-              onClose
-            }
-            disabled={
-              loading
-            }
-            className="px-4 py-2 rounded-lg bg-[#17123d] border border-[#2d2770] text-slate-300 hover:text-white text-xs font-semibold disabled:opacity-50"
-          >
-            Cancel
-          </button>
-
-          <button
-            onClick={
-              onReject
-            }
-            disabled={
-              loading
-            }
-            className="px-4 py-2 rounded-lg bg-rose-500/10 border border-rose-500/30 text-rose-300 hover:bg-rose-500/15 text-xs font-bold flex items-center gap-2 disabled:opacity-50"
-          >
-
-            <XCircle className="w-3.5 h-3.5" />
-
-            Reject
-
-          </button>
-
-          <button
-            onClick={
-              onApprove
-            }
-            disabled={
-              loading
-            }
-            className="px-4 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold flex items-center gap-2 disabled:opacity-50"
-          >
-
-            {loading ? (
-              <Loader2 className="w-3.5 h-3.5 animate-spin" />
-            ) : (
-              <CheckCircle2 className="w-3.5 h-3.5" />
-            )}
-
-            Approve
-
-          </button>
-
-        </div>
-
-      </div>
-
-    </div>
-  );
-};
-
-/* =========================================================
-   ADJUSTMENT REJECT MODAL
-========================================================= */
-
-const AdjustmentRejectModal: React.FC<{
-  adjustment: PayrollAdjustment;
-  employeeName: string;
-  reason: string;
-  loading: boolean;
-  onReasonChange: (
-    value: string
-  ) => void;
-  onClose: () => void;
-  onReject: () => void;
-}> = ({
-  adjustment,
-  employeeName,
-  reason,
-  loading,
-  onReasonChange,
-  onClose,
-  onReject,
-}) => (
-  <div className="fixed inset-0 z-[90] flex items-center justify-center p-4 bg-black/75 backdrop-blur-sm">
-
-    <div className="w-full max-w-lg rounded-2xl bg-[#0b0824] border border-rose-500/30 shadow-2xl">
-
-      <div className="p-5 border-b border-[#231e54] flex items-center justify-between">
-
-        <div className="flex items-center gap-3">
-
-          <div className="p-2 rounded-xl bg-rose-500/10 border border-rose-500/30">
-
-            <XCircle className="w-5 h-5 text-rose-400" />
-
-          </div>
-
-          <div>
-
-            <h2 className="text-white font-bold">
-              Reject Adjustment
-            </h2>
-
-            <p className="text-[11px] text-slate-400 mt-1">
-              {employeeName}
-              {' • '}
-              {adjustment.type}
-            </p>
-
-          </div>
-
-        </div>
-
-        <button
-          onClick={
-            onClose
-          }
-          disabled={
-            loading
-          }
-          className="p-2 rounded-lg hover:bg-white/5 text-slate-400 hover:text-white disabled:opacity-50"
-        >
-          <XCircle className="w-4 h-4" />
-        </button>
-
-      </div>
-
-      <div className="p-5 space-y-4">
-
-        <div className="rounded-xl bg-[#120e38] border border-[#231e54] overflow-hidden">
-
-          <DetailRow
-            label="Employee"
-            value={
-              employeeName
-            }
-          />
-
-          <DetailRow
-            label="Type"
-            value={
-              adjustment.type
-            }
-          />
-
-          <DetailRow
-            label="Amount"
-            value={
-              `${adjustment.type === 'Bonus' ? '+' : '-'}₹${Number(
-                adjustment.amount ??
-                  0
-              ).toLocaleString()}`
-            }
-          />
-
-          <DetailRow
-            label="Original Reason"
-            value={
-              adjustment.reason ||
-              '-'
-            }
-          />
-
-        </div>
-
-        <div>
-
-          <label className="text-xs font-semibold text-slate-300 block mb-2">
-            Rejection Reason
-          </label>
-
-          <textarea
-            value={
-              reason
-            }
-            onChange={event =>
-              onReasonChange(
-                event.target.value
-              )
-            }
-            rows={4}
-            autoFocus
-            placeholder="Enter why this bonus/deduction is being rejected..."
-            className="w-full px-3 py-3 rounded-xl bg-[#09071e] border border-[#2d2770] text-white placeholder:text-slate-600 outline-none focus:border-rose-500 resize-none"
-          />
-
-        </div>
-
-      </div>
-
-      <div className="p-5 border-t border-[#231e54] flex justify-end gap-2">
-
-        <button
-          onClick={
-            onClose
-          }
-          disabled={
-            loading
-          }
-          className="px-4 py-2 rounded-lg bg-[#17123d] border border-[#2d2770] text-slate-300 text-xs font-semibold disabled:opacity-50"
-        >
-          Back
-        </button>
-
-        <button
-          onClick={
-            onReject
-          }
-          disabled={
-            loading
-          }
-          className="px-4 py-2 rounded-lg bg-rose-600 hover:bg-rose-500 disabled:opacity-50 text-white text-xs font-bold flex items-center gap-2"
-        >
-
-          {loading && (
-            <Loader2 className="w-3.5 h-3.5 animate-spin" />
-          )}
-
-          Reject Adjustment
-
-        </button>
-
-      </div>
-
-    </div>
-
-  </div>
-);
-
-/* =========================================================
-   DETAIL ROW
-========================================================= */
-
-const DetailRow: React.FC<{
-  label: string;
-  value: string;
-  valueClass?: string;
-}> = ({
-  label,
-  value,
-  valueClass = 'text-white',
-}) => (
-  <div className="flex items-start justify-between gap-4 px-4 py-3 border-b last:border-b-0 border-[#231e54]">
-
-    <span className="text-xs text-slate-400">
-      {label}
-    </span>
-
-    <span
-      className={`text-xs font-semibold text-right ${valueClass}`}
-    >
-      {value}
-    </span>
-
-  </div>
-);
-
-/* =========================================================
-   CONFIRMATION MODAL
-========================================================= */
-
-interface ConfirmationModalProps {
-  title: string;
-  icon: React.ReactNode;
-  iconClass: string;
-  message: string;
-  details?: {
-    label: string;
-    value: string;
-  }[];
-  warning?: string;
-  confirmText: string;
-  cancelText: string;
-  loading: boolean;
-  danger?: boolean;
-  onCancel: () => void;
-  onConfirm: () => void;
-}
-
-const ConfirmationModal: React.FC<
-  ConfirmationModalProps
-> = ({
-  title,
-  icon,
-  iconClass,
-  message,
-  details,
-  warning,
-  confirmText,
-  cancelText,
-  loading,
-  danger,
-  onCancel,
-  onConfirm,
-}) => (
-  <div className="fixed inset-0 z-[70] flex items-center justify-center p-4 bg-black/75 backdrop-blur-sm">
-
-    <div className="w-full max-w-lg rounded-2xl bg-[#0b0824] border border-[#2d2770] shadow-2xl">
-
-      <div className="p-5 border-b border-[#231e54] flex items-center justify-between">
-
-        <div className="flex items-center gap-3">
-
-          <div
-            className={`p-2 rounded-xl border ${iconClass}`}
-          >
-            {icon}
-          </div>
-
-          <h2 className="text-white font-bold">
-            {title}
-          </h2>
-
-        </div>
-
-        <button
-          onClick={
-            onCancel
-          }
-          disabled={
-            loading
-          }
-          className="p-2 rounded-lg hover:bg-white/5 text-slate-400 hover:text-white disabled:opacity-50"
-        >
-          <XCircle className="w-4 h-4" />
-        </button>
-
-      </div>
-
-      <div className="p-5 space-y-4">
-
-        <div className="text-sm text-slate-200">
-          {message}
-        </div>
-
-        {details &&
-          details.length >
-            0 && (
-            <div className="rounded-xl bg-[#120e38] border border-[#231e54] overflow-hidden">
-
-              {details.map(
-                detail => (
-                  <div
-                    key={
-                      detail.label
-                    }
-                    className="flex items-center justify-between px-4 py-3 border-b last:border-b-0 border-[#231e54]"
-                  >
-
-                    <span className="text-xs text-slate-400">
-                      {detail.label}
-                    </span>
-
-                    <span className="text-xs font-semibold text-white">
-                      {detail.value}
-                    </span>
-
-                  </div>
-                )
-              )}
-
-            </div>
-          )}
-
-        {warning && (
-          <div
-            className={`p-3 rounded-xl border ${
-              danger
-                ? 'bg-rose-500/10 border-rose-500/30'
-                : 'bg-amber-500/10 border-amber-500/30'
-            }`}
-          >
-
-            <div className="flex items-start gap-2">
-
-              <AlertTriangle
-                className={`w-4 h-4 mt-0.5 shrink-0 ${
-                  danger
-                    ? 'text-rose-400'
-                    : 'text-amber-400'
-                }`}
-              />
-
-              <div
-                className={`text-[11px] leading-5 ${
-                  danger
-                    ? 'text-rose-300'
-                    : 'text-amber-300'
-                }`}
-              >
-                {warning}
-              </div>
-
-            </div>
-
-          </div>
-        )}
-
-      </div>
-
-      <div className="p-5 border-t border-[#231e54] flex justify-end gap-2">
-
-        <button
-          onClick={
-            onCancel
-          }
-          disabled={
-            loading
-          }
-          className="px-4 py-2 rounded-lg bg-[#17123d] border border-[#2d2770] text-slate-300 hover:text-white text-xs font-semibold disabled:opacity-50"
-        >
-          {cancelText}
-        </button>
-
-        <button
-          onClick={
-            onConfirm
-          }
-          disabled={
-            loading
-          }
-          className={`px-4 py-2 rounded-lg text-white text-xs font-bold flex items-center gap-2 disabled:opacity-50 ${
-            danger
-              ? 'bg-rose-600 hover:bg-rose-500'
-              : 'bg-[#5C3FE0] hover:bg-[#7152FF]'
-          }`}
-        >
-
-          {loading && (
-            <Loader2 className="w-3.5 h-3.5 animate-spin" />
-          )}
-
-          {confirmText}
-
-        </button>
-
-      </div>
-
-    </div>
-
-  </div>
-);
-
-/* =========================================================
-   PAYROLL REJECT MODAL
-========================================================= */
-
-const RejectModal: React.FC<{
-  payrollName: string;
-  reason: string;
-  loading: boolean;
-  onReasonChange: (
-    value: string
-  ) => void;
-  onClose: () => void;
-  onReject: () => void;
-}> = ({
-  payrollName,
-  reason,
-  loading,
-  onReasonChange,
-  onClose,
-  onReject,
-}) => (
-  <div className="fixed inset-0 z-[70] flex items-center justify-center p-4 bg-black/75 backdrop-blur-sm">
-
-    <div className="w-full max-w-lg rounded-2xl bg-[#0b0824] border border-rose-500/30 shadow-2xl">
-
-      <div className="p-5 border-b border-[#231e54] flex items-center justify-between">
-
-        <div className="flex items-center gap-3">
-
-          <div className="p-2 rounded-xl bg-rose-500/10 border border-rose-500/30">
-            <XCircle className="w-5 h-5 text-rose-400" />
-          </div>
-
-          <div>
-
-            <h2 className="text-white font-bold">
-              Reject Payroll
-            </h2>
-
-            <p className="text-[11px] text-slate-400 mt-1">
-              {payrollName}
-            </p>
-
-          </div>
-
-        </div>
-
-        <button
-          onClick={
-            onClose
-          }
-          disabled={
-            loading
-          }
-          className="p-2 rounded-lg hover:bg-white/5 text-slate-400 hover:text-white disabled:opacity-50"
-        >
-          <XCircle className="w-4 h-4" />
-        </button>
-
-      </div>
-
-      <div className="p-5 space-y-4">
-
-        <div className="p-3 rounded-xl bg-amber-500/10 border border-amber-500/30">
-
-          <div className="flex items-start gap-2">
-
-            <AlertTriangle className="w-4 h-4 text-amber-400 mt-0.5 shrink-0" />
-
-            <div className="text-[11px] text-amber-300 leading-5">
-              The payroll will return to Rejected status.
-              HR can correct the payroll and submit it again.
-            </div>
-
-          </div>
-
-        </div>
-
-        <div>
-
-          <label className="text-xs font-semibold text-slate-300 block mb-2">
-            Rejection Reason
-          </label>
-
-          <textarea
-            value={
-              reason
-            }
-            onChange={event =>
-              onReasonChange(
-                event.target.value
-              )
-            }
-            rows={4}
-            placeholder="Enter the reason for rejecting this payroll..."
-            autoFocus
-            className="w-full px-3 py-3 rounded-xl bg-[#09071e] border border-[#2d2770] text-white placeholder:text-slate-600 outline-none focus:border-rose-500 resize-none"
-          />
-
-        </div>
-
-      </div>
-
-      <div className="p-5 border-t border-[#231e54] flex justify-end gap-2">
-
-        <button
-          onClick={
-            onClose
-          }
-          disabled={
-            loading
-          }
-          className="px-4 py-2 rounded-lg bg-[#17123d] border border-[#2d2770] text-slate-300 text-xs font-semibold disabled:opacity-50"
-        >
-          Cancel
-        </button>
-
-        <button
-          onClick={
-            onReject
-          }
-          disabled={
-            loading
-          }
-          className="px-4 py-2 rounded-lg bg-rose-600 hover:bg-rose-500 disabled:opacity-50 text-white text-xs font-bold flex items-center gap-2"
-        >
-
-          {loading && (
-            <Loader2 className="w-3.5 h-3.5 animate-spin" />
-          )}
-
-          Reject Payroll
-
-        </button>
-
-      </div>
-
-    </div>
-
-  </div>
-);
-
-/* =========================================================
-   BONUS MODAL
-========================================================= */
-
-const BonusModal: React.FC<{
-  record: PayrollRecord;
-  adjustments: PayrollAdjustment[];
-  amount: string;
-  reason: string;
-  loading: boolean;
-  onAmountChange: (
-    value: string
-  ) => void;
-  onReasonChange: (
-    value: string
-  ) => void;
-  onClose: () => void;
-  onSave: () => void;
-}> = ({
-  record,
-  adjustments,
-  amount,
-  reason,
-  loading,
-  onAmountChange,
-  onReasonChange,
-  onClose,
-  onSave,
-}) => (
-  <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm">
-
-    <div className="w-full max-w-lg rounded-2xl bg-[#0b0824] border border-emerald-500/30 shadow-2xl">
-
-      <div className="p-5 border-b border-[#231e54] flex items-center justify-between">
-
-        <div className="flex items-center gap-3">
-
-          <div className="p-2 rounded-xl bg-emerald-500/10 border border-emerald-500/30">
-            <Gift className="w-5 h-5 text-emerald-400" />
-          </div>
-
-          <div>
-
-            <h2 className="text-white font-bold">
-              Add Bonus
-            </h2>
-
-            <p className="text-[11px] text-slate-400 mt-1">
-              {record.employeeName}
-              {' • '}
-              {record.employeeCode}
-            </p>
-
-          </div>
-
-        </div>
-
-        <button
-          onClick={
-            onClose
-          }
-          disabled={
-            loading
-          }
-          className="p-2 rounded-lg hover:bg-white/5 text-slate-400 hover:text-white disabled:opacity-50"
-        >
-          <XCircle className="w-4 h-4" />
-        </button>
-
-      </div>
-
-      <div className="p-5 space-y-5">
-
-        <div className="p-3 rounded-xl bg-amber-500/10 border border-amber-500/30">
-
-          <div className="text-[11px] text-amber-300 leading-5">
-            This bonus will be submitted for Company Admin approval.
-            It will affect the payroll total only after approval.
-          </div>
-
-        </div>
-
-        <div>
-
-          <label className="text-xs font-semibold text-slate-300 block mb-2">
-            Bonus Amount
-          </label>
-
-          <input
-            type="number"
-            min="0"
-            step="0.01"
-            value={
-              amount
-            }
-            onChange={event =>
-              onAmountChange(
-                event.target.value
-              )
-            }
-            placeholder="0.00"
-            autoFocus
-            className="w-full px-3 py-3 rounded-xl bg-[#09071e] border border-[#2d2770] text-white outline-none focus:border-emerald-500"
-          />
-
-        </div>
-
-        <div>
-
-          <label className="text-xs font-semibold text-slate-300 block mb-2">
-            Bonus Reason
-          </label>
-
-          <textarea
-            value={
-              reason
-            }
-            onChange={event =>
-              onReasonChange(
-                event.target.value
-              )
-            }
-            rows={3}
-            placeholder="Example: Performance bonus"
-            className="w-full px-3 py-3 rounded-xl bg-[#09071e] border border-[#2d2770] text-white placeholder:text-slate-600 outline-none focus:border-emerald-500 resize-none"
-          />
-
-        </div>
-
-        {adjustments.filter(
-          adjustment =>
-            adjustment.type ===
-            'Bonus'
-        ).length > 0 && (
-          <AdjustmentHistory
-            title="Existing Bonuses"
-            adjustments={
-              adjustments.filter(
-                adjustment =>
-                  adjustment.type ===
-                  'Bonus'
-              )
-            }
-            type="Bonus"
-          />
-        )}
-
-      </div>
-
-      <div className="p-5 border-t border-[#231e54] flex justify-end gap-2">
-
-        <button
-          onClick={
-            onClose
-          }
-          disabled={
-            loading
-          }
-          className="px-4 py-2 rounded-lg bg-[#17123d] border border-[#2d2770] text-slate-300 text-xs font-semibold disabled:opacity-50"
-        >
-          Cancel
-        </button>
-
-        <button
-          onClick={
-            onSave
-          }
-          disabled={
-            loading
-          }
-          className="px-4 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-500 disabled:opacity-50 text-white text-xs font-bold flex items-center gap-2"
-        >
-
-          {loading && (
-            <Loader2 className="w-3.5 h-3.5 animate-spin" />
-          )}
-
-          Add Bonus
-
-        </button>
-
-      </div>
-
-    </div>
-
-  </div>
-);
-
-/* =========================================================
-   DEDUCTION MODAL
-========================================================= */
-
-const DeductionModal: React.FC<{
-  record: PayrollRecord;
-  adjustments: PayrollAdjustment[];
-  amount: string;
-  reason: string;
-  loading: boolean;
-  onAmountChange: (
-    value: string
-  ) => void;
-  onReasonChange: (
-    value: string
-  ) => void;
-  onClose: () => void;
-  onSave: () => void;
-}> = ({
-  record,
-  adjustments,
-  amount,
-  reason,
-  loading,
-  onAmountChange,
-  onReasonChange,
-  onClose,
-  onSave,
-}) => (
-  <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm">
-
-    <div className="w-full max-w-lg rounded-2xl bg-[#0b0824] border border-rose-500/30 shadow-2xl">
-
-      <div className="p-5 border-b border-[#231e54] flex items-center justify-between">
-
-        <div className="flex items-center gap-3">
-
-          <div className="p-2 rounded-xl bg-rose-500/10 border border-rose-500/30">
-            <MinusCircle className="w-5 h-5 text-rose-400" />
-          </div>
-
-          <div>
-
-            <h2 className="text-white font-bold">
-              Add Deduction
-            </h2>
-
-            <p className="text-[11px] text-slate-400 mt-1">
-              {record.employeeName}
-              {' • '}
-              {record.employeeCode}
-            </p>
-
-          </div>
-
-        </div>
-
-        <button
-          onClick={
-            onClose
-          }
-          disabled={
-            loading
-          }
-          className="p-2 rounded-lg hover:bg-white/5 text-slate-400 hover:text-white disabled:opacity-50"
-        >
-          <XCircle className="w-4 h-4" />
-        </button>
-
-      </div>
-
-      <div className="p-5 space-y-5">
-
-        <div className="p-3 rounded-xl bg-amber-500/10 border border-amber-500/30">
-
-          <div className="text-[11px] text-amber-300 leading-5">
-            This deduction will be submitted for Company Admin approval.
-            It will affect the payroll total only after approval.
-          </div>
-
-        </div>
-
-        <div>
-
-          <label className="text-xs font-semibold text-slate-300 block mb-2">
-            Deduction Amount
-          </label>
-
-          <input
-            type="number"
-            min="0"
-            step="0.01"
-            value={
-              amount
-            }
-            onChange={event =>
-              onAmountChange(
-                event.target.value
-              )
-            }
-            placeholder="0.00"
-            autoFocus
-            className="w-full px-3 py-3 rounded-xl bg-[#09071e] border border-[#2d2770] text-white outline-none focus:border-rose-500"
-          />
-
-        </div>
-
-        <div>
-
-          <label className="text-xs font-semibold text-slate-300 block mb-2">
-            Deduction Reason
-          </label>
-
-          <textarea
-            value={
-              reason
-            }
-            onChange={event =>
-              onReasonChange(
-                event.target.value
-              )
-            }
-            rows={3}
-            placeholder="Example: Advance salary deduction"
-            className="w-full px-3 py-3 rounded-xl bg-[#09071e] border border-[#2d2770] text-white placeholder:text-slate-600 outline-none focus:border-rose-500 resize-none"
-          />
-
-        </div>
-
-        {adjustments.filter(
-          adjustment =>
-            adjustment.type ===
-            'Deduction'
-        ).length > 0 && (
-          <AdjustmentHistory
-            title="Existing Deductions"
-            adjustments={
-              adjustments.filter(
-                adjustment =>
-                  adjustment.type ===
-                  'Deduction'
-              )
-            }
-            type="Deduction"
-          />
-        )}
-
-      </div>
-
-      <div className="p-5 border-t border-[#231e54] flex justify-end gap-2">
-
-        <button
-          onClick={
-            onClose
-          }
-          disabled={
-            loading
-          }
-          className="px-4 py-2 rounded-lg bg-[#17123d] border border-[#2d2770] text-slate-300 text-xs font-semibold disabled:opacity-50"
-        >
-          Cancel
-        </button>
-
-        <button
-          onClick={
-            onSave
-          }
-          disabled={
-            loading
-          }
-          className="px-4 py-2 rounded-lg bg-rose-600 hover:bg-rose-500 disabled:opacity-50 text-white text-xs font-bold flex items-center gap-2"
-        >
-
-          {loading && (
-            <Loader2 className="w-3.5 h-3.5 animate-spin" />
-          )}
-
-          Add Deduction
-
-        </button>
-
-      </div>
-
-    </div>
-
-  </div>
-);
-
-/* =========================================================
-   ADJUSTMENT HISTORY
-========================================================= */
-
-const AdjustmentHistory: React.FC<{
-  title: string;
-  adjustments: PayrollAdjustment[];
-  type:
-    | 'Bonus'
-    | 'Deduction';
-}> = ({
-  title,
-  adjustments,
-  type,
-}) => (
-  <div>
-
-    <div className="text-xs font-semibold text-slate-300 mb-2">
-      {title}
-    </div>
-
-    <div className="space-y-2 max-h-32 overflow-y-auto">
-
-      {adjustments.map(
-        adjustment => (
-          <div
-            key={
-              adjustment.id
-            }
-            className="flex items-center justify-between p-3 rounded-lg bg-[#120e38] border border-[#231e54]"
-          >
-
-            <div>
-
-              <div className="text-xs text-white font-semibold">
-                {adjustment.reason}
-              </div>
-
-              <div className="text-[10px] text-slate-500">
-                {adjustment.type}
-              </div>
-
-            </div>
-
-            <div
-              className={`text-xs font-bold ${
-                type ===
-                'Bonus'
-                  ? 'text-emerald-400'
-                  : 'text-rose-400'
-              }`}
-            >
-
-              {type ===
-              'Bonus'
-                ? '+'
-                : '-'}
-
-              ₹
-              {Number(
-                adjustment.amount ??
-                  0
-              ).toLocaleString()}
-
-            </div>
-
-          </div>
-        )
-      )}
-
-    </div>
-
-  </div>
-);
-
-/* =========================================================
-   STATUS
-========================================================= */
-
-const StatusBadge: React.FC<{
-  status: string;
-}> = ({
-  status,
-}) => {
-  const styles: Record<
-    string,
-    string
-  > = {
-    Draft:
-      'bg-slate-500/10 text-slate-300 border-slate-500/30',
-
-    SubmittedByHR:
-      'bg-amber-500/10 text-amber-300 border-amber-500/30',
-
-    ApprovedByCompanyAdmin:
-      'bg-blue-500/10 text-blue-300 border-blue-500/30',
-
-    Approved:
-      'bg-blue-500/10 text-blue-300 border-blue-500/30',
-
-    Processing:
-      'bg-purple-500/10 text-purple-300 border-purple-500/30',
-
-    Paid:
-      'bg-emerald-500/10 text-emerald-300 border-emerald-500/30',
-
-    Locked:
-      'bg-slate-500/10 text-slate-300 border-slate-500/30',
-
-    Rejected:
-      'bg-rose-500/10 text-rose-300 border-rose-500/30',
-  };
-
-  return (
-    <span
-      className={`px-2 py-1 rounded text-[10px] font-bold border ${
-        styles[status] ||
-        styles.Draft
-      }`}
-    >
-      {status}
-    </span>
-  );
-};
-
-/* =========================================================
-   SUMMARY
-========================================================= */
-
-const Summary: React.FC<{
-  label: string;
-  value?: number | null;
-}> = ({
-  label,
-  value,
-}) => (
-  <div>
-
-    <span className="text-[10px] text-slate-500 block">
-      {label}
-    </span>
-
-    <span className="text-xs font-mono text-slate-200">
-      ₹
-      {Number(
-        value ??
-          0
-      ).toLocaleString()}
-    </span>
-
-  </div>
-);
-
-/* =========================================================
-   HELPERS
-========================================================= */
-
-const formatCurrency = (
-  value?: number | null
-) =>
-  `₹${Number(
-    value ??
-      0
-  ).toLocaleString()}`;
-
-const getAdjustmentEmployeeName = (
-  adjustment: PayrollAdjustment,
-  records: PayrollRecord[]
-) =>
-  records.find(
-    record =>
-      record.userId ===
-      adjustment.userId
-  )?.employeeName ??
-  'Employee';
-
-/* =========================================================
-   EXPORT
-========================================================= */
 
 export default MonthlyPayrollPage;

@@ -50,14 +50,14 @@ export const PayslipModal: React.FC = () => {
     slip.adjustments?.filter(
       x =>
         x.type === 'Bonus' &&
-        x.status === 'Approved'
+        x.status === 'ApprovedByCompanyAdmin'
     ) || [];
 
   const deductions =
     slip.adjustments?.filter(
       x =>
         x.type === 'Deduction' &&
-        x.status === 'Approved'
+        x.status === 'ApprovedByCompanyAdmin'
     ) || [];
 
   return (

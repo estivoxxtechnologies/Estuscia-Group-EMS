@@ -39,6 +39,7 @@ import MySalesLeadsView from './components/MySalesLeadsView';
 import SeniorSalesLeadsView from './components/SeniorSalesLeadsView';
 import SeniorDeveloperWorkView from './components/SeniorDeveloperWorkView';
 import JuniorDeveloperWorkView from './components/JuniorDeveloperWorkView';
+import CompanyDetailsView from './components/CompanyDetailsView';
 
 
 const AppContent: React.FC = () => {
@@ -81,6 +82,8 @@ const AppContent: React.FC = () => {
         return <TenantPaymentView />;
       case 'profile':
         return <ProfileView />;
+      case 'company_details':
+      return <CompanyDetailsView />;
       // case 'sales_leads': {
       //   const isSeniorSales =
       //     currentUser?.roleName?.toLowerCase() === 'sales_staff' &&

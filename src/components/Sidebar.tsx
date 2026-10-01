@@ -49,6 +49,7 @@ export const Sidebar: React.FC = () => {
     '';
 
   const isSuperAdmin = normalizedRole === 'super_admin';
+  const isCompanyAdmin = normalizedRole === 'company_admin';
   const avatarUrl = getFileUrl(currentUser.avatarUrl);
 
   const superAdminAllowedTabs: AppTab[] = [
@@ -225,6 +226,14 @@ export const Sidebar: React.FC = () => {
           'bg-[#5C3FE0]/20 text-[#5C3FE0] border border-[#5C3FE0]/30',
         section: 'leadership_gov',
       },
+      {
+        id: 'company_details',
+        label: 'Company Details',
+        icon: (
+          <Building2 className="w-4 h-4" />
+        ),
+        section: 'leadership_gov',
+      },
 
       // {
       //   id: 'audit_settings',
@@ -282,16 +291,30 @@ export const Sidebar: React.FC = () => {
 
   const allowedNavItems = allNavItems.filter((item) => {
 
+    // =======================================================
     // SUPER ADMIN HAS A COMPLETELY SEPARATE SIDEBAR
+    // =======================================================
     if (isSuperAdmin) {
       return superAdminAllowedTabs.includes(item.id);
     }
 
-    // NORMAL USERS
+    // =======================================================
+    // COMPANY DETAILS — COMPANY ADMIN ONLY
+    // =======================================================
+    if (item.id === 'company_details') {
+      return isCompanyAdmin;
+    }
+
+    // =======================================================
+    // NORMAL SUPER-ADMIN-ONLY ITEMS
+    // =======================================================
     if (item.superAdminOnly) {
       return false;
     }
 
+    // =======================================================
+    // NORMAL ROLE PERMISSIONS
+    // =======================================================
     return isTabAllowed(item.id);
   });
 
