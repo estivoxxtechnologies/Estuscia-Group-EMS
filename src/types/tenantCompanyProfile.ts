@@ -1,17 +1,17 @@
 export interface TenantCompanyProfile {
   id: number;
-  tenantId: number;
+  tenantId: number | null;
 
   legalName: string | null;
   displayName: string | null;
 
+  // Company logo
   logoUrl: string | null;
   logoFileName: string | null;
   logoContentType: string | null;
 
   addressLine1: string | null;
   addressLine2: string | null;
-
   city: string | null;
   state: string | null;
   postalCode: string | null;
@@ -39,7 +39,6 @@ export interface UpdateTenantCompanyProfileRequest {
 
   addressLine1?: string | null;
   addressLine2?: string | null;
-
   city?: string | null;
   state?: string | null;
   postalCode?: string | null;

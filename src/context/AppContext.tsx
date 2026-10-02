@@ -59,6 +59,7 @@ import {
 import {
   Branch,
 } from '../types/branch';
+import { Payslip } from '../types/payrollCycle';
 
 
 export type AppTab =
@@ -236,8 +237,8 @@ interface AppContextType {
   setSelectedCourseForPlayer: (course: Course | null) => void;
   selectedCertificateForView: Certificate | null;
   setSelectedCertificateForView: (cert: Certificate | null) => void;
-  // selectedPayslipForView: Payslip | null;
-  // setSelectedPayslipForView: (slip: Payslip | null) => void;
+  selectedPayslipForView: Payslip | null;
+  setSelectedPayslipForView: (slip: Payslip | null) => void;
 }
 
 const AppContext = createContext<AppContextType | undefined>(undefined);
@@ -340,7 +341,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const [isLogDealOpen, setIsLogDealOpen] = useState(false);
   const [selectedCourseForPlayer, setSelectedCourseForPlayer] = useState<Course | null>(null);
   const [selectedCertificateForView, setSelectedCertificateForView] = useState<Certificate | null>(null);
-  // const [selectedPayslipForView, setSelectedPayslipForView] = useState<Payslip | null>(null);
+  const [selectedPayslipForView, setSelectedPayslipForView] = useState<Payslip | null>(null);
 
   const getBranchStorageKey = (user: CurrentUser) => {
     return `selectedBranchId_${user.tenantId}_${user.userId}`;
@@ -1765,8 +1766,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         setSelectedCourseForPlayer,
         selectedCertificateForView,
         setSelectedCertificateForView,
-        // selectedPayslipForView,
-        // setSelectedPayslipForView,
+        selectedPayslipForView,
+        setSelectedPayslipForView,
       }}
     >
       {children}

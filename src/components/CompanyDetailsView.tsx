@@ -1,5 +1,7 @@
 import React, {
+  ChangeEvent,
   useEffect,
+  useRef,
   useState,
 } from 'react';
 
@@ -16,15 +18,18 @@ import {
   Hash,
   CheckCircle2,
   AlertCircle,
+  Image as ImageIcon,
+  Upload,
+  Trash2,
 } from 'lucide-react';
-
-import { toast } from 'react-toastify';
 
 import { useApp } from '../context/AppContext';
 
 import {
   getTenantCompanyProfile,
   updateTenantCompanyProfile,
+  uploadTenantCompanyLogo,
+  deleteTenantCompanyLogo,
 } from '../api/tenantCompanyProfile';
 
 import {
@@ -32,9 +37,10 @@ import {
   UpdateTenantCompanyProfileRequest,
 } from '../types/tenantCompanyProfile';
 
-/* =========================================================
-   EMPTY FORM
-========================================================= */
+
+// ============================================================
+// EMPTY FORM
+// ============================================================
 
 const EMPTY_FORM: UpdateTenantCompanyProfileRequest = {
   legalName: '',
@@ -42,7 +48,6 @@ const EMPTY_FORM: UpdateTenantCompanyProfileRequest = {
 
   addressLine1: '',
   addressLine2: '',
-
   city: '',
   state: '',
   postalCode: '',
@@ -58,46 +63,134 @@ const EMPTY_FORM: UpdateTenantCompanyProfileRequest = {
   payslipFooterText: '',
 };
 
-/* =========================================================
-   PAGE
-========================================================= */
+
+// ============================================================
+// CONSTANTS
+// ============================================================
+
+const MAX_LOGO_SIZE = 2 * 1024 * 1024;
+
+const ALLOWED_LOGO_TYPES = [
+  'image/png',
+  'image/jpeg',
+  'image/webp',
+];
+
+
+// ============================================================
+// INPUT COMPONENT
+// IMPORTANT:
+// This component MUST remain outside CompanyDetailsView.
+// Otherwise React recreates it on every form update and
+// the input loses focus after every typed character.
+// ============================================================
+
+interface InputFieldProps {
+  label: string;
+  name: keyof UpdateTenantCompanyProfileRequest;
+  placeholder?: string;
+  icon?: React.ReactNode;
+  type?: string;
+
+  form: UpdateTenantCompanyProfileRequest;
+
+  onChange: (
+    event: ChangeEvent<HTMLInputElement | HTMLTextAreaElement>
+  ) => void;
+}
+
+const InputField: React.FC<InputFieldProps> = ({
+  label,
+  name,
+  placeholder,
+  icon,
+  type = 'text',
+  form,
+  onChange,
+}) => {
+  return (
+    <div>
+      <label className="mb-2 block text-sm font-medium text-slate-300">
+        {label}
+      </label>
+
+      <div className="relative">
+        {icon && (
+          <div className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-slate-500">
+            {icon}
+          </div>
+        )}
+
+        <input
+          type={type}
+          name={name}
+          value={form[name] ?? ''}
+          onChange={onChange}
+          placeholder={placeholder}
+          className={`w-full rounded-lg border border-white/10 bg-[#0e0b2e] px-4 py-3 text-sm text-white outline-none transition placeholder:text-slate-600 focus:border-[#5C3FE0]/60 ${
+            icon ? 'pl-10' : ''
+          }`}
+        />
+      </div>
+    </div>
+  );
+};
+
+
+// ============================================================
+// COMPONENT
+// ============================================================
 
 const CompanyDetailsView: React.FC = () => {
-  const {
-    currentUser,
-  } = useApp();
+  const { currentUser } = useApp();
 
   const [profile, setProfile] =
-    useState<TenantCompanyProfile | null>(
-      null
-    );
+    useState<TenantCompanyProfile | null>(null);
 
   const [form, setForm] =
     useState<UpdateTenantCompanyProfileRequest>(
       EMPTY_FORM
     );
 
-  const [loading, setLoading] =
-    useState(true);
+  const [loading, setLoading] = useState(true);
 
-  const [saving, setSaving] =
+  const [saving, setSaving] = useState(false);
+
+  const [uploadingLogo, setUploadingLogo] =
     useState(false);
+
+  const [removingLogo, setRemovingLogo] =
+    useState(false);
+
+  const [message, setMessage] =
+    useState<string | null>(null);
 
   const [error, setError] =
     useState<string | null>(null);
 
-  /* =======================================================
-     SECURITY
-  ======================================================= */
+  const logoInputRef =
+    useRef<HTMLInputElement | null>(null);
+
+
+  // ============================================================
+  // ACCESS CHECK
+  // ============================================================
 
   const isCompanyAdmin =
-    currentUser?.roleName === 'company_admin';
+    currentUser?.roleName?.toLowerCase() ===
+    'company_admin';
 
-  /* =======================================================
-     LOAD
-  ======================================================= */
+
+  // ============================================================
+  // LOAD PROFILE
+  // ============================================================
 
   const loadProfile = async () => {
+    if (!isCompanyAdmin) {
+      setLoading(false);
+      return;
+    }
+
     try {
       setLoading(true);
       setError(null);
@@ -108,38 +201,19 @@ const CompanyDetailsView: React.FC = () => {
       setProfile(data);
 
       setForm({
-        legalName:
-          data.legalName ?? '',
+        legalName: data.legalName ?? '',
+        displayName: data.displayName ?? '',
 
-        displayName:
-          data.displayName ?? '',
+        addressLine1: data.addressLine1 ?? '',
+        addressLine2: data.addressLine2 ?? '',
+        city: data.city ?? '',
+        state: data.state ?? '',
+        postalCode: data.postalCode ?? '',
+        country: data.country ?? '',
 
-        addressLine1:
-          data.addressLine1 ?? '',
-
-        addressLine2:
-          data.addressLine2 ?? '',
-
-        city:
-          data.city ?? '',
-
-        state:
-          data.state ?? '',
-
-        postalCode:
-          data.postalCode ?? '',
-
-        country:
-          data.country ?? '',
-
-        phone:
-          data.phone ?? '',
-
-        email:
-          data.email ?? '',
-
-        website:
-          data.website ?? '',
+        phone: data.phone ?? '',
+        email: data.email ?? '',
+        website: data.website ?? '',
 
         taxRegistrationNumber:
           data.taxRegistrationNumber ?? '',
@@ -150,470 +224,773 @@ const CompanyDetailsView: React.FC = () => {
         payslipFooterText:
           data.payslipFooterText ?? '',
       });
-
     } catch (err) {
-      const message =
-        err instanceof Error
-          ? err.message
-          : 'Failed to load company details.';
+      console.error(
+        'Failed to load company profile:',
+        err
+      );
 
-      setError(message);
-
-      toast.error(message);
-
+      setError(
+        'Unable to load company details.'
+      );
     } finally {
       setLoading(false);
     }
   };
 
+
+  // ============================================================
+  // INITIAL LOAD
+  // ============================================================
+
   useEffect(() => {
-    if (isCompanyAdmin) {
-      void loadProfile();
-    } else {
-      setLoading(false);
-    }
+    loadProfile();
   }, [isCompanyAdmin]);
 
-  /* =======================================================
-     CHANGE
-  ======================================================= */
+
+  // ============================================================
+  // INPUT HANDLER
+  // ============================================================
 
   const handleChange = (
-    event: React.ChangeEvent<
+    event: ChangeEvent<
       HTMLInputElement | HTMLTextAreaElement
     >
   ) => {
-    const {
-      name,
-      value,
-    } = event.target;
+    const { name, value } = event.target;
 
-    setForm(previous => ({
+    setForm((previous) => ({
       ...previous,
       [name]: value,
     }));
   };
 
-  /* =======================================================
-     SAVE
-  ======================================================= */
+
+  // ============================================================
+  // SAVE COMPANY DETAILS
+  // ============================================================
 
   const handleSave = async () => {
-    if (!isCompanyAdmin) {
+    try {
+      setSaving(true);
+      setError(null);
+      setMessage(null);
+
+      const updated =
+        await updateTenantCompanyProfile(form);
+
+      setProfile(updated);
+
+      setForm({
+        legalName: updated.legalName ?? '',
+        displayName: updated.displayName ?? '',
+
+        addressLine1: updated.addressLine1 ?? '',
+        addressLine2: updated.addressLine2 ?? '',
+        city: updated.city ?? '',
+        state: updated.state ?? '',
+        postalCode: updated.postalCode ?? '',
+        country: updated.country ?? '',
+
+        phone: updated.phone ?? '',
+        email: updated.email ?? '',
+        website: updated.website ?? '',
+
+        taxRegistrationNumber:
+          updated.taxRegistrationNumber ?? '',
+
+        companyRegistrationNumber:
+          updated.companyRegistrationNumber ?? '',
+
+        payslipFooterText:
+          updated.payslipFooterText ?? '',
+      });
+
+      setMessage(
+        'Company details saved successfully.'
+      );
+    } catch (err) {
+      console.error(
+        'Failed to save company profile:',
+        err
+      );
+
+      setError(
+        'Unable to save company details.'
+      );
+    } finally {
+      setSaving(false);
+    }
+  };
+
+
+  // ============================================================
+  // LOGO UPLOAD
+  // ============================================================
+
+  const handleLogoUpload = async (
+    event: ChangeEvent<HTMLInputElement>
+  ) => {
+    const file = event.target.files?.[0];
+
+    // Reset input so selecting the same file again works.
+    event.target.value = '';
+
+    if (!file) {
       return;
     }
 
-    if (
-      !form.displayName?.trim() &&
-      !form.legalName?.trim()
-    ) {
-      toast.error(
-        'Enter at least a company display name or legal name.'
+    setError(null);
+    setMessage(null);
+
+    // ----------------------------------------------------------
+    // Validate file type
+    // ----------------------------------------------------------
+
+    if (!ALLOWED_LOGO_TYPES.includes(file.type)) {
+      setError(
+        'Invalid logo format. Please upload PNG, JPG, JPEG or WEBP.'
+      );
+
+      return;
+    }
+
+    // ----------------------------------------------------------
+    // Validate file size
+    // ----------------------------------------------------------
+
+    if (file.size > MAX_LOGO_SIZE) {
+      setError(
+        'Logo size cannot exceed 2 MB.'
       );
 
       return;
     }
 
     try {
-      setSaving(true);
-      setError(null);
+      setUploadingLogo(true);
 
       const updated =
-        await updateTenantCompanyProfile({
-          legalName:
-            form.legalName?.trim() || null,
-
-          displayName:
-            form.displayName?.trim() || null,
-
-          addressLine1:
-            form.addressLine1?.trim() || null,
-
-          addressLine2:
-            form.addressLine2?.trim() || null,
-
-          city:
-            form.city?.trim() || null,
-
-          state:
-            form.state?.trim() || null,
-
-          postalCode:
-            form.postalCode?.trim() || null,
-
-          country:
-            form.country?.trim() || null,
-
-          phone:
-            form.phone?.trim() || null,
-
-          email:
-            form.email?.trim() || null,
-
-          website:
-            form.website?.trim() || null,
-
-          taxRegistrationNumber:
-            form.taxRegistrationNumber?.trim() ||
-            null,
-
-          companyRegistrationNumber:
-            form.companyRegistrationNumber?.trim() ||
-            null,
-
-          payslipFooterText:
-            form.payslipFooterText?.trim() ||
-            null,
-        });
+        await uploadTenantCompanyLogo(file);
 
       setProfile(updated);
 
-      toast.success(
-        'Company details saved successfully.'
+      setMessage(
+        'Company logo uploaded successfully.'
+      );
+    } catch (err) {
+      console.error(
+        'Failed to upload company logo:',
+        err
       );
 
-    } catch (err) {
-      const message =
-        err instanceof Error
-          ? err.message
-          : 'Failed to save company details.';
-
-      setError(message);
-
-      toast.error(message);
-
+      setError(
+        'Unable to upload company logo.'
+      );
     } finally {
-      setSaving(false);
+      setUploadingLogo(false);
     }
   };
 
-  /* =======================================================
-     ACCESS
-  ======================================================= */
 
-  if (!isCompanyAdmin) {
-    return null;
-  }
+  // ============================================================
+  // REMOVE LOGO
+  // ============================================================
 
-  /* =======================================================
-     LOADING
-  ======================================================= */
+  const handleRemoveLogo = async () => {
+    if (!profile?.logoUrl) {
+      return;
+    }
+
+    const confirmed =
+      window.confirm(
+        'Are you sure you want to remove the company logo?'
+      );
+
+    if (!confirmed) {
+      return;
+    }
+
+    try {
+      setRemovingLogo(true);
+      setError(null);
+      setMessage(null);
+
+      const updated =
+        await deleteTenantCompanyLogo();
+
+      setProfile(updated);
+
+      setMessage(
+        'Company logo removed successfully.'
+      );
+    } catch (err) {
+      console.error(
+        'Failed to remove company logo:',
+        err
+      );
+
+      setError(
+        'Unable to remove company logo.'
+      );
+    } finally {
+      setRemovingLogo(false);
+    }
+  };
+
+
+  // ============================================================
+  // LOADING
+  // ============================================================
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center py-24">
-        <Loader2 className="w-7 h-7 text-[#A78BFA] animate-spin" />
+      <div className="flex min-h-[400px] items-center justify-center">
+        <div className="flex items-center gap-3 text-slate-400">
+          <Loader2
+            size={22}
+            className="animate-spin"
+          />
+
+          <span>
+            Loading company details...
+          </span>
+        </div>
       </div>
     );
   }
 
-  /* =======================================================
-     PAGE
-  ======================================================= */
+
+  // ============================================================
+  // ACCESS DENIED
+  // ============================================================
+
+  if (!isCompanyAdmin) {
+    return (
+      <div className="rounded-xl border border-red-500/20 bg-red-500/5 p-6">
+        <div className="flex items-center gap-3 text-red-400">
+          <AlertCircle size={22} />
+
+          <div>
+            <div className="font-semibold">
+              Access Restricted
+            </div>
+
+            <div className="mt-1 text-sm text-slate-400">
+              Only Company Admin can manage company
+              details.
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+
+  // ============================================================
+  // RENDER
+  // ============================================================
 
   return (
-    <div className="space-y-5">
+    <div className="space-y-6 pb-10">
 
-      {/* =================================================
+      {/* ======================================================
           HEADER
-      ================================================= */}
+      ======================================================= */}
 
-      <div className="p-5 rounded-2xl bg-[#09071e] border border-[#2d2770]/70">
+      <div className="flex flex-col justify-between gap-4 md:flex-row md:items-center">
 
-        <div className="flex items-center justify-between gap-4">
-
+        <div>
           <div className="flex items-center gap-3">
 
-            <div className="w-10 h-10 rounded-xl bg-[#17123d] border border-[#2d2770] flex items-center justify-center">
-
-              <Building2
-                className="w-5 h-5 text-[#A78BFA]"
-              />
-
+            <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-[#5C3FE0]/15 text-[#A78BFA]">
+              <Building2 size={22} />
             </div>
 
             <div>
-
-              <h2 className="text-sm font-bold text-white">
+              <h1 className="text-xl font-semibold text-white">
                 Company Details
-              </h2>
+              </h1>
 
-              <p className="text-[11px] text-slate-400 mt-1">
-                Manage the official company information
-                used throughout your EMS.
+              <p className="mt-1 text-sm text-slate-400">
+                Manage company information used across
+                the EMS and employee payslips.
               </p>
-
             </div>
-
           </div>
-
-          <button
-            type="button"
-            onClick={() => void loadProfile()}
-            disabled={loading || saving}
-            className="p-2 rounded-lg bg-[#17123d] border border-[#2d2770] text-slate-300 hover:text-white disabled:opacity-50"
-            title="Refresh"
-          >
-            <RefreshCw
-              className={`w-4 h-4 ${
-                loading
-                  ? 'animate-spin'
-                  : ''
-              }`}
-            />
-          </button>
-
         </div>
+
+        <button
+          type="button"
+          onClick={loadProfile}
+          disabled={loading || saving}
+          className="flex items-center justify-center gap-2 rounded-lg border border-white/10 bg-white/5 px-4 py-2.5 text-sm font-medium text-slate-300 transition hover:bg-white/10 disabled:cursor-not-allowed disabled:opacity-50"
+        >
+          <RefreshCw size={16} />
+
+          Refresh
+        </button>
 
       </div>
 
-      {/* =================================================
-          ERROR
-      ================================================= */}
 
-      {error && (
-        <div className="p-4 rounded-xl border border-rose-500/30 bg-rose-500/10 flex items-start gap-3">
+      {/* ======================================================
+          SUCCESS MESSAGE
+      ======================================================= */}
 
-          <AlertCircle className="w-4 h-4 text-rose-400 mt-0.5" />
+      {message && (
+        <div className="flex items-center gap-3 rounded-xl border border-emerald-500/20 bg-emerald-500/10 px-4 py-3 text-sm text-emerald-300">
 
-          <div>
-            <div className="text-xs font-bold text-rose-300">
-              Error
-            </div>
+          <CheckCircle2 size={18} />
 
-            <div className="text-[11px] text-rose-300/80 mt-1">
-              {error}
-            </div>
-          </div>
+          <span>{message}</span>
 
         </div>
       )}
 
-      {/* =================================================
+
+      {/* ======================================================
+          ERROR MESSAGE
+      ======================================================= */}
+
+      {error && (
+        <div className="flex items-center gap-3 rounded-xl border border-red-500/20 bg-red-500/10 px-4 py-3 text-sm text-red-300">
+
+          <AlertCircle size={18} />
+
+          <span>{error}</span>
+
+        </div>
+      )}
+
+
+      {/* ======================================================
           COMPANY INFORMATION
-      ================================================= */}
+      ======================================================= */}
 
-      <Section
-        icon={
-          <Building2 className="w-4 h-4" />
-        }
-        title="Company Information"
-        description="Official company identity information."
-      >
+      <section className="rounded-2xl border border-white/10 bg-[#0e0b2e] p-6">
 
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+        <div className="mb-6 flex items-center gap-3">
 
-          <FormInput
-            label="Display Name"
-            name="displayName"
-            value={
-              form.displayName ?? ''
-            }
-            onChange={handleChange}
-            placeholder="Company display name"
-            icon={
-              <Building2 className="w-3.5 h-3.5" />
-            }
+          <Building2
+            size={20}
+            className="text-[#A78BFA]"
           />
 
-          <FormInput
+          <div>
+            <h2 className="font-semibold text-white">
+              Company Information
+            </h2>
+
+            <p className="text-xs text-slate-500">
+              Basic legal and display information.
+            </p>
+          </div>
+
+        </div>
+
+        <div className="grid grid-cols-1 gap-5 md:grid-cols-2">
+
+          <InputField
             label="Legal Name"
             name="legalName"
-            value={
-              form.legalName ?? ''
-            }
+            placeholder="Enter legal company name"
+            form={form}
             onChange={handleChange}
-            placeholder="Legal company name"
-            icon={
-              <FileText className="w-3.5 h-3.5" />
-            }
           />
 
-          <FormInput
-            label="Company Registration Number"
-            name="companyRegistrationNumber"
-            value={
-              form.companyRegistrationNumber ?? ''
-            }
+          <InputField
+            label="Display Name"
+            name="displayName"
+            placeholder="Enter company display name"
+            form={form}
             onChange={handleChange}
-            placeholder="Registration number"
-            icon={
-              <Hash className="w-3.5 h-3.5" />
-            }
-          />
-
-          <FormInput
-            label="Tax / GST Registration Number"
-            name="taxRegistrationNumber"
-            value={
-              form.taxRegistrationNumber ?? ''
-            }
-            onChange={handleChange}
-            placeholder="Tax / GST number"
-            icon={
-              <FileText className="w-3.5 h-3.5" />
-            }
           />
 
         </div>
 
-      </Section>
+      </section>
 
-      {/* =================================================
-          ADDRESS
-      ================================================= */}
 
-      <Section
-        icon={
-          <MapPin className="w-4 h-4" />
-        }
-        title="Company Address"
-        description="Official registered/company address."
-      >
+      {/* ======================================================
+          COMPANY LOGO
+      ======================================================= */}
+
+      <section className="rounded-2xl border border-white/10 bg-[#0e0b2e] p-6">
+
+        <div className="mb-6 flex items-center gap-3">
+
+          <ImageIcon
+            size={20}
+            className="text-[#A78BFA]"
+          />
+
+          <div>
+            <h2 className="font-semibold text-white">
+              Company Logo
+            </h2>
+
+            <p className="text-xs text-slate-500">
+              This logo will appear on employee payslips.
+            </p>
+          </div>
+
+        </div>
+
+
+        <div className="flex flex-col gap-6 lg:flex-row lg:items-center">
+
+          {/* --------------------------------------------------
+              LOGO PREVIEW
+          --------------------------------------------------- */}
+
+          <div className="flex h-[120px] w-[220px] shrink-0 items-center justify-center overflow-hidden rounded-xl border border-white/10 bg-white p-3">
+
+            {profile?.logoUrl ? (
+              <img
+                src={profile.logoUrl}
+                alt={
+                  profile.displayName ||
+                  profile.legalName ||
+                  'Company Logo'
+                }
+                className="h-full w-full object-contain"
+              />
+            ) : (
+              <div className="flex flex-col items-center justify-center text-slate-400">
+
+                <ImageIcon size={30} />
+
+                <span className="mt-2 text-xs">
+                  No logo uploaded
+                </span>
+
+              </div>
+            )}
+
+          </div>
+
+
+          {/* --------------------------------------------------
+              LOGO ACTIONS
+          --------------------------------------------------- */}
+
+          <div className="space-y-3">
+
+            <div className="flex flex-wrap gap-3">
+
+              <input
+                ref={logoInputRef}
+                type="file"
+                accept="image/png,image/jpeg,image/webp"
+                onChange={handleLogoUpload}
+                className="hidden"
+              />
+
+              <button
+                type="button"
+                onClick={() =>
+                  logoInputRef.current?.click()
+                }
+                disabled={
+                  uploadingLogo ||
+                  removingLogo
+                }
+                className="flex items-center gap-2 rounded-lg bg-[#5C3FE0] px-4 py-2.5 text-sm font-medium text-white transition hover:bg-[#6d4ff0] disabled:cursor-not-allowed disabled:opacity-50"
+              >
+
+                {uploadingLogo ? (
+                  <Loader2
+                    size={16}
+                    className="animate-spin"
+                  />
+                ) : (
+                  <Upload size={16} />
+                )}
+
+                {uploadingLogo
+                  ? 'Uploading...'
+                  : profile?.logoUrl
+                    ? 'Replace Logo'
+                    : 'Upload Logo'}
+
+              </button>
+
+
+              {profile?.logoUrl && (
+                <button
+                  type="button"
+                  onClick={handleRemoveLogo}
+                  disabled={
+                    uploadingLogo ||
+                    removingLogo
+                  }
+                  className="flex items-center gap-2 rounded-lg border border-red-500/20 bg-red-500/10 px-4 py-2.5 text-sm font-medium text-red-300 transition hover:bg-red-500/15 disabled:cursor-not-allowed disabled:opacity-50"
+                >
+
+                  {removingLogo ? (
+                    <Loader2
+                      size={16}
+                      className="animate-spin"
+                    />
+                  ) : (
+                    <Trash2 size={16} />
+                  )}
+
+                  {removingLogo
+                    ? 'Removing...'
+                    : 'Remove Logo'}
+
+                </button>
+              )}
+
+            </div>
+
+
+            <div className="text-xs leading-5 text-slate-500">
+
+              <div>
+                Maximum size: 2 MB
+              </div>
+
+              <div>
+                Supported formats: PNG, JPG, JPEG, WEBP
+              </div>
+
+              <div>
+                The logo will automatically be fitted
+                without distortion on payslips.
+              </div>
+
+            </div>
+
+          </div>
+
+        </div>
+
+      </section>
+
+
+      {/* ======================================================
+          COMPANY ADDRESS
+      ======================================================= */}
+
+      <section className="rounded-2xl border border-white/10 bg-[#0e0b2e] p-6">
+
+        <div className="mb-6 flex items-center gap-3">
+
+          <MapPin
+            size={20}
+            className="text-[#A78BFA]"
+          />
+
+          <div>
+            <h2 className="font-semibold text-white">
+              Company Address
+            </h2>
+
+            <p className="text-xs text-slate-500">
+              Registered and mailing address.
+            </p>
+          </div>
+
+        </div>
 
         <div className="space-y-5">
 
-          <FormInput
+          <InputField
             label="Address Line 1"
             name="addressLine1"
-            value={
-              form.addressLine1 ?? ''
-            }
+            placeholder="Building / street / area"
+            form={form}
             onChange={handleChange}
-            placeholder="Building, street, area"
           />
 
-          <FormInput
+          <InputField
             label="Address Line 2"
             name="addressLine2"
-            value={
-              form.addressLine2 ?? ''
-            }
+            placeholder="Apartment / landmark / additional address"
+            form={form}
             onChange={handleChange}
-            placeholder="Apartment, landmark, additional address"
           />
 
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
+          <div className="grid grid-cols-1 gap-5 md:grid-cols-2 lg:grid-cols-4">
 
-            <FormInput
+            <InputField
               label="City"
               name="city"
-              value={
-                form.city ?? ''
-              }
-              onChange={handleChange}
               placeholder="City"
+              form={form}
+              onChange={handleChange}
             />
 
-            <FormInput
+            <InputField
               label="State"
               name="state"
-              value={
-                form.state ?? ''
-              }
-              onChange={handleChange}
               placeholder="State"
+              form={form}
+              onChange={handleChange}
             />
 
-            <FormInput
+            <InputField
               label="Postal Code"
               name="postalCode"
-              value={
-                form.postalCode ?? ''
-              }
+              placeholder="Postal code"
+              form={form}
               onChange={handleChange}
-              placeholder="Postal / PIN"
+            />
+
+            <InputField
+              label="Country"
+              name="country"
+              placeholder="Country"
+              form={form}
+              onChange={handleChange}
             />
 
           </div>
 
-          <FormInput
-            label="Country"
-            name="country"
-            value={
-              form.country ?? ''
-            }
-            onChange={handleChange}
-            placeholder="Country"
+        </div>
+
+      </section>
+
+
+      {/* ======================================================
+          CONTACT INFORMATION
+      ======================================================= */}
+
+      <section className="rounded-2xl border border-white/10 bg-[#0e0b2e] p-6">
+
+        <div className="mb-6 flex items-center gap-3">
+
+          <Phone
+            size={20}
+            className="text-[#A78BFA]"
           />
+
+          <div>
+            <h2 className="font-semibold text-white">
+              Contact Information
+            </h2>
+
+            <p className="text-xs text-slate-500">
+              Company contact and online information.
+            </p>
+          </div>
 
         </div>
 
-      </Section>
+        <div className="grid grid-cols-1 gap-5 md:grid-cols-2">
 
-      {/* =================================================
-          CONTACT
-      ================================================= */}
-
-      <Section
-        icon={
-          <Phone className="w-4 h-4" />
-        }
-        title="Contact Information"
-        description="Official company contact details."
-      >
-
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
-
-          <FormInput
+          <InputField
             label="Phone"
             name="phone"
-            value={
-              form.phone ?? ''
-            }
+            placeholder="+91 XXXXX XXXXX"
+            icon={<Phone size={16} />}
+            form={form}
             onChange={handleChange}
-            placeholder="Company phone"
-            icon={
-              <Phone className="w-3.5 h-3.5" />
-            }
           />
 
-          <FormInput
+          <InputField
             label="Email"
             name="email"
-            value={
-              form.email ?? ''
-            }
-            onChange={handleChange}
-            placeholder="Company email"
+            placeholder="company@example.com"
             type="email"
-            icon={
-              <Mail className="w-3.5 h-3.5" />
-            }
+            icon={<Mail size={16} />}
+            form={form}
+            onChange={handleChange}
           />
 
-          <FormInput
+          <InputField
             label="Website"
             name="website"
-            value={
-              form.website ?? ''
-            }
-            onChange={handleChange}
             placeholder="https://example.com"
-            icon={
-              <Globe className="w-3.5 h-3.5" />
-            }
+            icon={<Globe size={16} />}
+            form={form}
+            onChange={handleChange}
           />
 
         </div>
 
-      </Section>
+      </section>
 
-      {/* =================================================
-          PAYSLIP FOOTER
-      ================================================= */}
 
-      <Section
-        icon={
-          <FileText className="w-4 h-4" />
-        }
-        title="Payslip Information"
-        description="Information that can appear on generated payslips."
-      >
+      {/* ======================================================
+          REGISTRATION INFORMATION
+      ======================================================= */}
+
+      <section className="rounded-2xl border border-white/10 bg-[#0e0b2e] p-6">
+
+        <div className="mb-6 flex items-center gap-3">
+
+          <Hash
+            size={20}
+            className="text-[#A78BFA]"
+          />
+
+          <div>
+            <h2 className="font-semibold text-white">
+              Registration Information
+            </h2>
+
+            <p className="text-xs text-slate-500">
+              Tax and company registration details.
+            </p>
+          </div>
+
+        </div>
+
+        <div className="grid grid-cols-1 gap-5 md:grid-cols-2">
+
+          <InputField
+            label="Tax Registration Number"
+            name="taxRegistrationNumber"
+            placeholder="GST / VAT / Tax registration number"
+            form={form}
+            onChange={handleChange}
+          />
+
+          <InputField
+            label="Company Registration Number"
+            name="companyRegistrationNumber"
+            placeholder="Company registration number"
+            form={form}
+            onChange={handleChange}
+          />
+
+        </div>
+
+      </section>
+
+
+      {/* ======================================================
+          PAYSLIP INFORMATION
+      ======================================================= */}
+
+      <section className="rounded-2xl border border-white/10 bg-[#0e0b2e] p-6">
+
+        <div className="mb-6 flex items-center gap-3">
+
+          <FileText
+            size={20}
+            className="text-[#A78BFA]"
+          />
+
+          <div>
+            <h2 className="font-semibold text-white">
+              Payslip Information
+            </h2>
+
+            <p className="text-xs text-slate-500">
+              Information displayed on employee payslips.
+            </p>
+          </div>
+
+        </div>
 
         <div>
 
-          <label className="block text-[10px] font-bold uppercase tracking-wider text-slate-400 mb-2">
+          <label className="mb-2 block text-sm font-medium text-slate-300">
             Payslip Footer Text
           </label>
 
@@ -624,41 +1001,35 @@ const CompanyDetailsView: React.FC = () => {
             }
             onChange={handleChange}
             rows={4}
-            placeholder="Example: This is a computer-generated salary statement."
-            className="w-full px-3 py-2.5 rounded-xl bg-[#0e0b2e] border border-[#2d2770] text-white text-xs outline-none focus:border-[#5C3FE0] focus:ring-1 focus:ring-[#5C3FE0]/30 placeholder:text-slate-600 resize-none"
+            placeholder="Example: This is a computer-generated payslip and does not require a signature."
+            className="w-full resize-none rounded-lg border border-white/10 bg-[#0e0b2e] px-4 py-3 text-sm text-white outline-none transition placeholder:text-slate-600 focus:border-[#5C3FE0]/60"
           />
 
         </div>
 
-      </Section>
+      </section>
 
-      {/* =================================================
+
+      {/* ======================================================
           SAVE
-      ================================================= */}
+      ======================================================= */}
 
-      <div className="flex items-center justify-between gap-4">
-
-        <div className="text-[10px] text-slate-500">
-
-          {profile?.updatedAtUtc
-            ? `Last updated ${new Date(
-                profile.updatedAtUtc
-              ).toLocaleString()}`
-            : 'Company details have not been saved yet.'}
-
-        </div>
+      <div className="flex justify-end">
 
         <button
           type="button"
-          onClick={() => void handleSave()}
+          onClick={handleSave}
           disabled={saving}
-          className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-[#5C3FE0] hover:bg-[#6d50f0] disabled:opacity-50 disabled:cursor-not-allowed text-white text-xs font-bold transition-colors"
+          className="flex items-center gap-2 rounded-lg bg-[#5C3FE0] px-6 py-3 text-sm font-semibold text-white shadow-lg shadow-[#5C3FE0]/20 transition hover:bg-[#6d4ff0] disabled:cursor-not-allowed disabled:opacity-50"
         >
 
           {saving ? (
-            <Loader2 className="w-4 h-4 animate-spin" />
+            <Loader2
+              size={18}
+              className="animate-spin"
+            />
           ) : (
-            <Save className="w-4 h-4" />
+            <Save size={18} />
           )}
 
           {saving
@@ -666,119 +1037,6 @@ const CompanyDetailsView: React.FC = () => {
             : 'Save Company Details'}
 
         </button>
-
-      </div>
-
-    </div>
-  );
-};
-
-/* =========================================================
-   SECTION
-========================================================= */
-
-interface SectionProps {
-  icon: React.ReactNode;
-  title: string;
-  description: string;
-  children: React.ReactNode;
-}
-
-const Section: React.FC<SectionProps> = ({
-  icon,
-  title,
-  description,
-  children,
-}) => {
-  return (
-    <section className="rounded-2xl border border-[#2d2770]/70 bg-[#09071e] overflow-hidden">
-
-      <div className="px-5 py-4 border-b border-[#231e54] bg-[#0e0b2e]">
-
-        <div className="flex items-center gap-2">
-
-          <span className="text-[#A78BFA]">
-            {icon}
-          </span>
-
-          <div>
-
-            <h3 className="text-xs font-bold text-white">
-              {title}
-            </h3>
-
-            <p className="text-[10px] text-slate-500 mt-0.5">
-              {description}
-            </p>
-
-          </div>
-
-        </div>
-
-      </div>
-
-      <div className="p-5">
-        {children}
-      </div>
-
-    </section>
-  );
-};
-
-/* =========================================================
-   INPUT
-========================================================= */
-
-interface FormInputProps {
-  label: string;
-  name: string;
-  value: string;
-  onChange: (
-    event: React.ChangeEvent<HTMLInputElement>
-  ) => void;
-  placeholder?: string;
-  type?: string;
-  icon?: React.ReactNode;
-}
-
-const FormInput: React.FC<FormInputProps> = ({
-  label,
-  name,
-  value,
-  onChange,
-  placeholder,
-  type = 'text',
-  icon,
-}) => {
-  return (
-    <div>
-
-      <label
-        htmlFor={name}
-        className="block text-[10px] font-bold uppercase tracking-wider text-slate-400 mb-2"
-      >
-        {label}
-      </label>
-
-      <div className="relative">
-
-        {icon && (
-          <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500">
-            {icon}
-          </span>
-        )}
-
-        <input
-          id={name}
-          name={name}
-          type={type}
-          value={value}
-          onChange={onChange}
-          placeholder={placeholder}
-          className={`w-full ${
-            icon ? 'pl-9' : 'px-3'
-          } pr-3 py-2.5 rounded-xl bg-[#0e0b2e] border border-[#2d2770] text-white text-xs outline-none focus:border-[#5C3FE0] focus:ring-1 focus:ring-[#5C3FE0]/30 placeholder:text-slate-600 transition-colors`}
-        />
 
       </div>
 
