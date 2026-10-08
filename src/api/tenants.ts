@@ -14,8 +14,7 @@ export interface BackendTenant {
   workStartTime: string;
   workEndTime: string;
   defaultCurrencyId: number;
-
-
+  companyAdminCount?: number;
   defaultCurrency: {
     id: number;
     code: string;

@@ -81,6 +81,63 @@ export interface UpdateUserRequest {
     isActive: boolean;
 }
 
+export interface CompanyAdmin {
+    id: number;
+    tenantId: number | null;
+    tenantName: string;
+    branchId: number | null;
+    branchName: string | null;
+
+    fullName: string;
+    email: string;
+    employeeCode: string;
+
+    roleId: number;
+    roleName: string;
+
+    designation: string;
+    department: string;
+    salaryBase: number;
+
+    avatarUrl: string;
+    isActive: boolean;
+}
+
+export interface CreateCompanyAdminRequest {
+    fullName: string;
+    email: string;
+    password: string;
+    employeeCode: string;
+    designation: string;
+    department: string;
+    salaryBase: number;
+    avatarUrl?: string;
+}
+
+export const getCompanyAdmins = async (
+    tenantId: number
+): Promise<CompanyAdmin[]> => {
+    return apiRequest<CompanyAdmin[]>(
+        `/Users/company-admins/${tenantId}`,
+        {
+            method: 'GET',
+        }
+    );
+};
+
+export const createCompanyAdmin = async (
+    tenantId: number,
+    data: CreateCompanyAdminRequest
+): Promise<CompanyAdmin> => {
+    return apiRequest<CompanyAdmin>(
+        `/Users/company-admin/${tenantId}`,
+        {
+            method: 'POST',
+            body: JSON.stringify(data),
+        }
+    );
+};
+
 export async function getUsers(): Promise<BackendUser[]> {
     const users = await apiRequest<BackendUser[]>('/Users', {
         method: 'GET',

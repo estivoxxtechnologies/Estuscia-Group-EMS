@@ -57,6 +57,7 @@ export const Sidebar: React.FC = () => {
     'tenants',
     'branch_management',
     'tenant_payment',
+    'company_admin_management',
     'knowledge_hub',
   ];
   // ---------------------------------------------------------
@@ -276,6 +277,15 @@ export const Sidebar: React.FC = () => {
         section: 'leadership_gov',
         superAdminOnly: true,
       },
+      {
+        id: 'company_admin_management',
+        label: 'Company Admin Management',
+        icon: (
+          <Users className="w-4 h-4" />
+        ),
+        section: 'leadership_gov',
+        superAdminOnly: true,
+      }
 
     ];
 

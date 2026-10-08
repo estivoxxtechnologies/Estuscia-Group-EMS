@@ -81,7 +81,7 @@ export type AppTab =
   // | 'sales_leads'
   // | 'developer_work'
   | 'company_details'
-  ;
+  | 'company_admin_management';
 
 export type ViewMode = 'portal' | 'public_web';
 
