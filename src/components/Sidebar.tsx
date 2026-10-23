@@ -84,19 +84,16 @@ export const Sidebar: React.FC = () => {
   // All available navigation items
   // ---------------------------------------------------------
 
+
   const allNavItems: {
     id: AppTab;
     label: string;
     icon: React.ReactNode;
     badge?: string | number;
     badgeColor?: string;
-    section:
-    | 'daily_ops'
-    | 'finance_slabs'
-    | 'leadership_gov';
+    section: 'daily_ops' | 'finance_slabs' | 'leadership_gov';
     superAdminOnly?: boolean;
   }[] = [
-
       // =======================================================
       // DAILY OPERATIONS
       // =======================================================
@@ -104,9 +101,7 @@ export const Sidebar: React.FC = () => {
       {
         id: 'dashboard',
         label: 'Portal Overview',
-        icon: (
-          <LayoutDashboard className="w-4 h-4" />
-        ),
+        icon: <LayoutDashboard className="w-4 h-4" />,
         section: 'daily_ops',
       },
 
@@ -134,9 +129,7 @@ export const Sidebar: React.FC = () => {
       {
         id: 'attendance',
         label: 'Biometric & Attendance',
-        icon: (
-          <CalendarCheck className="w-4 h-4" />
-        ),
+        icon: <CalendarCheck className="w-4 h-4" />,
         // badge:
         //   pendingLeavesCount > 0
         //     ? `${pendingLeavesCount} Leaves`
@@ -153,9 +146,7 @@ export const Sidebar: React.FC = () => {
       // {
       //   id: 'targets_incentives',
       //   label: 'Targets & Incentives',
-      //   icon: (
-      //     <Target className="w-4 h-4" />
-      //   ),
+      //   icon: <Target className="w-4 h-4" />,
       //   badge:
       //     pendingDealsCount > 0
       //       ? `${pendingDealsCount} Deals`
@@ -168,80 +159,66 @@ export const Sidebar: React.FC = () => {
       // {
       //   id: 'sales_leads',
       //   label: 'Sales Leads',
-      //   icon: (
-      //     <Target className="w-4 h-4" />
-      //   ),
-      //   section: 'finance_slabs',
-      // },
-      // {
-      //   id: 'developer_work',
-      //   label: 'Developer Work',
-      //   icon: (
-      //     <Code2 className="w-4 h-4" />
-      //   ),
+      //   icon: <Target className="w-4 h-4" />,
       //   section: 'finance_slabs',
       // },
 
-      {
-        id: 'receipts_slabs',
-        label: 'Customer Receipts & Slabs',
-        icon: (
-          <Receipt className="w-4 h-4" />
-        ),
-        badge: 'Official Slips',
-        badgeColor:
-          'bg-teal-500/20 text-teal-300 border border-teal-500/30',
-        section: 'finance_slabs',
-      },
+      // {
+      //   id: 'developer_work',
+      //   label: 'Developer Work',
+      //   icon: <Code2 className="w-4 h-4" />,
+      //   section: 'finance_slabs',
+      // },
+
+      // {
+      //   id: 'receipts_slabs',
+      //   label: 'Customer Receipts & Slabs',
+      //   icon: <Receipt className="w-4 h-4" />,
+      //   badge: 'Official Slips',
+      //   badgeColor:
+      //     'bg-teal-500/20 text-teal-300 border border-teal-500/30',
+      //   section: 'finance_slabs',
+      // },
 
       {
         id: 'payroll',
         label: 'Salary & Payslips',
-        icon: (
-          <CreditCard className="w-4 h-4" />
-        ),
+        icon: <CreditCard className="w-4 h-4" />,
         section: 'finance_slabs',
       },
 
       {
         id: 'staff',
         label: 'Staff & Team Directory',
-        icon: (
-          <Users className="w-4 h-4" />
-        ),
+        icon: <Users className="w-4 h-4" />,
         section: 'finance_slabs',
       },
 
       // =======================================================
-      // GOVERNANCE
+      // GOVERNANCE & COMPANY INFORMATION
       // =======================================================
 
       {
         id: 'knowledge_hub',
         label: 'CEO Knowledge Hub',
-        icon: (
-          <Video className="w-4 h-4" />
-        ),
+        icon: <Video className="w-4 h-4" />,
         badge: 'Videos',
         badgeColor:
           'bg-[#5C3FE0]/20 text-[#5C3FE0] border border-[#5C3FE0]/30',
         section: 'leadership_gov',
       },
+
       {
         id: 'company_details',
         label: 'Company Details',
-        icon: (
-          <Building2 className="w-4 h-4" />
-        ),
+        icon: <Building2 className="w-4 h-4" />,
         section: 'leadership_gov',
       },
 
       // {
       //   id: 'audit_settings',
       //   label: 'Access Matrix',
-      //   icon: (
-      //     <ShieldCheck className="w-4 h-4" />
-      //   ),
+      //   icon: <ShieldCheck className="w-4 h-4" />,
       //   section: 'leadership_gov',
       // },
 
@@ -253,41 +230,36 @@ export const Sidebar: React.FC = () => {
       {
         id: 'tenants',
         label: 'Tenant Management',
-        icon: (
-          <Building2 className="w-4 h-4" />
-        ),
+        icon: <Building2 className="w-4 h-4" />,
         section: 'leadership_gov',
         superAdminOnly: true,
       },
+
       {
         id: 'branch_management',
         label: 'Branch Management',
-        icon: (
-          <GitBranch className="w-4 h-4" />
-        ),
+        icon: <GitBranch className="w-4 h-4" />,
         section: 'leadership_gov',
         superAdminOnly: true,
       },
+
       {
         id: 'tenant_payment',
         label: 'Tenant Payment',
-        icon: (
-          <CreditCard className="w-4 h-4" />
-        ),
+        icon: <CreditCard className="w-4 h-4" />,
         section: 'leadership_gov',
         superAdminOnly: true,
       },
+
       {
         id: 'company_admin_management',
         label: 'Company Admin Management',
-        icon: (
-          <Users className="w-4 h-4" />
-        ),
+        icon: <Users className="w-4 h-4" />,
         section: 'leadership_gov',
         superAdminOnly: true,
-      }
-
+      },
     ];
+
 
   // ---------------------------------------------------------
   // Filter Navigation

@@ -442,7 +442,7 @@ export const Header: React.FC = () => {
       <div className="flex items-center gap-1.5 sm:gap-2.5 md:gap-3">
 
         {/* Quick Action: Log Work */}
-        {!isSuperAdmin && (
+        {/* {!isSuperAdmin && (
           <button
             onClick={() => setIsWorkLogModalOpen(true)}
             className="hidden sm:flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-purple-500/15 hover:bg-purple-500/25 border border-purple-500/30 text-purple-200 text-xs font-semibold transition-all cursor-pointer"
@@ -451,10 +451,10 @@ export const Header: React.FC = () => {
             <span className="hidden md:inline">+ Log Today's Work</span>
             <span className="md:hidden">Log Work</span>
           </button>
-        )}
+        )} */}
 
         {/* Quick Action: Customer Deposit Slip */}
-        {!isSuperAdmin && (
+        {/* {!isSuperAdmin && (
           <button
             onClick={() => setIsCreateReceiptModalOpen(true)}
             className="hidden md:flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-emerald-500/15 hover:bg-emerald-500/25 border border-emerald-500/30 text-emerald-200 text-xs font-semibold transition-all cursor-pointer"
@@ -462,10 +462,10 @@ export const Header: React.FC = () => {
             <Receipt className="w-3.5 h-3.5 text-emerald-400" />
             <span>+ Customer Deposit Slip</span>
           </button>
-        )}
+        )} */}
 
         {/* HR Quick Action: Biometric Excel */}
-        {isHR || !isSuperAdmin && (
+        {/* {isHR || !isSuperAdmin && (
           <button
             onClick={() => setIsBatchUploadOpen(true)}
             className="hidden lg:flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 text-gray-300 text-xs font-semibold transition-all cursor-pointer"
@@ -473,10 +473,10 @@ export const Header: React.FC = () => {
             <Upload className="w-3.5 h-3.5 text-cyan-400" />
             <span>Upload Biometric Excel</span>
           </button>
-        )}
+        )} */}
 
         {/* Global Search */}
-        {!isSuperAdmin && (
+        {/* {!isSuperAdmin && (
           <button
             onClick={() => setIsSearchOpen(true)}
             className="p-2 sm:px-3 sm:py-1.5 rounded-xl bg-[#09081E] hover:bg-white/5 border border-white/10 text-xs text-gray-400 transition-colors flex items-center gap-2 cursor-pointer"
@@ -485,7 +485,7 @@ export const Header: React.FC = () => {
             <Search className="w-3.5 h-3.5 text-gray-400" />
             <span className="hidden xl:inline text-xs">Search staff, slips, slabs...</span>
           </button>
-        )}
+        )} */}
 
         {/* Role Switcher Pill */}
         {/* Current Role */}
@@ -597,7 +597,7 @@ export const Header: React.FC = () => {
                   <span>My Profile</span>
                   <UserCircle className="w-3.5 h-3.5 text-[#A78BFA]" />
                 </button>
-                <button
+                {/* <button
                   onClick={() => {
                     setActiveTab('daily_work');
                     setIsUserMenuOpen(false);
@@ -606,8 +606,8 @@ export const Header: React.FC = () => {
                 >
                   <span>My Daily Work Submissions</span>
                   <PhoneCall className="w-3.5 h-3.5 text-purple-400" />
-                </button>
-                <button
+                </button> */}
+                {/* <button
                   onClick={() => {
                     setActiveTab('receipts_slabs');
                     setIsUserMenuOpen(false);
@@ -616,7 +616,7 @@ export const Header: React.FC = () => {
                 >
                   <span>Customer Deposit Slips</span>
                   <Receipt className="w-3.5 h-3.5 text-emerald-400" />
-                </button>
+                </button> */}
                 <button
                   onClick={() => {
                     setActiveTab('payroll');

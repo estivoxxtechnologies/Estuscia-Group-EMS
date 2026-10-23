@@ -297,13 +297,13 @@ const AppContent: React.FC = () => {
             MOBILE BOTTOM NAVIGATION
         ==================================================== */}
 
-        <div className="lg:hidden fixed bottom-0 left-0 right-0 h-16 bg-[#09081E]/95 backdrop-blur-md border-t border-white/10 flex items-center justify-around px-2 z-30">
+        {/* <div className="lg:hidden fixed bottom-0 left-0 right-0 h-16 bg-[#09081E]/95 backdrop-blur-md border-t border-white/10 flex items-center justify-around px-2 z-30"> */}
 
           {/* --------------------------------------------------
               DASHBOARD
           -------------------------------------------------- */}
 
-          <button
+          {/* <button
             onClick={() =>
               setActiveTab('dashboard')
             }
@@ -323,14 +323,14 @@ const AppContent: React.FC = () => {
             <span className="text-[10px] mt-0.5 font-medium">
               Overview
             </span>
-          </button>
+          </button> */}
 
 
           {/* --------------------------------------------------
               DAILY WORK
           -------------------------------------------------- */}
 
-          <button
+          {/* <button
             onClick={() =>
               setActiveTab('daily_work')
             }
@@ -350,14 +350,14 @@ const AppContent: React.FC = () => {
             <span className="text-[10px] mt-0.5 font-medium">
               Work
             </span>
-          </button>
+          </button> */}
 
 
           {/* --------------------------------------------------
               ATTENDANCE
           -------------------------------------------------- */}
 
-          <button
+          {/* <button
             onClick={() =>
               setActiveTab('attendance')
             }
@@ -377,14 +377,14 @@ const AppContent: React.FC = () => {
             <span className="text-[10px] mt-0.5 font-medium">
               Attendance
             </span>
-          </button>
+          </button> */}
 
 
           {/* --------------------------------------------------
               RECEIPTS / SLABS
           -------------------------------------------------- */}
 
-          <button
+          {/* <button
             onClick={() =>
               setActiveTab('receipts_slabs')
             }
@@ -405,14 +405,14 @@ const AppContent: React.FC = () => {
             <span className="text-[10px] mt-0.5 font-medium">
               Slips
             </span>
-          </button>
+          </button> */}
 
 
           {/* --------------------------------------------------
               KNOWLEDGE HUB
           -------------------------------------------------- */}
 
-          <button
+          {/* <button
             onClick={() =>
               setActiveTab('knowledge_hub')
             }
@@ -433,9 +433,9 @@ const AppContent: React.FC = () => {
             <span className="text-[10px] mt-0.5 font-medium">
               Academy
             </span>
-          </button>
+          </button> */}
 
-        </div>
+        {/* </div> */}
       </div>
 
 

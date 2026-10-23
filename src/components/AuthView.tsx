@@ -1,57 +1,40 @@
+
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { useApp } from '../context/AppContext';
-import { EstusciaLogo } from './EstusciaLogo';
 import {
-  ShieldCheck,
-  Building2,
-  Users,
-  Briefcase,
-  TrendingUp,
-  Code,
-  Headphones,
   ArrowRight,
-  Lock,
-  Mail,
-  UserCheck,
-  Sparkles,
-  CheckCircle2,
-  Globe,
   Eye,
   EyeOff,
+  LockKeyhole,
+  Mail,
+  ShieldCheck,
+  Globe2,
+  Zap,
 } from 'lucide-react';
-// import { loginUser } from '../api/auth';
+
+import { useApp } from '../context/AppContext';
 
 export const AuthView: React.FC = () => {
-  const [loginError, setLoginError] = useState('');
-  const [isLoggingIn, setIsLoggingIn] = useState(false);
-  const [authMode, setAuthMode] = useState<'login' | 'signup'>('login');
-  const [showPassword, setShowPassword] = useState(false);
-  const [password, setPassword] = useState('');
-  const [email, setEmail] = useState('');
-
-  // Signup form state
-  const [signupType, setSignupType] = useState<'employee' | 'company'>('employee');
-  const [name, setName] = useState('');
-  const [signupEmail, setSignupEmail] = useState('');
-  const [signupPassword, setSignupPassword] = useState('');
-  const [designation, setDesignation] = useState('Investment Advisor');
-  const [department, setDepartment] = useState('Private Client Advisory');
-  const [companyName, setCompanyName] = useState('');
-  const [companyDomain, setCompanyDomain] = useState('');
-  const [plan, setPlan] = useState<'Growth' | 'Enterprise Pro'>('Enterprise Pro');
-  const [currency, setCurrency] = useState('USD ($)');
   const { login } = useApp();
   const navigate = useNavigate();
 
-  const handleLoginSubmit = async (e: React.FormEvent) => {
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
+  const [loginError, setLoginError] = useState('');
+  const [isLoggingIn, setIsLoggingIn] = useState(false);
+  const [logoFailed, setLogoFailed] = useState(false);
+
+  const handleLoginSubmit = async (
+    e: React.FormEvent<HTMLFormElement>,
+  ) => {
     e.preventDefault();
 
     setLoginError('');
     setIsLoggingIn(true);
 
     try {
-      const success = await login(email, password);
+      const success = await login(email.trim(), password);
 
       if (!success) {
         setLoginError('Invalid email or password.');
@@ -59,452 +42,264 @@ export const AuthView: React.FC = () => {
       }
 
       navigate('/', { replace: true });
-
-    } catch (error) {
+    } catch (error: unknown) {
       setLoginError(
         error instanceof Error
           ? error.message
-          : 'Login failed.'
+          : 'Login failed. Please try again.',
       );
     } finally {
       setIsLoggingIn(false);
     }
   };
 
-  // const handleSignupSubmit = (e: React.FormEvent) => {
-  //   e.preventDefault();
-  //   if (signupType === 'company') {
-  //     signup(
-  //       {
-  //         name: name || 'Company Admin',
-  //         email: signupEmail || 'admin@clientcorp.com',
-  //         role: 'company_admin',
-  //         designation: 'Managing Director & Platform Owner',
-  //         department: 'Executive Leadership',
-  //       },
-  //       {
-  //         name: companyName || 'Apex Capital Partners',
-  //         domain: companyDomain || 'apexcapital.com',
-  //         plan,
-  //         currency,
-  //         branches: ['Headquarters', 'Branch 1'],
-  //         departments: ['Investment Advisory', 'Operations & HR', 'Technology', 'Risk'],
-  //       }
-  //     );
-  //   } else {
-  //     signup({
-  //       name: name || 'New Team Member',
-  //       email: signupEmail || 'member@estusciagroup.com',
-  //       role: designation.toLowerCase().includes('developer')
-  //         ? 'developer'
-  //         : designation.toLowerCase().includes('hr')
-  //           ? 'hr_ops'
-  //           : 'staff',
-  //       designation,
-  //       department,
-  //     });
-  //   }
-  // };
-  //   {
-  //     role: 'super_admin' as Role,
-  //     label: 'Super Admin / Executive',
-  //     name: 'Alexander Sterling',
-  //     email: 'alexander.sterling@estusciagroup.com',
-  //     badge: 'Full Executive Access',
-  //     desc: 'Company progression, financial slabs, client onboarding & global controls',
-  //     icon: <ShieldCheck className="w-5 h-5 text-amber-400" />,
-  //     color: 'border-amber-500/30 hover:border-amber-500/60 bg-amber-500/5',
-  //   },
-  //   {
-  //     role: 'company_admin' as Role,
-  //     label: 'Company Admin / COO',
-  //     name: 'Elena Rostova',
-  //     email: 'elena.rostova@estusciagroup.com',
-  //     badge: 'Admin & Ops',
-  //     desc: 'Operations oversight, designation permissions & attendance management',
-  //     icon: <Building2 className="w-5 h-5 text-indigo-400" />,
-  //     color: 'border-indigo-500/30 hover:border-indigo-500/60 bg-indigo-500/5',
-  //   },
-  //   {
-  //     role: 'hr_ops' as Role,
-  //     label: 'HR & Payroll Head',
-  //     name: 'Priya Narang',
-  //     email: 'priya.narang@estusciagroup.com',
-  //     badge: 'HR / Biometric Upload',
-  //     desc: 'Biometric Excel upload, payroll generation, employee onboarding',
-  //     icon: <Users className="w-5 h-5 text-emerald-400" />,
-  //     color: 'border-emerald-500/30 hover:border-emerald-500/60 bg-emerald-500/5',
-  //   },
-  //   {
-  //     role: 'manager' as Role,
-  //     label: 'Branch / Sales Manager',
-  //     name: 'Marcus Vance',
-  //     email: 'marcus.vance@estusciagroup.com',
-  //     badge: 'Team Lead',
-  //     desc: 'Review daily call logs, approve incentive deals & branch performance',
-  //     icon: <Briefcase className="w-5 h-5 text-cyan-400" />,
-  //     color: 'border-cyan-500/30 hover:border-cyan-500/60 bg-cyan-500/5',
-  //   },
-  //   {
-  //     role: 'staff' as Role,
-  //     label: 'Sales Advisor / Staff',
-  //     name: 'Sarah Chen',
-  //     email: 'sarah.chen@estusciagroup.com',
-  //     badge: 'Frontline Sales',
-  //     desc: 'Daily call logger, customer deposit slips, targets & incentives (No company stats)',
-  //     icon: <TrendingUp className="w-5 h-5 text-purple-400" />,
-  //     color: 'border-[#5C3FE0]/40 hover:border-[#5C3FE0]/80 bg-[#5C3FE0]/10',
-  //   },
-  //   {
-  //     role: 'developer' as Role,
-  //     label: 'Software Developer',
-  //     name: 'Rohan Mehta',
-  //     email: 'rohan.mehta@estusciagroup.com',
-  //     badge: 'Engineering',
-  //     desc: 'Daily task narrations, PR submissions, personal attendance & payslips',
-  //     icon: <Code className="w-5 h-5 text-blue-400" />,
-  //     color: 'border-blue-500/30 hover:border-blue-500/60 bg-blue-500/5',
-  //   },
-  // ];
-
   return (
-    <div className="min-h-screen w-full bg-[#040312] text-slate-100 flex flex-col relative overflow-x-hidden font-sans lg:h-screen lg:overflow-hidden">
-      {/* Ambient background glows */}
-      <div className="absolute -top-40 -left-40 w-96 h-96 bg-[#5C3FE0]/15 rounded-full blur-3xl pointer-events-none" />
-      <div className="absolute -bottom-40 -right-40 w-96 h-96 bg-purple-600/10 rounded-full blur-3xl pointer-events-none" />
+    <main className="relative min-h-[100svh] overflow-x-hidden bg-[#040312] font-sans text-slate-100 lg:h-[100svh] lg:overflow-hidden">
+      {/* Background effects */}
+      <div className="pointer-events-none absolute -left-40 -top-40 h-96 w-96 rounded-full bg-indigo-600/15 blur-3xl" />
+      <div className="pointer-events-none absolute -bottom-40 -right-32 h-96 w-96 rounded-full bg-purple-600/15 blur-3xl" />
+      <div className="pointer-events-none absolute right-0 top-0 h-px w-2/3 bg-gradient-to-l from-purple-500/60 to-transparent" />
 
-      {/* Top Header */}
-      <header className="relative z-10 w-full px-6 lg:px-12 py-5 flex items-center justify-between border-b border-white/5 bg-[#040312]/60 backdrop-blur-md">
-        <div className="flex items-center gap-3">
-          <EstusciaLogo size="md" />
-          <div>
-            <div className="flex items-center gap-2">
-              <span className="font-bold tracking-tight text-white text-base">ESTUSCIA</span>
-              <span className="text-[10px] uppercase font-bold tracking-wider px-2 py-0.5 rounded bg-[#5C3FE0]/20 text-[#5C3FE0] border border-[#5C3FE0]/30">
-                EMS & Ops Platform
-              </span>
-            </div>
-            <p className="text-xs text-gray-400">Enterprise Employee Management & Investment Operations</p>
-          </div>
-        </div>
-
-        <div className="flex items-center gap-4 text-xs text-gray-400">
-          <div className="hidden sm:flex items-center gap-2 px-3 py-1.5 rounded-full bg-white/5 border border-white/10">
-            <Globe className="w-3.5 h-3.5 text-emerald-400" />
-            <span>Multi-Tenant Sovereign Architecture</span>
-          </div>
-        </div>
-      </header>
-
-      {/* Main Content Body */}
-      <main className="flex-1 relative z-10 w-full flex items-center">
-        <div className="max-w-7xl mx-auto w-full px-6 sm:px-8 lg:px-12 py-8 lg:py-6">
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-10 lg:gap-16 w-full items-center min-h-0">
-
-            {/* LEFT — BRANDING */}
-            <div className="flex items-center justify-center lg:justify-start">
-              <div className="w-full max-w-2xl">
-
-                {/* Company Logo */}
+      <div className="relative z-10 mx-auto flex min-h-[100svh] w-full max-w-[1440px] flex-col px-4 py-1 sm:px-8 sm:py-5 lg:h-full lg:min-h-0 lg:px-12 lg:py-7">
+        {/* Main content */}
+        <div className="grid flex-1 grid-cols-1 content-center items-center gap-3 py-0 sm:gap-6 sm:py-4 lg:min-h-0 lg:grid-cols-[1.1fr_0.9fr] lg:gap-16 lg:py-3">
+          {/* Branding section */}
+          <section className="flex min-w-0 flex-col justify-center gap-2 lg:gap-0">
+            {/* Estuscia software logo */}
+            <div className="mb-1 flex h-7 items-center sm:mb-5 sm:h-12 lg:mb-10 lg:h-auto lg:min-h-[110px]">
+              {!logoFailed ? (
                 <img
                   src="/estuscia-logo.png"
-                  alt="Estuscia Group"
-                  className="w-44 sm:w-56 lg:w-72 h-auto max-w-full object-contain mb-5 sm:mb-6"
+                  alt="Estuscia"
+                  onError={() => setLogoFailed(true)}
+                  className="max-h-full w-auto max-w-[145px] object-contain object-left sm:max-w-[190px] lg:max-h-28 lg:max-w-full"
                 />
-
-                {/* Corporate Label */}
-                <p className="text-xs sm:text-sm uppercase tracking-[0.2em] font-semibold text-[#8B7CFF] mb-4">
-                  ESTUSCIA GROUP • CORPORATE BUSINESS ECOSYSTEM
-                </p>
-
-                {/* Main Heading */}
-                <h1 className="text-3xl sm:text-5xl lg:text-[3.8rem] font-bold tracking-tight leading-[1.08] text-white">
-                  Building Businesses.
-                  <br />
-                  <span className="text-white/80">
-                    Creating Opportunities.
+              ) : (
+                <div className="flex items-center gap-2.5">
+                  <div className="flex h-9 w-9 items-center justify-center rounded-lg border border-purple-400/20 bg-purple-500/10 sm:h-11 sm:w-11">
+                    <ShieldCheck className="h-5 w-5 text-purple-300" />
+                  </div>
+                  <span className="text-sm font-semibold text-white sm:text-base">
+                    Estuscia
                   </span>
-                  <br />
-                  <span className="text-[#7C5CFF]">
-                    Empowering the Future.
-                  </span>
-                </h1>
-
-                {/* Description */}
-                {/* <p className="mt-5 sm:mt-6 max-w-xl text-sm sm:text-base leading-6 text-gray-400">
-                  Estuscia Group is a diversified business ecosystem focused on
-                  financial services, business consulting, technology, media, trade,
-                  and startup development. We help entrepreneurs, businesses, and
-                  investors build sustainable long-term growth through strategic
-                  solutions.
-                </p> */}
-
-              </div>
-
+                </div>
+              )}
             </div>
 
-            {/* Right Column: Standard Auth Box */}
-            <div className="w-full flex justify-center lg:justify-end">
-              <div className="w-full max-w-md p-6 sm:p-7 rounded-2xl bg-[#09081E]/95 border border-white/10 shadow-2xl shadow-purple-950/20 backdrop-blur-xl relative">
+            {/* Corporate label: desktop only */}
+            <div className="mb-5 hidden w-fit items-center gap-2 rounded-full border border-purple-500/20 bg-purple-500/[0.07] px-3 py-2 lg:inline-flex">
+              <span className="h-1.5 w-1.5 rounded-full bg-purple-400" />
+              <span className="text-xs font-semibold uppercase tracking-[0.16em] text-purple-200">
+                Estuscia Group · Corporate Ecosystem
+              </span>
+            </div>
 
-                {/* Tab Switcher: Login / Signup */}
-                <div className="flex p-1 rounded-xl bg-black/40 border border-white/10 mb-6">
-                  <button
-                    type="button"
-                    onClick={() => setAuthMode('login')}
-                    className={`flex-1 py-2 rounded-lg text-xs font-bold transition-all ${authMode === 'login'
-                      ? 'bg-[#5C3FE0] text-white shadow-lg shadow-[#5C3FE0]/25'
-                      : 'text-gray-400 hover:text-white'
-                      }`}
-                  >
-                    Account Sign In
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setAuthMode('signup')}
-                    className={`flex-1 py-2 rounded-lg text-xs font-bold transition-all ${authMode === 'signup'
-                      ? 'bg-[#5C3FE0] text-white shadow-lg shadow-[#5C3FE0]/25'
-                      : 'text-gray-400 hover:text-white'
-                      }`}
-                  >
-                    Register / Onboard
-                  </button>
+            {/* Main heading */}
+            <h1 className="max-w-2xl text-[25px] font-bold leading-[1.1] tracking-tight text-white sm:text-4xl sm:leading-[1.12] lg:text-5xl xl:text-6xl">
+              Building Businesses.
+              <br />
+              <span className="text-slate-300">
+                Creating Opportunities.
+              </span>
+              <br />
+              <span className="bg-gradient-to-r from-violet-400 via-purple-400 to-blue-400 bg-clip-text text-transparent">
+                Empowering the Future.
+              </span>
+            </h1>
+
+            {/* Description */}
+            <p className="mt-1 max-w-xl text-xs leading-4 text-gray-400 sm:mt-4 sm:text-sm sm:leading-6 lg:mt-5 lg:text-base lg:leading-7">
+              A unified workspace for employee management and business
+              operations, helping teams manage people, processes, and
+              performance in one place.
+            </p>
+
+            {/* Feature cards: desktop only */}
+            <div className="mt-8 hidden max-w-xl grid-cols-1 gap-4 sm:grid-cols-3 sm:gap-3 lg:grid">
+              <div className="flex items-center gap-3 rounded-xl border border-white/[0.06] bg-white/[0.025] p-3">
+                <ShieldCheck className="h-5 w-5 shrink-0 text-violet-400" />
+                <div>
+                  <p className="text-xs font-semibold text-gray-200">
+                    Secure Access
+                  </p>
+                  <p className="mt-1 text-[10px] text-gray-500">
+                    Protected workspace
+                  </p>
+                </div>
+              </div>
+
+              <div className="flex items-center gap-3 rounded-xl border border-white/[0.06] bg-white/[0.025] p-3">
+                <Globe2 className="h-5 w-5 shrink-0 text-blue-400" />
+                <div>
+                  <p className="text-xs font-semibold text-gray-200">
+                    Multi-Tenant
+                  </p>
+                  <p className="mt-1 text-[10px] text-gray-500">
+                    Company-based access
+                  </p>
+                </div>
+              </div>
+
+              <div className="flex items-center gap-3 rounded-xl border border-white/[0.06] bg-white/[0.025] p-3">
+                <Zap className="h-5 w-5 shrink-0 text-purple-400" />
+                <div>
+                  <p className="text-xs font-semibold text-gray-200">
+                    One Workspace
+                  </p>
+                  <p className="mt-1 text-[10px] text-gray-500">
+                    Streamlined operations
+                  </p>
+                </div>
+              </div>
+            </div>
+          </section>
+
+          {/* Login card */}
+          <section className="flex w-full items-center justify-center lg:justify-end">
+            <div className="w-full max-w-md rounded-2xl border border-white/10 bg-[#09081E]/90 p-3.5 shadow-2xl shadow-purple-950/20 backdrop-blur-xl sm:p-7 lg:p-8">
+              <div className="mb-4 sm:mb-7">
+                <div className="mb-2.5 flex h-9 w-9 items-center justify-center rounded-xl border border-purple-400/20 bg-purple-500/10 sm:mb-3 sm:h-11 sm:w-11">
+                  <LockKeyhole className="h-5 w-5 text-purple-300" />
                 </div>
 
-                {authMode === 'login' ? (
-                  /* Login Form */
-                  <form onSubmit={handleLoginSubmit} className="space-y-4">
-                    <div>
-                      <label className="block text-xs font-semibold text-gray-300 mb-1.5">
-                        Employee Email
-                      </label>
-                      <div className="relative">
-                        <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-gray-400">
-                          <Mail className="w-4 h-4" />
-                        </div>
-                        <input
-                          type="email"
-                          value={email}
-                          onChange={(e) => setEmail(e.target.value)}
-                          required
-                          placeholder="your.name@estusciagroup.com"
-                          className="w-full pl-9 pr-3 py-2.5 rounded-xl bg-black/40 border border-white/10 text-white text-xs placeholder-gray-500 focus:outline-none focus:border-[#5C3FE0] focus:ring-1 focus:ring-[#5C3FE0]"
-                        />
-                      </div>
-                    </div>
+                <h2 className="text-xl font-bold text-white sm:text-2xl">
+                  Welcome back
+                </h2>
 
-                    <div>
-                      <div className="flex items-center justify-between mb-1.5">
-                        <label className="text-xs font-semibold text-gray-300">Password</label>
-                        <button
-                          type="button"
-                          onClick={() => alert('Demo platform: Simply click any of the 1-click role buttons or submit with any password!')}
-                          className="text-[11px] text-[#5C3FE0] hover:underline"
-                        >
-                          Forgot password?
-                        </button>
-                      </div>
-                      <div className="relative">
-                        <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-gray-400">
-                          <Lock className="w-4 h-4" />
-                        </div>
-                        <input
-                          type={showPassword ? 'text' : 'password'}
-                          value={password}
-                          onChange={(e) => setPassword(e.target.value)}
-                          required
-                          placeholder="Enter your security password"
-                          className="w-full pl-9 pr-10 py-2.5 rounded-xl bg-black/40 border border-white/10 text-white text-xs placeholder-gray-500 focus:outline-none focus:border-[#5C3FE0] focus:ring-1 focus:ring-[#5C3FE0]"
-                        />
-                        <button
-                          type="button"
-                          onClick={() => setShowPassword(!showPassword)}
-                          className="absolute inset-y-0 right-0 pr-3 flex items-center text-gray-400 hover:text-gray-200"
-                        >
-                          {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-                        </button>
-                      </div>
-                    </div>
+                <p className="mt-1.5 text-xs leading-5 text-gray-400 sm:mt-2 sm:text-sm sm:leading-relaxed">
+                  Sign in with your employee account to access your workspace.
+                </p>
+              </div>
 
-                    {/* Login error message */}
-                    {loginError && (
-                      <div className="rounded-lg border border-red-500/20 bg-red-500/10 px-3 py-2 text-xs text-red-400">
-                        {loginError}
-                      </div>
-                    )}
+              <form
+                onSubmit={handleLoginSubmit}
+                className="space-y-3 sm:space-y-5"
+              >
+                {/* Email */}
+                <div>
+                  <label
+                    htmlFor="login-email"
+                    className="mb-1.5 block text-xs font-semibold text-gray-300 sm:mb-2"
+                  >
+                    Employee Email
+                  </label>
 
-                    {/*Submit Button*/}
-                    <div className="pt-2">
-                      <button
-                        type="submit"
-                        disabled={isLoggingIn}
-                        className="w-full py-3 rounded-xl bg-gradient-to-r from-[#5C3FE0] to-[#7C3AED] hover:from-[#6A4DF4] hover:to-[#8B5CF6] disabled:opacity-50 disabled:cursor-not-allowed text-white font-bold text-xs tracking-wide shadow-lg shadow-[#5C3FE0]/30 transition-all flex items-center justify-center gap-2 group"
-                      >
-                        <UserCheck className="w-4 h-4" />
+                  <div className="relative">
+                    <Mail className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-500" />
 
-                        <span>
-                          {isLoggingIn ? 'Signing In...' : 'Access Sovereign Workspace'}
-                        </span>
+                    <input
+                      id="login-email"
+                      type="email"
+                      autoComplete="username"
+                      value={email}
+                      onChange={(e) => setEmail(e.target.value)}
+                      required
+                      placeholder="your.name@company.com"
+                      className="w-full rounded-xl border border-white/10 bg-black/30 py-2.5 pl-10 pr-3 text-base text-white outline-none transition placeholder:text-gray-600 focus:border-purple-500/70 focus:ring-2 focus:ring-purple-500/10 sm:py-3 sm:text-sm"
+                    />
+                  </div>
+                </div>
 
-                        {!isLoggingIn && (
-                          <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
-                        )}
-                      </button>
-                    </div>
-                  </form>
-                ) : (
-                  /* Signup / Onboard Form */
-                  <form onSubmit={() => { }} className="space-y-3.5">
-                    <div className="flex gap-2 p-1 rounded-lg bg-black/40 border border-white/10 mb-2">
-                      <button
-                        type="button"
-                        onClick={() => setSignupType('employee')}
-                        className={`flex-1 py-1.5 rounded-md text-[11px] font-bold ${signupType === 'employee'
-                          ? 'bg-white/15 text-white'
-                          : 'text-gray-400 hover:text-white'
-                          }`}
-                      >
-                        Join as Employee
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => setSignupType('company')}
-                        className={`flex-1 py-1.5 rounded-md text-[11px] font-bold ${signupType === 'company'
-                          ? 'bg-[#5C3FE0] text-white'
-                          : 'text-gray-400 hover:text-white'
-                          }`}
-                      >
-                        Onboard New Client Company
-                      </button>
-                    </div>
+                {/* Password */}
+                <div>
+                  <label
+                    htmlFor="login-password"
+                    className="mb-1.5 block text-xs font-semibold text-gray-300 sm:mb-2"
+                  >
+                    Password
+                  </label>
 
-                    {signupType === 'company' ? (
-                      <>
-                        <div>
-                          <label className="block text-[11px] font-semibold text-gray-300 mb-1">Company / Firm Name</label>
-                          <input
-                            type="text"
-                            required
-                            value={companyName}
-                            onChange={(e) => setCompanyName(e.target.value)}
-                            placeholder="e.g. Apex Wealth Management LLC"
-                            className="w-full px-3 py-2 rounded-lg bg-black/40 border border-white/10 text-white text-xs focus:outline-none focus:border-[#5C3FE0]"
-                          />
-                        </div>
-                        <div className="grid grid-cols-2 gap-2">
-                          <div>
-                            <label className="block text-[11px] font-semibold text-gray-300 mb-1">Domain</label>
-                            <input
-                              type="text"
-                              value={companyDomain}
-                              onChange={(e) => setCompanyDomain(e.target.value)}
-                              placeholder="apexwealth.com"
-                              className="w-full px-3 py-2 rounded-lg bg-black/40 border border-white/10 text-white text-xs focus:outline-none focus:border-[#5C3FE0]"
-                            />
-                          </div>
-                          <div>
-                            <label className="block text-[11px] font-semibold text-gray-300 mb-1">Currency</label>
-                            <select
-                              value={currency}
-                              onChange={(e) => setCurrency(e.target.value)}
-                              className="w-full px-3 py-2 rounded-lg bg-black/40 border border-white/10 text-white text-xs focus:outline-none focus:border-[#5C3FE0]"
-                            >
-                              <option value="USD ($)">USD ($)</option>
-                              <option value="EUR (€)">EUR (€)</option>
-                              <option value="AED (AED)">AED (AED)</option>
-                              <option value="GBP (£)">GBP (£)</option>
-                              <option value="INR (₹)">INR (₹)</option>
-                            </select>
-                          </div>
-                        </div>
-                      </>
-                    ) : null}
+                  <div className="relative">
+                    <LockKeyhole className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-500" />
 
-                    <div>
-                      <label className="block text-[11px] font-semibold text-gray-300 mb-1">Full Name</label>
-                      <input
-                        type="text"
-                        required
-                        value={name}
-                        onChange={(e) => setName(e.target.value)}
-                        placeholder="e.g. Tariq Mansoor"
-                        className="w-full px-3 py-2 rounded-lg bg-black/40 border border-white/10 text-white text-xs focus:outline-none focus:border-[#5C3FE0]"
-                      />
-                    </div>
+                    <input
+                      id="login-password"
+                      type={showPassword ? 'text' : 'password'}
+                      autoComplete="current-password"
+                      value={password}
+                      onChange={(e) => setPassword(e.target.value)}
+                      required
+                      placeholder="Enter your password"
+                      className="w-full rounded-xl border border-white/10 bg-black/30 py-2.5 pl-10 pr-11 text-base text-white outline-none transition placeholder:text-gray-600 focus:border-purple-500/70 focus:ring-2 focus:ring-purple-500/10 sm:py-3 sm:text-sm"
+                    />
 
-                    <div>
-                      <label className="block text-[11px] font-semibold text-gray-300 mb-1">Work Email</label>
-                      <input
-                        type="email"
-                        required
-                        value={signupEmail}
-                        onChange={(e) => setSignupEmail(e.target.value)}
-                        placeholder="tariq@estusciagroup.com"
-                        className="w-full px-3 py-2 rounded-lg bg-black/40 border border-white/10 text-white text-xs focus:outline-none focus:border-[#5C3FE0]"
-                      />
-                    </div>
+                    <button
+                      type="button"
+                      aria-label={
+                        showPassword ? 'Hide password' : 'Show password'
+                      }
+                      aria-pressed={showPassword}
+                      onClick={() =>
+                        setShowPassword((previous) => !previous)
+                      }
+                      className="absolute right-3 top-1/2 -translate-y-1/2 rounded-md p-1 text-gray-500 transition hover:text-white focus:outline-none focus:ring-2 focus:ring-purple-500/50"
+                    >
+                      {showPassword ? (
+                        <EyeOff className="h-4 w-4" />
+                      ) : (
+                        <Eye className="h-4 w-4" />
+                      )}
+                    </button>
+                  </div>
+                </div>
 
-                    {signupType === 'employee' ? (
-                      <div className="grid grid-cols-2 gap-2">
-                        <div>
-                          <label className="block text-[11px] font-semibold text-gray-300 mb-1">Designation</label>
-                          <select
-                            value={designation}
-                            onChange={(e) => setDesignation(e.target.value)}
-                            className="w-full px-3 py-2 rounded-lg bg-black/40 border border-white/10 text-white text-xs focus:outline-none focus:border-[#5C3FE0]"
-                          >
-                            <option value="Investment Advisor">Investment Advisor (Sales)</option>
-                            <option value="Client Relationship Manager">Relationship Manager (Sales)</option>
-                            <option value="Senior Full Stack Software Engineer">Software Developer (Tech)</option>
-                            <option value="HR Operations Specialist">HR & Payroll Specialist</option>
-                            <option value="Operations & Client Services">Operations Support</option>
-                          </select>
-                        </div>
-                        <div>
-                          <label className="block text-[11px] font-semibold text-gray-300 mb-1">Department</label>
-                          <select
-                            value={department}
-                            onChange={(e) => setDepartment(e.target.value)}
-                            className="w-full px-3 py-2 rounded-lg bg-black/40 border border-white/10 text-white text-xs focus:outline-none focus:border-[#5C3FE0]"
-                          >
-                            <option value="Private Client Advisory">Private Client Advisory</option>
-                            <option value="Engineering & Tech">Engineering & Tech</option>
-                            <option value="Operations & HR">Operations & HR</option>
-                            <option value="Investment & Wealth">Investment & Wealth</option>
-                          </select>
-                        </div>
-                      </div>
-                    ) : null}
-
-                    <div className="pt-2">
-                      <button
-                        type="submit"
-                        className="w-full py-2.5 rounded-xl bg-[#5C3FE0] hover:bg-[#6A4DF4] text-white font-bold text-xs tracking-wide shadow-lg shadow-[#5C3FE0]/30 transition-all flex items-center justify-center gap-2"
-                      >
-                        <Sparkles className="w-4 h-4" />
-                        <span>
-                          {signupType === 'company' ? 'Register Client Company' : 'Complete Employee Profile'}
-                        </span>
-                      </button>
-                    </div>
-                  </form>
+                {/* Login error */}
+                {loginError && (
+                  <div
+                    role="alert"
+                    className="rounded-xl border border-red-500/20 bg-red-500/[0.08] px-3.5 py-2.5 text-xs leading-relaxed text-red-300"
+                  >
+                    {loginError}
+                  </div>
                 )}
+
+                {/* Submit */}
+                <button
+                  type="submit"
+                  disabled={isLoggingIn}
+                  className="group flex min-h-11 w-full items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-[#5C3FE0] to-[#753AED] px-4 py-3 text-sm font-bold text-white shadow-lg shadow-purple-950/30 transition hover:from-[#6A4DF4] hover:to-[#8750F6] disabled:cursor-not-allowed disabled:opacity-60 sm:min-h-12 sm:py-3.5"
+                >
+                  <span>
+                    {isLoggingIn
+                      ? 'Signing in...'
+                      : 'Sign in to your workspace'}
+                  </span>
+
+                  {!isLoggingIn && (
+                    <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-1" />
+                  )}
+
+                  {isLoggingIn && (
+                    <span className="h-4 w-4 animate-spin rounded-full border-2 border-white/40 border-t-white" />
+                  )}
+                </button>
+              </form>
+
+              {/* Security note */}
+              <div className="mt-2.5 border-t border-white/[0.07] pt-2.5 sm:mt-5 sm:pt-4">
+                <div className="flex items-start gap-2.5 sm:gap-3">
+                  <ShieldCheck className="mt-0.5 h-4 w-4 shrink-0 text-emerald-400" />
+                  <p className="text-[10px] leading-4 text-gray-500 sm:text-[11px] sm:leading-relaxed">
+                    Access is provided according to your account role and
+                    assigned company permissions. Contact your administrator
+                    if you need assistance signing in.
+                  </p>
+                </div>
               </div>
             </div>
-
-          </div>
+          </section>
         </div>
-      </main>
 
-      {/* Footer */}
-      <footer className="relative z-10 w-full px-5 sm:px-6 py-4 border-t border-white/5 text-center text-xs text-gray-500 flex flex-col sm:flex-row items-center justify-between gap-2">
-        <span>© 2026 Estuscia Group Holdings. Sovereign Employee Management & Investment System.</span>
-        <div className="flex items-center gap-4 text-[11px]">
-          <span>Security SLA 99.99%</span>
-          <span>•</span>
-          <span>AES-256 Vault Encryption</span>
-        </div>
-      </footer>
-    </div>
+        {/* Footer: desktop only */}
+        <footer className="hidden items-center justify-between border-t border-white/[0.07] py-4 text-xs text-gray-500 lg:flex">
+          <p>
+            © {new Date().getFullYear()} Estuscia Group. All rights reserved.
+          </p>
+          <p>Employee Management System</p>
+        </footer>
+      </div>
+    </main>
   );
 };
+
+export default AuthView;

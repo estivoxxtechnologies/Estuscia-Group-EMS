@@ -1,74 +1,388 @@
-import React, { useMemo } from 'react';
+
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
-  TrendingUp,
-  Target,
-  Users,
-  CalendarCheck,
-  CreditCard,
-  Video,
-  DollarSign,
-  PhoneCall,
-  Clock,
-  ArrowUpRight,
-  Sparkles,
-  CheckCircle2,
   AlertCircle,
-  FileSpreadsheet,
-  Plus,
-  Play,
-  ChevronRight,
-  Code2,
-  Receipt,
-  UserCheck,
+  ArrowUpRight,
   Building2,
+  CalendarCheck,
+  CheckCircle2,
+  ChevronRight,
+  Clock,
+  CreditCard,
+  FileSpreadsheet,
+  Play,
   RefreshCw,
+  TrendingUp,
+  Users,
+  Video,
+  Wallet,
 } from 'lucide-react';
 
 import { useApp } from '../context/AppContext';
+import {
+  getDashboard,
+  type DashboardResponse,
+  type DashboardCountItem,
+} from '../api/dashboard';
+
+const panel = 'rounded-2xl border border-white/10 bg-[#09081E] p-5';
+
+const numberFormat = new Intl.NumberFormat('en-IN');
+
+const monthLabel = (year: number, month: number) =>
+  new Date(year, month - 1, 1).toLocaleDateString('en-IN', {
+    month: 'short',
+    year: '2-digit',
+  });
+
+const readableStatus = (value: string) =>
+  String(value ?? '')
+    .replace(/([a-z])([A-Z])/g, '$1 $2')
+    .replace(/[_-]/g, ' ');
+
+interface MetricCardProps {
+  label: string;
+  value: string | number;
+  description: string;
+  icon: React.ElementType;
+  color?: 'purple' | 'green' | 'blue' | 'amber' | 'red';
+}
+
+/**
+ * Branch fields supported here:
+ * - id
+ * - tenantId (optional)
+ * - branchName (preferred)
+ * - name (fallback)
+ */
+interface BranchDisplayInfo {
+  id: number | string;
+  tenantId?: number | string | null;
+  branchName?: string | null;
+  name?: string | null;
+}
+
+const MetricCard: React.FC<MetricCardProps> = ({
+  label,
+  value,
+  description,
+  icon: Icon,
+  color = 'purple',
+}) => {
+  const colors: Record<string, string> = {
+    purple: 'bg-purple-500/15 text-purple-300',
+    green: 'bg-emerald-500/15 text-emerald-400',
+    blue: 'bg-cyan-500/15 text-cyan-300',
+    amber: 'bg-amber-500/15 text-amber-300',
+    red: 'bg-red-500/15 text-red-300',
+  };
+
+  return (
+    <div className={`${panel} transition-colors hover:border-white/20`}>
+      <div className="flex items-center justify-between gap-3">
+        <span className="text-xs font-medium text-gray-400">{label}</span>
+        <div className={`rounded-xl p-2 ${colors[color]}`}>
+          <Icon className="h-4 w-4" />
+        </div>
+      </div>
+
+      <div className="mt-3 break-words text-2xl font-bold text-white">
+        {typeof value === 'number' ? numberFormat.format(value) : value}
+      </div>
+
+      <p className="mt-1 text-[11px] leading-relaxed text-gray-500">
+        {description}
+      </p>
+    </div>
+  );
+};
+
+const SectionHeading: React.FC<{
+  title: string;
+  description?: string;
+}> = ({ title, description }) => (
+  <div className="mb-4">
+    <h2 className="text-sm font-bold text-white">{title}</h2>
+    {description && (
+      <p className="mt-1 text-xs text-gray-500">{description}</p>
+    )}
+  </div>
+);
+
+const StatusBreakdown: React.FC<{
+  title: string;
+  items: DashboardCountItem[];
+}> = ({ title, items }) => {
+  const total = items.reduce(
+    (sum, item) => sum + Math.max(0, Number(item.count) || 0),
+    0,
+  );
+
+  return (
+    <section className={panel}>
+      <h3 className="text-sm font-bold text-white">{title}</h3>
+
+      {items.length === 0 ? (
+        <p className="mt-4 text-xs text-gray-500">
+          No records available yet.
+        </p>
+      ) : (
+        <>
+          <div className="mt-2 text-xs text-gray-500">
+            Total:{' '}
+            <span className="font-semibold text-gray-300">
+              {numberFormat.format(total)}
+            </span>
+          </div>
+
+          <div className="mt-4 space-y-4">
+            {items.map((item) => {
+              const count = Math.max(0, Number(item.count) || 0);
+              const percentage = total
+                ? Math.round((count / total) * 100)
+                : 0;
+
+              return (
+                <div key={item.status}>
+                  <div className="mb-1.5 flex justify-between gap-3 text-xs">
+                    <span className="capitalize text-gray-300">
+                      {readableStatus(item.status)}
+                    </span>
+
+                    <span className="shrink-0 font-semibold text-white">
+                      {numberFormat.format(count)}
+                      <span className="ml-1 text-gray-500">
+                        ({percentage}%)
+                      </span>
+                    </span>
+                  </div>
+
+                  <div className="h-2 overflow-hidden rounded-full bg-white/5">
+                    <div
+                      className="h-full rounded-full bg-gradient-to-r from-[#5C3FE0] to-purple-400 transition-all"
+                      style={{ width: `${percentage}%` }}
+                    />
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </>
+      )}
+    </section>
+  );
+};
+
+const MonthlyBars: React.FC<{
+  title: string;
+  data: { year: number; month: number; value: number }[];
+  valueLabel: string;
+}> = ({ title, data, valueLabel }) => {
+  const maximum = Math.max(
+    1,
+    ...data.map((item) => Math.max(0, Number(item.value) || 0)),
+  );
+
+  return (
+    <section className={panel}>
+      <div className="flex items-center justify-between gap-3">
+        <h3 className="text-sm font-bold text-white">{title}</h3>
+        <span className="text-[10px] text-gray-500">{valueLabel}</span>
+      </div>
+
+      {data.length === 0 ? (
+        <p className="mt-5 text-xs text-gray-500">
+          No monthly data available.
+        </p>
+      ) : (
+        <div className="mt-5 flex h-40 items-end gap-2 sm:gap-3">
+          {data.map((item) => {
+            const value = Math.max(0, Number(item.value) || 0);
+            const height =
+              value > 0 ? Math.max(5, (value / maximum) * 100) : 0;
+
+            return (
+              <div
+                key={`${item.year}-${item.month}`}
+                className="flex min-w-0 flex-1 flex-col items-center justify-end gap-2"
+                title={`${monthLabel(item.year, item.month)}: ${numberFormat.format(value)} ${valueLabel}`}
+              >
+                <span className="max-w-full truncate text-[9px] text-gray-400">
+                  {numberFormat.format(value)}
+                </span>
+
+                <div className="flex h-24 w-full items-end">
+                  <div
+                    className="w-full rounded-t-md bg-gradient-to-t from-[#5C3FE0] to-purple-400 transition-all"
+                    style={{ height: `${height}%` }}
+                  />
+                </div>
+
+                <span className="text-center text-[9px] text-gray-500">
+                  {monthLabel(item.year, item.month)}
+                </span>
+              </div>
+            );
+          })}
+        </div>
+      )}
+    </section>
+  );
+};
+
+const QuickLink: React.FC<{
+  title: string;
+  description: string;
+  icon: React.ElementType;
+  color: string;
+  onClick: () => void;
+}> = ({ title, description, icon: Icon, color, onClick }) => (
+  <button
+    type="button"
+    onClick={onClick}
+    className={`${panel} flex items-center justify-between gap-3 text-left transition hover:border-white/25 hover:bg-white/[0.03]`}
+  >
+    <span className="flex min-w-0 items-center gap-3">
+      <span className={`shrink-0 ${color}`}>
+        <Icon className="h-5 w-5" />
+      </span>
+
+      <span className="min-w-0">
+        <span className="block text-xs font-bold text-white">{title}</span>
+        <span className="mt-1 block text-[10px] leading-relaxed text-gray-500">
+          {description}
+        </span>
+      </span>
+    </span>
+
+    <ChevronRight className="h-4 w-4 shrink-0 text-gray-500" />
+  </button>
+);
 
 export const DashboardView: React.FC = () => {
   const {
     currentUser,
-    currentTenant,
-    activeSlabVersion,
-    attendanceRecords,
-    staffTargets,
-    incentiveTransactions,
-    dailyWorkLogs,
-    customerReceipts,
-    payslips,
-    leaveRequests,
+    selectedBranchId,
+    branches,
     setActiveTab,
     setIsBatchUploadOpen,
-    setIsWorkLogModalOpen,
-    setIsCreateReceiptModalOpen,
-    setSelectedReceiptForView,
   } = useApp();
 
-  if (!currentUser || !currentTenant) {
-    return (
-      <div className="flex min-h-[400px] items-center justify-center">
-        <div className="text-center">
-          <div className="mx-auto mb-3 h-8 w-8 animate-spin rounded-full border-2 border-purple-500 border-t-transparent" />
-          <p className="text-sm text-gray-400">
-            Loading your workspace...
-          </p>
-        </div>
-      </div>
-    );
-  }
+  const [data, setData] = useState<DashboardResponse | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
 
-  /*
-   * ============================================================
-   * ROLE
-   * ============================================================
+  // Prevent an older request from overwriting data for a newer selection.
+  const dashboardRequestId = useRef(0);
+
+  const roleName = (
+    currentUser?.roleName ??
+    currentUser?.role ??
+    ''
+  )
+    .trim()
+    .toLowerCase();
+
+  const canSelectBranch =
+    roleName === 'company_admin' || roleName === 'hr_ops';
+
+  /**
+   * Resolve the selected branch name using the branch ID.
+   * The branches collection is expected to contain branches
+   * already loaded for the current user's authorized tenant.
+   *
+   * If tenantId is present on a branch, verify that it matches
+   * the current user's tenant before using the branch.
    */
+  const selectedBranchName = React.useMemo(() => {
+    if (selectedBranchId == null || !branches?.length) {
+      return undefined;
+    }
+
+    const tenantId = currentUser?.tenantId;
+
+    const matchingBranch = (
+      branches as unknown as BranchDisplayInfo[]
+    ).find((branch) => {
+      if (Number(branch.id) !== Number(selectedBranchId)) {
+        return false;
+      }
+
+      // If the branch has no tenant ID, rely on the tenant-scoped
+      // branches collection supplied by AppContext.
+      if (
+        branch.tenantId == null ||
+        tenantId == null
+      ) {
+        return true;
+      }
+
+      return Number(branch.tenantId) === Number(tenantId);
+    });
+
+    return (
+      matchingBranch?.branchName?.trim() ||
+      matchingBranch?.name?.trim() ||
+      undefined
+    );
+  }, [branches, currentUser?.tenantId, selectedBranchId]);
+
+  const activeBranchesValue: string | number =
+    selectedBranchId != null
+      ? selectedBranchName ?? `Branch ID: ${selectedBranchId}`
+      : data?.kpis.activeBranches ?? 0;
+
+  const loadDashboard = useCallback(async () => {
+    const requestId = ++dashboardRequestId.current;
+
+    setLoading(true);
+    setError('');
+
+    try {
+      const result = await getDashboard({
+        branchId: canSelectBranch ? selectedBranchId : undefined,
+      });
+
+      if (requestId !== dashboardRequestId.current) return;
+
+      setData(result);
+    } catch (err) {
+      if (requestId !== dashboardRequestId.current) return;
+
+      setError(
+        err instanceof Error
+          ? err.message
+          : 'Unable to load dashboard data.',
+      );
+    } finally {
+      if (requestId === dashboardRequestId.current) {
+        setLoading(false);
+      }
+    }
+  }, [canSelectBranch, selectedBranchId]);
+
+  useEffect(() => {
+    if (!currentUser) {
+      setData(null);
+      setLoading(false);
+      return;
+    }
+
+    void loadDashboard();
+
+    return () => {
+      dashboardRequestId.current += 1;
+    };
+  }, [currentUser, loadDashboard]);
 
   const role = (
-    currentUser.roleName ||
-    currentUser.role ||
+    data?.role ||
+    currentUser?.roleName ||
+    currentUser?.role ||
     ''
-  ).toLowerCase();
+  )
+    .trim()
+    .toLowerCase();
 
   const isSalesStaff = role === 'sales_staff';
   const isSupportStaff = role === 'support_staff';
@@ -77,1313 +391,482 @@ export const DashboardView: React.FC = () => {
   const isManager = role === 'branch_manager';
   const isCompanyAdmin = role === 'company_admin';
   const isSuperAdmin = role === 'super_admin';
+  const isKnowledgeTrainer = role === 'knowledge_trainer';
 
-  /*
-   * SuperAdmin has a completely separate dashboard.
-   *
-   * App.tsx already routes SuperAdminDashboard for super_admin.
-   * This guard is intentionally kept here as a second safety layer.
-   */
+  const isManagement = isManager || isCompanyAdmin || isHR;
 
-  if (isSuperAdmin) {
-    return null;
+  const isIndividual =
+    isSalesStaff ||
+    isSupportStaff ||
+    isDeveloper ||
+    isKnowledgeTrainer;
+
+  if (!currentUser) {
+    return (
+      <div className="flex min-h-[300px] items-center justify-center text-sm text-gray-400">
+        Loading your workspace...
+      </div>
+    );
   }
 
-  const isManagement =
-    isManager ||
-    isCompanyAdmin ||
-    isHR;
-
-  /*
-   * ============================================================
-   * CURRENT USER ID
-   * ============================================================
-   *
-   * Existing AppContext versions have used both `id` and
-   * `userId`, so support both safely.
-   */
-
-  const currentUserId =
-    currentUser.id ??
-    currentUser.userId;
-
-  /*
-   * ============================================================
-   * TODAY
-   * ============================================================
-   */
-
-  const today =
-    new Date()
-      .toISOString()
-      .substring(0, 10);
-
-  /*
-   * ============================================================
-   * DAILY WORK
-   * ============================================================
-   *
-   * The current backend DailyWorkLog supports Sales metrics:
-   *
-   * CallsMade
-   * CallsConnected
-   * LeadsRespondedWell
-   * FollowUpsScheduled
-   *
-   * No dealsPitched / closingInvestmentAmount are used here.
-   */
-
-  const salesWorkLogs = useMemo(() => {
-    return dailyWorkLogs.filter((log: any) => {
-      const workType = log.workType;
-
-      return (
-        workType === 0 ||
-        workType === 'Sales' ||
-        workType === 'sales'
-      );
-    });
-  }, [dailyWorkLogs]);
-
-  const todaySalesLogs = useMemo(() => {
-    return salesWorkLogs.filter((log: any) => {
-      const workDate =
-        log.workDate ??
-        log.date;
-
-      return workDate === today;
-    });
-  }, [salesWorkLogs, today]);
-
-  const todayUserLog = useMemo(() => {
-    return salesWorkLogs.find((log: any) => {
-      const userId =
-        log.userId ??
-        log.user?.id;
-
-      const workDate =
-        log.workDate ??
-        log.date;
-
-      return (
-        userId === currentUserId &&
-        workDate === today
-      );
-    });
-  }, [
-    salesWorkLogs,
-    currentUserId,
-    today,
-  ]);
-
-  /*
-   * ============================================================
-   * SALES METRICS
-   * ============================================================
-   */
-
-  const totalCallsToday = useMemo(() => {
-    return todaySalesLogs.reduce(
-      (total: number, log: any) =>
-        total +
-        (log.callsMade ?? 0),
-      0
+  if (loading && !data) {
+    return (
+      <div className="flex min-h-[300px] flex-col items-center justify-center gap-3">
+        <div className="h-8 w-8 animate-spin rounded-full border-2 border-purple-500 border-t-transparent" />
+        <p className="text-sm text-gray-400">Loading your dashboard...</p>
+      </div>
     );
-  }, [todaySalesLogs]);
+  }
 
-  const totalConnectedToday = useMemo(() => {
-    return todaySalesLogs.reduce(
-      (total: number, log: any) =>
-        total +
-        (log.callsConnected ?? 0),
-      0
+  if (error && !data) {
+    return (
+      <div className={`${panel} flex flex-col items-start gap-3`}>
+        <div className="flex items-center gap-2 text-red-300">
+          <AlertCircle className="h-5 w-5" />
+          <h2 className="font-semibold">Dashboard could not load</h2>
+        </div>
+
+        <p className="text-sm text-gray-400">{error}</p>
+
+        <button
+          type="button"
+          onClick={() => void loadDashboard()}
+          className="flex items-center gap-2 rounded-xl bg-purple-600 px-4 py-2 text-sm font-semibold text-white hover:bg-purple-500"
+        >
+          <RefreshCw className="h-4 w-4" />
+          Try again
+        </button>
+      </div>
     );
-  }, [todaySalesLogs]);
+  }
 
-  const totalHotLeadsToday = useMemo(() => {
-    return todaySalesLogs.reduce(
-      (total: number, log: any) =>
-        total +
-        (log.leadsRespondedWell ?? 0),
-      0
-    );
-  }, [todaySalesLogs]);
+  if (!data) return null;
 
-  const totalFollowUpsToday = useMemo(() => {
-    return todaySalesLogs.reduce(
-      (total: number, log: any) =>
-        total +
-        (log.followUpsScheduled ?? 0),
-      0
-    );
-  }, [todaySalesLogs]);
+  const { kpis, charts } = data;
 
-  /*
-   * ============================================================
-   * PERSONAL TARGET
-   * ============================================================
-   */
+  const heading = isSuperAdmin
+    ? 'Platform Overview'
+    : isCompanyAdmin
+      ? 'Company Overview'
+      : isHR
+        ? 'HR Operations'
+        : isManager
+          ? 'Branch Overview'
+          : isSalesStaff
+            ? 'Sales Performance'
+            : isDeveloper
+              ? 'Developer Workspace'
+              : isSupportStaff
+                ? 'Support Operations'
+                : isKnowledgeTrainer
+                  ? 'Learning & Training'
+                  : 'Dashboard';
 
-  const staffTarget =
-    staffTargets.find(
-      (target: any) =>
-        target.userId === currentUserId
-    ) ??
-    (isSalesStaff
-      ? staffTargets[0]
-      : null) ??
-    null;
+  const description = isSuperAdmin
+    ? 'Tenant growth, branches, users and subscription payment overview.'
+    : isCompanyAdmin
+      ? `Operational and workforce overview for ${currentUser.tenantName ?? 'your company'}.`
+      : isHR
+        ? 'Workforce attendance, leave requests, payroll and salary approvals.'
+        : isManager
+          ? 'Branch attendance, employee activity and operational progress.'
+          : isSalesStaff
+            ? 'Your daily sales activity, work logs and monthly performance.'
+            : isDeveloper
+              ? 'Your engineering activity, attendance and task progress.'
+              : isSupportStaff
+                ? 'Your work activity, attendance and operational information.'
+                : isKnowledgeTrainer
+                  ? 'Learning activity, work records and attendance.'
+                  : 'Your workspace overview.';
 
-  const targetPercent =
-    staffTarget &&
-    Number(staffTarget.targetAmount) > 0
-      ? Math.min(
-          100,
-          Math.round(
-            (Number(
-              staffTarget.achievedAmount
-            ) /
-              Number(
-                staffTarget.targetAmount
-              )) *
-              100
-          )
-        )
-      : 0;
-
-  /*
-   * ============================================================
-   * ATTENDANCE
-   * ============================================================
-   */
-
-  const userTodayAttendance =
-    attendanceRecords.find(
-      (record: any) =>
-        record.userId === currentUserId &&
-        (
-          record.date === today ||
-          record.attendanceDate === today
-        )
-    ) ??
-    attendanceRecords.find(
-      (record: any) =>
-        record.userId === currentUserId
-    ) ??
-    null;
-
-  /*
-   * ============================================================
-   * HR / LEAVE
-   * ============================================================
-   */
-
-  const pendingLeaves =
-    leaveRequests.filter(
-      (leave: any) =>
-        leave.status === 'Pending'
-    );
-
-  /*
-   * ============================================================
-   * INCENTIVES
-   * ============================================================
-   */
-
-  const pendingDeals =
-    incentiveTransactions.filter(
-      (transaction: any) =>
-        transaction.status ===
-          'Pending_Manager' ||
-        transaction.status ===
-          'Verified_Manager'
-    );
-
-  /*
-   * ============================================================
-   * RECEIPTS
-   * ============================================================
-   */
-
-  const totalDepositAmount =
-    customerReceipts.reduce(
-      (total: number, receipt: any) =>
-        total +
-        Number(
-          receipt.depositAmount ?? 0
-        ),
-      0
-    );
-
-  /*
-   * ============================================================
-   * RECENT SALES WORK
-   * ============================================================
-   */
-
-  const recentSalesLogs =
-    salesWorkLogs.slice(0, 3);
-
-  /*
-   * ============================================================
-   * HELPER
-   * ============================================================
-   */
-
-  const getUserName = (log: any) =>
-    log.user?.fullName ??
-    log.userName ??
-    'Unknown Employee';
-
-  const getUserDesignation = (
-    log: any
-  ) =>
-    log.user?.designation ??
-    log.designation ??
-    'Sales Staff';
-
-  const getAvatarUrl = (log: any) =>
-    log.user?.avatarUrl ??
-    log.userAvatar ??
-    '';
-
-  const getWorkDate = (log: any) =>
-    log.workDate ??
-    log.date ??
-    '—';
-
-  /*
-   * ============================================================
-   * RENDER
-   * ============================================================
-   */
+  const priorityItems = (
+    charts.developerTaskPriority as Array<{
+      priority?: string;
+      status?: string;
+      count: number;
+    }>
+  ).map((item) => ({
+    status: item.priority ?? item.status ?? 'Unknown',
+    count: item.count,
+  }));
 
   return (
     <div className="space-y-6 pb-12">
-
-      {/* ======================================================
-          TOP BANNER
-          ====================================================== */}
-
-      <div className="flex flex-col items-start justify-between gap-4 border-b border-white/5 pb-4 sm:flex-row sm:items-center">
-
+      <header className="flex flex-col justify-between gap-4 border-b border-white/5 pb-5 sm:flex-row sm:items-center">
         <div>
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2">
             <h1 className="text-xl font-bold tracking-tight text-white">
-              Welcome back,{' '}
-              {currentUser.name ??
-                currentUser.fullName ??
-                currentUser.username}
+              {heading}
             </h1>
 
             {currentUser.designation && (
-              <span className="rounded-full border border-[#5C3FE0]/30 bg-[#5C3FE0]/20 px-2 py-0.5 text-[10px] font-bold text-[#A78BFA]">
+              <span className="rounded-full border border-purple-500/30 bg-purple-500/15 px-2 py-1 text-[10px] font-semibold text-purple-300">
                 {currentUser.designation}
               </span>
             )}
           </div>
 
-          <p className="mt-0.5 text-xs text-gray-400">
-            {isSalesStaff &&
-              "Today's sales activity, outreach and personal performance."}
+          <p className="mt-1 text-xs text-gray-400">{description}</p>
 
-            {isSupportStaff &&
-              "Daily operations, attendance, customer activity and support work."}
-
-            {isDeveloper &&
-              "Engineering activity, attendance, knowledge hub and payroll."}
-
-            {isHR &&
-              "Attendance, staff operations, leave management and payroll."}
-
-            {isManager &&
-              "Branch sales activity, team outreach and operational approvals."}
-
-            {isCompanyAdmin &&
-              `Operational overview for ${currentTenant.name}.`}
+          <p className="mt-1 text-[10px] text-gray-600">
+            Updated {new Date(data.generatedAtUtc).toLocaleString('en-IN')}
           </p>
         </div>
 
-        {/* ====================================================
-            ACTION BUTTONS
-            ==================================================== */}
-
-        <div className="flex flex-wrap items-center gap-2.5">
-
-          {/* Sales staff only */}
-          {isSalesStaff && (
-            <button
-              type="button"
-              onClick={() =>
-                setIsWorkLogModalOpen(true)
-              }
-              className="flex items-center gap-1.5 rounded-xl bg-purple-600 px-3.5 py-2 text-xs font-bold text-white shadow-lg shadow-purple-900/30 transition-all hover:bg-purple-500"
-            >
-              <PhoneCall className="h-3.5 w-3.5" />
-              <span>
-                + Log Daily Work
-              </span>
-            </button>
-          )}
-
-          {/* Customer receipt access */}
-          {(isSalesStaff ||
-            isManager ||
-            isCompanyAdmin) && (
-            <button
-              type="button"
-              onClick={() =>
-                setIsCreateReceiptModalOpen(
-                  true
-                )
-              }
-              className="flex items-center gap-1.5 rounded-xl bg-emerald-600 px-3.5 py-2 text-xs font-bold text-white shadow-lg shadow-emerald-950/30 transition-all hover:bg-emerald-500"
-            >
-              <Receipt className="h-3.5 w-3.5" />
-              <span>
-                + Issue Customer Slip
-              </span>
-            </button>
-          )}
-
-          {/* HR only */}
+        <div className="flex flex-wrap gap-2">
           {isHR && (
             <button
               type="button"
-              onClick={() =>
-                setIsBatchUploadOpen(true)
-              }
-              className="flex items-center gap-1.5 rounded-xl bg-[#5C3FE0] px-3.5 py-2 text-xs font-bold text-white shadow-lg transition-all hover:bg-[#6A4DF4]"
+              onClick={() => setIsBatchUploadOpen(true)}
+              className="flex items-center gap-2 rounded-xl bg-purple-600 px-3.5 py-2 text-xs font-bold text-white hover:bg-purple-500"
             >
-              <FileSpreadsheet className="h-3.5 w-3.5" />
-              <span>
-                Import Excel Attendance
-              </span>
+              <FileSpreadsheet className="h-4 w-4" />
+              Import Attendance
             </button>
           )}
+
+          <button
+            type="button"
+            disabled={loading}
+            onClick={() => void loadDashboard()}
+            className="flex items-center gap-2 rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-xs font-semibold text-gray-300 hover:bg-white/10 disabled:opacity-50"
+          >
+            <RefreshCw
+              className={`h-3.5 w-3.5 ${loading ? 'animate-spin' : ''}`}
+            />
+            Refresh
+          </button>
         </div>
-      </div>
+      </header>
 
-      {/* ======================================================
-          SALES STAFF DASHBOARD
-          ====================================================== */}
+      {error && (
+        <div className="flex items-center justify-between gap-3 rounded-xl border border-amber-500/20 bg-amber-500/5 p-3 text-xs text-amber-200">
+          <span>
+            Refresh failed. Showing the last successfully loaded dashboard.
+          </span>
 
-      {isSalesStaff && (
-        <>
+          <button
+            type="button"
+            onClick={() => void loadDashboard()}
+            className="shrink-0 underline"
+          >
+            Retry
+          </button>
+        </div>
+      )}
+
+      {isSuperAdmin && data.superAdmin && (
+        <section>
+          <SectionHeading
+            title="Platform Statistics"
+            description="Company-wide platform and tenant information."
+          />
+
           <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
-
-            {/* Calls */}
-            <div className="rounded-2xl border border-white/10 bg-[#09081E] p-4">
-              <div className="flex items-center justify-between">
-                <span className="text-[11px] font-medium text-gray-400">
-                  My Calls Today
-                </span>
-
-                <div className="rounded-xl bg-purple-500/15 p-2 text-purple-300">
-                  <PhoneCall className="h-4 w-4" />
-                </div>
-              </div>
-
-              <h3 className="mt-1 text-2xl font-bold text-white">
-                {todayUserLog?.callsMade ??
-                  0}
-              </h3>
-
-              <span className="text-[10px] font-medium text-emerald-400">
-                {todayUserLog?.leadsRespondedWell ??
-                  0}{' '}
-                Responded Well
-              </span>
-            </div>
-
-            {/* Target */}
-            <div className="rounded-2xl border border-white/10 bg-[#09081E] p-4">
-              <div className="flex items-center justify-between">
-                <span className="text-[11px] font-medium text-gray-400">
-                  Personal Target
-                </span>
-
-                <div className="rounded-xl bg-[#5C3FE0]/15 p-2 text-[#A78BFA]">
-                  <Target className="h-4 w-4" />
-                </div>
-              </div>
-
-              <h3 className="mt-1 text-2xl font-bold text-white">
-                {targetPercent}%
-              </h3>
-
-              <span className="text-[10px] font-medium text-gray-400">
-                {staffTarget
-                  ? `${Number(
-                      staffTarget.achievedAmount
-                    ).toLocaleString()} / ${Number(
-                      staffTarget.targetAmount
-                    ).toLocaleString()}`
-                  : 'No target assigned'}
-              </span>
-            </div>
-
-            {/* Incentive */}
-            <div className="rounded-2xl border border-white/10 bg-[#09081E] p-4">
-              <div className="flex items-center justify-between">
-                <span className="text-[11px] font-medium text-gray-400">
-                  Incentive
-                </span>
-
-                <div className="rounded-xl bg-emerald-500/15 p-2 text-emerald-400">
-                  <DollarSign className="h-4 w-4" />
-                </div>
-              </div>
-
-              <h3 className="mt-1 text-2xl font-bold text-emerald-400">
-                {pendingDeals.filter(
-                  (item: any) =>
-                    item.userId ===
-                    currentUserId
-                ).length}
-              </h3>
-
-              <span className="text-[10px] font-medium text-emerald-500">
-                Pending verification
-              </span>
-            </div>
-
-            {/* Attendance */}
-            <div className="rounded-2xl border border-white/10 bg-[#09081E] p-4">
-              <div className="flex items-center justify-between">
-                <span className="text-[11px] font-medium text-gray-400">
-                  Today's Attendance
-                </span>
-
-                <div className="rounded-xl bg-cyan-500/15 p-2 text-cyan-400">
-                  <CalendarCheck className="h-4 w-4" />
-                </div>
-              </div>
-
-              <h3 className="mt-1 text-lg font-bold text-white">
-                {userTodayAttendance
-                  ? 'Checked In'
-                  : 'Not Checked In'}
-              </h3>
-
-              <span className="text-[10px] font-medium text-cyan-300">
-                {userTodayAttendance
-                  ? `In: ${
-                      userTodayAttendance.inTime ??
-                      userTodayAttendance.checkInTime ??
-                      'Recorded'
-                    }`
-                  : 'No attendance record'}
-              </span>
-            </div>
+            <MetricCard
+              label="Total Tenants"
+              value={data.superAdmin.totalTenants}
+              description="Registered companies"
+              icon={Building2}
+            />
+            <MetricCard
+              label="Active Tenants"
+              value={data.superAdmin.activeTenants}
+              description="Currently active companies"
+              icon={CheckCircle2}
+              color="green"
+            />
+            <MetricCard
+              label="Active Branches"
+              value={kpis.activeBranches}
+              description="Branches in the current scope"
+              icon={Building2}
+              color="blue"
+            />
+            <MetricCard
+              label="Active Users"
+              value={kpis.activeUsers}
+              description="Users in the current scope"
+              icon={Users}
+            />
           </div>
+        </section>
+      )}
+
+      {isManagement && (
+        <>
+          <section>
+            <SectionHeading
+              title="Daily Operations"
+              description="Current attendance and workforce workload."
+            />
+
+            <div className="grid grid-cols-2 gap-4 xl:grid-cols-4">
+              <MetricCard
+                label="Active Employees"
+                value={kpis.activeUsers}
+                description="Active users in your scope"
+                icon={Users}
+              />
+              <MetricCard
+                label="Attendance Records Today"
+                value={kpis.attendanceRecordsToday}
+                description="Attendance entries dated today"
+                icon={CalendarCheck}
+                color="green"
+              />
+              <MetricCard
+                label="Leave Requests"
+                value={kpis.leaveRequests}
+                description="Leave requests in your scope"
+                icon={Clock}
+                color="amber"
+              />
+              <MetricCard
+                label="Active Branches"
+                value={activeBranchesValue}
+                description={
+                  selectedBranchId != null
+                    ? 'Currently selected branch'
+                    : 'Total active branches across your scope'
+                }
+                icon={Building2}
+                color="blue"
+              />
+            </div>
+          </section>
+
+          <section>
+            <SectionHeading
+              title="Monthly Operations"
+              description="Payroll, approvals and work requiring attention."
+            />
+
+            <div className="grid grid-cols-2 gap-4 xl:grid-cols-3">
+              <MetricCard
+                label="Payroll Cycles"
+                value={kpis.payrollCycles}
+                description="Payroll cycles in your scope"
+                icon={CreditCard}
+                color="blue"
+              />
+              <MetricCard
+                label="Payroll Records This Month"
+                value={kpis.payrollRecordsThisMonth}
+                description="Monthly payroll records"
+                icon={CreditCard}
+              />
+              <MetricCard
+                label="Salary Changes Pending"
+                value={kpis.pendingSalaryChanges}
+                description="Pending salary change approvals"
+                icon={TrendingUp}
+                color="amber"
+              />
+            </div>
+          </section>
         </>
       )}
 
-      {/* ======================================================
-          SUPPORT STAFF DASHBOARD
-          ====================================================== */}
+      {isIndividual && (
+        <section>
+          <SectionHeading
+            title="My Daily Overview"
+            description="Work activity and attendance information available to your account."
+          />
 
-      {isSupportStaff && (
-        <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
-
-          <div className="rounded-2xl border border-white/10 bg-[#09081E] p-4">
-            <div className="flex items-center justify-between">
-              <span className="text-[11px] font-medium text-gray-400">
-                Today's Calls
-              </span>
-              <div className="rounded-xl bg-purple-500/15 p-2 text-purple-300">
-                <PhoneCall className="h-4 w-4" />
-              </div>
-            </div>
-
-            <h3 className="mt-1 text-2xl font-bold text-white">
-              {totalCallsToday}
-            </h3>
-
-            <span className="text-[10px] text-purple-300">
-              Sales activity
-            </span>
+          <div className="grid grid-cols-2 gap-4 xl:grid-cols-3">
+            <MetricCard
+              label="Attendance Records Today"
+              value={kpis.attendanceRecordsToday}
+              description="Attendance records returned by the API"
+              icon={CalendarCheck}
+              color="green"
+            />
+            <MetricCard
+              label="My Leave Requests"
+              value={kpis.leaveRequests}
+              description="Leave requests"
+              icon={Clock}
+              color="amber"
+            />
+            <MetricCard
+              label="Payroll Records This Month"
+              value={kpis.payrollRecordsThisMonth}
+              description="Monthly payroll records"
+              icon={CreditCard}
+              color="blue"
+            />
           </div>
-
-          <div className="rounded-2xl border border-white/10 bg-[#09081E] p-4">
-            <div className="flex items-center justify-between">
-              <span className="text-[11px] font-medium text-gray-400">
-                Positive Responses
-              </span>
-              <div className="rounded-xl bg-emerald-500/15 p-2 text-emerald-400">
-                <UserCheck className="h-4 w-4" />
-              </div>
-            </div>
-
-            <h3 className="mt-1 text-2xl font-bold text-emerald-400">
-              {totalHotLeadsToday}
-            </h3>
-
-            <span className="text-[10px] text-emerald-400">
-              Responded well
-            </span>
-          </div>
-
-          <div className="rounded-2xl border border-white/10 bg-[#09081E] p-4">
-            <div className="flex items-center justify-between">
-              <span className="text-[11px] font-medium text-gray-400">
-                Follow-ups
-              </span>
-              <div className="rounded-xl bg-cyan-500/15 p-2 text-cyan-400">
-                <CalendarCheck className="h-4 w-4" />
-              </div>
-            </div>
-
-            <h3 className="mt-1 text-2xl font-bold text-white">
-              {totalFollowUpsToday}
-            </h3>
-
-            <span className="text-[10px] text-cyan-300">
-              Scheduled today
-            </span>
-          </div>
-
-          <div className="rounded-2xl border border-white/10 bg-[#09081E] p-4">
-            <div className="flex items-center justify-between">
-              <span className="text-[11px] font-medium text-gray-400">
-                Attendance
-              </span>
-              <div className="rounded-xl bg-blue-500/15 p-2 text-blue-300">
-                <Clock className="h-4 w-4" />
-              </div>
-            </div>
-
-            <h3 className="mt-1 text-lg font-bold text-white">
-              {userTodayAttendance
-                ? 'Present'
-                : 'Not Recorded'}
-            </h3>
-
-            <span className="text-[10px] text-gray-400">
-              Today's status
-            </span>
-          </div>
-        </div>
+        </section>
       )}
 
-      {/* ======================================================
-          DEVELOPER DASHBOARD
-          ====================================================== */}
+      <section>
+        <SectionHeading
+          title="Attendance & Requests"
+          description="Status breakdowns from the dashboard API."
+        />
 
-      {isDeveloper && (
-        <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
+        <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+          {isSuperAdmin && data.superAdmin && (
+            <StatusBreakdown
+              title="Tenant Payment Status"
+              items={data.superAdmin.paymentStatus}
+            />
+          )}
 
-          <div className="rounded-2xl border border-white/10 bg-[#09081E] p-4">
-            <div className="flex items-center justify-between">
-              <span className="text-[11px] font-medium text-gray-400">
-                Daily Work
-              </span>
+          <StatusBreakdown
+            title="Attendance Status"
+            items={charts.attendanceStatus}
+          />
 
-              <div className="rounded-xl bg-blue-500/15 p-2 text-blue-300">
-                <Code2 className="h-4 w-4" />
-              </div>
-            </div>
+          <StatusBreakdown
+            title="Leave Request Status"
+            items={charts.leaveStatus}
+          />
 
-            <h3 className="mt-1 text-lg font-bold text-white">
-              Coming Soon
-            </h3>
+          {(isCompanyAdmin || isHR) && (
+            <>
+              <StatusBreakdown
+                title="Salary Change Status"
+                items={charts.salaryChangeStatus}
+              />
+              <StatusBreakdown
+                title="Payroll Cycle Status"
+                items={charts.payrollStatus}
+              />
+            </>
+          )}
 
-            <span className="text-[10px] font-medium text-blue-400">
-              Developer work-log module
-            </span>
-          </div>
-
-          <div className="rounded-2xl border border-white/10 bg-[#09081E] p-4">
-            <div className="flex items-center justify-between">
-              <span className="text-[11px] font-medium text-gray-400">
-                Attendance
-              </span>
-
-              <div className="rounded-xl bg-emerald-500/15 p-2 text-emerald-400">
-                <CalendarCheck className="h-4 w-4" />
-              </div>
-            </div>
-
-            <h3 className="mt-1 text-lg font-bold text-emerald-400">
-              {userTodayAttendance
-                ? 'Present'
-                : 'Not Recorded'}
-            </h3>
-
-            <span className="text-[10px] text-gray-400">
-              Office attendance
-            </span>
-          </div>
-
-          <div className="rounded-2xl border border-white/10 bg-[#09081E] p-4">
-            <div className="flex items-center justify-between">
-              <span className="text-[11px] font-medium text-gray-400">
-                Knowledge Hub
-              </span>
-
-              <div className="rounded-xl bg-[#5C3FE0]/15 p-2 text-[#A78BFA]">
-                <Video className="h-4 w-4" />
-              </div>
-            </div>
-
-            <h3 className="mt-1 text-lg font-bold text-purple-300">
-              Available
-            </h3>
-
-            <span className="text-[10px] text-gray-400">
-              CEO masterclasses
-            </span>
-          </div>
-
-          <div className="rounded-2xl border border-white/10 bg-[#09081E] p-4">
-            <div className="flex items-center justify-between">
-              <span className="text-[11px] font-medium text-gray-400">
-                Salary Base
-              </span>
-
-              <div className="rounded-xl bg-cyan-500/15 p-2 text-cyan-400">
-                <CreditCard className="h-4 w-4" />
-              </div>
-            </div>
-
-            <h3 className="mt-1 text-xl font-bold text-white">
-              {Number(
-                currentUser.salaryBase ?? 0
-              ).toLocaleString()}
-            </h3>
-
-            <span className="text-[10px] text-cyan-300">
-              Current salary base
-            </span>
-          </div>
+          {isDeveloper && (
+            <>
+              <StatusBreakdown
+                title="Developer Task Status"
+                items={charts.developerTaskStatus}
+              />
+              <StatusBreakdown
+                title="Developer Task Priority"
+                items={priorityItems}
+              />
+            </>
+          )}
         </div>
-      )}
-
-      {/* ======================================================
-          HR DASHBOARD
-          ====================================================== */}
-
-      {isHR && (
-        <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
-
-          <div className="rounded-2xl border border-white/10 bg-[#09081E] p-4">
-            <div className="flex items-center justify-between">
-              <span className="text-[11px] font-medium text-gray-400">
-                Present Staff
-              </span>
-
-              <div className="rounded-xl bg-emerald-500/15 p-2 text-emerald-400">
-                <Users className="h-4 w-4" />
-              </div>
-            </div>
-
-            <h3 className="mt-1 text-2xl font-bold text-white">
-              {attendanceRecords.length}
-            </h3>
-
-            <span className="text-[10px] text-emerald-400">
-              Attendance records loaded
-            </span>
-          </div>
-
-          <div className="rounded-2xl border border-white/10 bg-[#09081E] p-4">
-            <div className="flex items-center justify-between">
-              <span className="text-[11px] font-medium text-gray-400">
-                Pending Leave
-              </span>
-
-              <div className="rounded-xl bg-amber-500/15 p-2 text-amber-300">
-                <CalendarCheck className="h-4 w-4" />
-              </div>
-            </div>
-
-            <h3 className="mt-1 text-2xl font-bold text-amber-400">
-              {pendingLeaves.length}
-            </h3>
-
-            <span className="text-[10px] text-amber-300">
-              Awaiting HR review
-            </span>
-          </div>
-
-          <div className="rounded-2xl border border-white/10 bg-[#09081E] p-4">
-            <div className="flex items-center justify-between">
-              <span className="text-[11px] font-medium text-gray-400">
-                Sales Work Logs
-              </span>
-
-              <div className="rounded-xl bg-purple-500/15 p-2 text-purple-300">
-                <PhoneCall className="h-4 w-4" />
-              </div>
-            </div>
-
-            <h3 className="mt-1 text-2xl font-bold text-white">
-              {salesWorkLogs.length}
-            </h3>
-
-            <span className="text-[10px] text-purple-300">
-              Sales reports
-            </span>
-          </div>
-
-          <div className="rounded-2xl border border-white/10 bg-[#09081E] p-4">
-            <div className="flex items-center justify-between">
-              <span className="text-[11px] font-medium text-gray-400">
-                Payroll
-              </span>
-
-              <div className="rounded-xl bg-cyan-500/15 p-2 text-cyan-400">
-                <CreditCard className="h-4 w-4" />
-              </div>
-            </div>
-
-            <h3 className="mt-1 text-lg font-bold text-white">
-              Available
-            </h3>
-
-            <span className="text-[10px] text-cyan-300">
-              Open payroll module
-            </span>
-          </div>
-        </div>
-      )}
-
-      {/* ======================================================
-          MANAGER / COMPANY ADMIN
-          ====================================================== */}
-
-      {(isManager ||
-        isCompanyAdmin) && (
-        <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
-
-          {/* Customer custody */}
-          <div className="rounded-2xl border border-white/10 bg-[#09081E] p-4">
-            <div className="flex items-center justify-between">
-              <span className="text-[11px] font-medium text-gray-400">
-                Customer Receipts
-              </span>
-
-              <div className="rounded-xl bg-emerald-500/15 p-2 text-emerald-400">
-                <DollarSign className="h-4 w-4" />
-              </div>
-            </div>
-
-            <h3 className="mt-1 text-2xl font-bold text-white">
-              {customerReceipts.length}
-            </h3>
-
-            <span className="text-[10px] text-emerald-400">
-              Official slips issued
-            </span>
-          </div>
-
-          {/* Team calls */}
-          <div className="rounded-2xl border border-white/10 bg-[#09081E] p-4">
-            <div className="flex items-center justify-between">
-              <span className="text-[11px] font-medium text-gray-400">
-                Team Calls Today
-              </span>
-
-              <div className="rounded-xl bg-purple-500/15 p-2 text-purple-300">
-                <PhoneCall className="h-4 w-4" />
-              </div>
-            </div>
-
-            <h3 className="mt-1 text-2xl font-bold text-white">
-              {totalCallsToday}
-            </h3>
-
-            <span className="text-[10px] text-emerald-400">
-              {totalHotLeadsToday}{' '}
-              positive responses
-            </span>
-          </div>
-
-          {/* Follow-ups */}
-          <div className="rounded-2xl border border-white/10 bg-[#09081E] p-4">
-            <div className="flex items-center justify-between">
-              <span className="text-[11px] font-medium text-gray-400">
-                Follow-ups Today
-              </span>
-
-              <div className="rounded-xl bg-cyan-500/15 p-2 text-cyan-400">
-                <CalendarCheck className="h-4 w-4" />
-              </div>
-            </div>
-
-            <h3 className="mt-1 text-2xl font-bold text-white">
-              {totalFollowUpsToday}
-            </h3>
-
-            <span className="text-[10px] text-cyan-300">
-              Scheduled activities
-            </span>
-          </div>
-
-          {/* Slab */}
-          <div className="rounded-2xl border border-white/10 bg-[#09081E] p-4">
-            <div className="flex items-center justify-between">
-              <span className="text-[11px] font-medium text-gray-400">
-                Active Slab
-              </span>
-
-              <div className="rounded-xl bg-[#5C3FE0]/15 p-2 text-[#A78BFA]">
-                <Sparkles className="h-4 w-4" />
-              </div>
-            </div>
-
-            <h3 className="mt-1 text-lg font-bold text-purple-300">
-              {activeSlabVersion?.versionCode ??
-                '—'}
-            </h3>
-
-            <span className="text-[10px] text-gray-400">
-              Current slab configuration
-            </span>
-          </div>
-        </div>
-      )}
-
-      {/* ======================================================
-          MAIN CONTENT
-          ====================================================== */}
-
-      <div className="grid grid-cols-1 gap-6 lg:grid-cols-12">
-
-        {/* ====================================================
-            LEFT — DAILY SALES ACTIVITY
-            ==================================================== */}
-
-        <div className="space-y-4 lg:col-span-7">
-
-          <div className="space-y-4 rounded-2xl border border-white/10 bg-[#09081E] p-5">
-
-            <div className="flex items-center justify-between border-b border-white/5 pb-3">
-
-              <div className="flex items-center gap-2">
-                <PhoneCall className="h-4 w-4 text-purple-400" />
-
-                <h3 className="text-sm font-bold text-white">
-                  Recent Sales Daily Work
-                </h3>
-              </div>
-
-              <button
-                type="button"
-                onClick={() =>
-                  setActiveTab(
-                    'daily_work'
-                  )
-                }
-                className="flex items-center gap-1 text-xs font-semibold text-[#A78BFA] hover:text-purple-300"
-              >
-                <span>
-                  View All Logs
-                </span>
-
-                <ChevronRight className="h-3.5 w-3.5" />
-              </button>
-            </div>
-
-            {recentSalesLogs.length ===
-            0 ? (
-              <div className="rounded-xl border border-white/5 bg-black/30 p-8 text-center">
-                <PhoneCall className="mx-auto h-7 w-7 text-gray-600" />
-
-                <p className="mt-2 text-xs font-semibold text-gray-300">
-                  No Sales Work Reports
-                </p>
-
-                <p className="mt-1 text-[10px] text-gray-500">
-                  Sales daily work submissions
-                  will appear here.
-                </p>
-
-                {isSalesStaff && (
-                  <button
-                    type="button"
-                    onClick={() =>
-                      setIsWorkLogModalOpen(
-                        true
-                      )
-                    }
-                    className="mx-auto mt-3 flex items-center gap-1.5 rounded-lg bg-[#5C3FE0] px-3 py-1.5 text-[11px] font-semibold text-white"
-                  >
-                    <Plus className="h-3.5 w-3.5" />
-                    Submit Daily Work
-                  </button>
-                )}
-              </div>
-            ) : (
-              <div className="space-y-3">
-
-                {recentSalesLogs.map(
-                  (log: any) => {
-                    const userName =
-                      getUserName(log);
-
-                    const designation =
-                      getUserDesignation(
-                        log
-                      );
-
-                    const avatarUrl =
-                      getAvatarUrl(log);
-
-                    return (
-                      <div
-                        key={log.id}
-                        className="space-y-2 rounded-xl border border-white/5 bg-black/40 p-3.5 transition-all hover:border-white/15"
-                      >
-
-                        <div className="flex items-center justify-between">
-
-                          <div className="flex items-center gap-2.5">
-
-                            {avatarUrl ? (
-                              <img
-                                src={avatarUrl}
-                                alt={userName}
-                                className="h-7 w-7 rounded-full border border-white/10 object-cover"
-                              />
-                            ) : (
-                              <div className="flex h-7 w-7 items-center justify-center rounded-full border border-white/10 bg-[#5C3FE0]/20 text-[10px] font-bold text-[#A78BFA]">
-                                {userName
-                                  .charAt(
-                                    0
-                                  )
-                                  .toUpperCase()}
-                              </div>
-                            )}
-
-                            <div>
-                              <div className="text-xs font-bold text-white">
-                                {userName}
-                              </div>
-
-                              <div className="text-[10px] text-gray-400">
-                                {designation}
-                              </div>
-                            </div>
-                          </div>
-
-                          <div className="flex items-center gap-2">
-
-                            <span className="text-[10px] text-gray-500">
-                              {getWorkDate(
-                                log
-                              )}
-                            </span>
-
-                            <span
-                              className={`rounded-full border px-2 py-0.5 text-[10px] font-semibold ${
-                                log.status ===
-                                'Reviewed'
-                                  ? 'border-emerald-500/30 bg-emerald-500/15 text-emerald-400'
-                                  : log.status ===
-                                      'Rejected'
-                                    ? 'border-red-500/30 bg-red-500/15 text-red-400'
-                                    : 'border-amber-500/30 bg-amber-500/15 text-amber-400'
-                              }`}
-                            >
-                              {log.status ??
-                                'Submitted'}
-                            </span>
-                          </div>
-                        </div>
-
-                        <p className="line-clamp-2 text-xs leading-relaxed text-gray-300">
-                          {log.narration}
-                        </p>
-
-                        <div className="flex items-center gap-3 border-t border-white/5 pt-2 text-[11px] text-gray-400">
-
-                          <span>
-                            Calls:{' '}
-                            <strong className="text-white">
-                              {log.callsMade ??
-                                0}
-                            </strong>
-                          </span>
-
-                          <span>
-                            •
-                          </span>
-
-                          <span>
-                            Connected:{' '}
-                            <strong className="text-purple-300">
-                              {log.callsConnected ??
-                                0}
-                            </strong>
-                          </span>
-
-                          <span>
-                            •
-                          </span>
-
-                          <span>
-                            Responded:{' '}
-                            <strong className="text-emerald-400">
-                              {log.leadsRespondedWell ??
-                                0}
-                            </strong>
-                          </span>
-
-                          <span>
-                            •
-                          </span>
-
-                          <span>
-                            Follow-ups:{' '}
-                            <strong className="text-cyan-300">
-                              {log.followUpsScheduled ??
-                                0}
-                            </strong>
-                          </span>
-                        </div>
-                      </div>
-                    );
-                  }
-                )}
-              </div>
+      </section>
+
+      {(isCompanyAdmin || isHR || isManager || isDeveloper || isIndividual) && (
+        <section>
+          <SectionHeading
+            title="Monthly Trends"
+            description="Historical totals returned by the backend."
+          />
+
+          <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+            <MonthlyBars
+              title="Monthly Attendance Records"
+              data={charts.monthlyAttendance.map((item) => ({
+                year: item.year,
+                month: item.month,
+                value: item.records,
+              }))}
+              valueLabel="Records"
+            />
+
+            {(isCompanyAdmin || isHR) && (
+              <MonthlyBars
+                title="Monthly Net Payroll"
+                data={charts.monthlyPayroll.map((item) => ({
+                  year: item.year,
+                  month: item.month,
+                  value: item.netSalary,
+                }))}
+                valueLabel="Net salary"
+              />
             )}
           </div>
-        </div>
+        </section>
+      )}
 
-        {/* ====================================================
-            RIGHT — CUSTOMER RECEIPTS + KNOWLEDGE HUB
-            ==================================================== */}
+      <section>
+        <SectionHeading
+          title="Quick Access"
+          description="Open the areas relevant to your role."
+        />
 
-        <div className="space-y-4 lg:col-span-5">
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3">
+          {(isCompanyAdmin || isHR || isManager) && (
+            <>
+              <QuickLink
+                title="Attendance"
+                description="Review attendance records and daily attendance status."
+                icon={CalendarCheck}
+                color="text-cyan-300"
+                onClick={() => setActiveTab('attendance')}
+              />
 
-          {/* Customer Slips */}
-          <div className="space-y-3 rounded-2xl border border-white/10 bg-[#09081E] p-5">
+              <QuickLink
+                title="Staff Management"
+                description="Manage staff within your authorized scope."
+                icon={Users}
+                color="text-emerald-300"
+                onClick={() => setActiveTab('staff')}
+              />
 
-            <div className="flex items-center justify-between border-b border-white/5 pb-2">
+              <QuickLink
+                title="Salary & Payroll"
+                description="Review payroll, salaries and payslips."
+                icon={CreditCard}
+                color="text-purple-300"
+                onClick={() => setActiveTab('payroll')}
+              />
+            </>
+          )}
 
-              <div className="flex items-center gap-2">
-                <Receipt className="h-4 w-4 text-emerald-400" />
+          {(isDeveloper ||
+            isSupportStaff ||
+            isKnowledgeTrainer ||
+            isSalesStaff) && (
+            <>
+              <QuickLink
+                title="Salary"
+                description="View your salary details and payslips."
+                icon={Wallet}
+                color="text-purple-300"
+                onClick={() => setActiveTab('payroll')}
+              />
 
-                <h3 className="text-sm font-bold text-white">
-                  Latest Customer Payment Slips
-                </h3>
-              </div>
+              <QuickLink
+                title="My Attendance"
+                description="Review your attendance records."
+                icon={CalendarCheck}
+                color="text-cyan-300"
+                onClick={() => setActiveTab('attendance')}
+              />
+            </>
+          )}
 
-              <button
-                type="button"
-                onClick={() =>
-                  setActiveTab(
-                    'receipts_slabs'
-                  )
-                }
-                className="text-xs font-semibold text-emerald-400 hover:underline"
-              >
-                View All
-              </button>
-            </div>
+          <button
+            type="button"
+            onClick={() => setActiveTab('knowledge_hub')}
+            className="group rounded-2xl border border-purple-500/20 bg-gradient-to-br from-[#120e3a] to-[#09081E] p-5 text-left transition hover:border-purple-500/50"
+          >
+            <span className="flex items-center gap-2 text-sm font-bold text-white">
+              <Video className="h-4 w-4 text-purple-300" />
+              CEO Knowledge Hub
+            </span>
 
-            {customerReceipts.length ===
-            0 ? (
-              <div className="py-6 text-center">
-                <Receipt className="mx-auto h-6 w-6 text-gray-600" />
-
-                <p className="mt-2 text-xs text-gray-400">
-                  No customer slips yet.
-                </p>
-              </div>
-            ) : (
-              <div className="space-y-2.5">
-
-                {customerReceipts
-                  .slice(0, 2)
-                  .map(
-                    (receipt: any) => (
-                      <div
-                        key={receipt.id}
-                        onClick={() =>
-                          setSelectedReceiptForView(
-                            receipt
-                          )
-                        }
-                        className="group cursor-pointer space-y-1 rounded-xl border border-white/5 bg-black/40 p-3 transition-all hover:border-emerald-500/30"
-                      >
-
-                        <div className="flex items-center justify-between text-xs">
-
-                          <span className="font-bold text-white group-hover:text-emerald-300">
-                            {
-                              receipt.customerName
-                            }
-                          </span>
-
-                          <span className="font-bold text-emerald-400">
-                            {Number(
-                              receipt.depositAmount ??
-                                0
-                            ).toLocaleString()}
-                          </span>
-                        </div>
-
-                        <div className="flex items-center justify-between text-[10px] text-gray-400">
-
-                          <span className="font-mono text-purple-300">
-                            {
-                              receipt.receiptNumber
-                            }
-                          </span>
-
-                          <span>
-                            {receipt.slabTierName ??
-                              'Slab'}
-                          </span>
-                        </div>
-                      </div>
-                    )
-                  )}
-              </div>
-            )}
-          </div>
-
-          {/* Knowledge Hub */}
-          <div className="space-y-3 rounded-2xl border border-[#5C3FE0]/30 bg-gradient-to-br from-[#120e3a] to-[#09081E] p-5">
-
-            <div className="flex items-center justify-between">
-
-              <div className="flex items-center gap-2">
-                <Video className="h-4 w-4 text-purple-300" />
-
-                <h3 className="text-sm font-bold text-white">
-                  CEO Knowledge Hub
-                </h3>
-              </div>
-
-              <span className="rounded bg-emerald-500/20 px-2 py-0.5 text-[10px] font-semibold text-emerald-300">
-                Learning
-              </span>
-            </div>
-
-            <p className="text-xs leading-relaxed text-gray-300">
-              Access leadership masterclasses,
-              investment slab education and
-              client advisory training.
+            <p className="mt-2 text-xs leading-relaxed text-gray-400">
+              Access leadership masterclasses and training resources.
             </p>
 
-            <button
-              type="button"
-              onClick={() =>
-                setActiveTab(
-                  'knowledge_hub'
-                )
-              }
-              className="flex w-full items-center justify-center gap-2 rounded-xl bg-[#5C3FE0] py-2.5 text-xs font-bold text-white shadow transition-all hover:bg-[#6A4DF4]"
-            >
-              <Play className="h-3.5 w-3.5 fill-white" />
-
-              <span>
-                Explore Masterclasses
-              </span>
-            </button>
-          </div>
-        </div>
-      </div>
-
-      {/* ======================================================
-          MANAGEMENT QUICK ACTIONS
-          ====================================================== */}
-
-      {isManagement && (
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
-
-          <button
-            type="button"
-            onClick={() =>
-              setActiveTab(
-                'daily_work'
-              )
-            }
-            className="group flex items-center justify-between rounded-2xl border border-white/10 bg-[#09081E] p-4 text-left transition-all hover:border-[#5C3FE0]/40"
-          >
-            <div className="flex items-center gap-3">
-
-              <div className="rounded-xl bg-purple-500/15 p-2.5 text-purple-300">
-                <PhoneCall className="h-4 w-4" />
-              </div>
-
-              <div>
-                <p className="text-xs font-bold text-white">
-                  Review Daily Work
-                </p>
-
-                <p className="mt-0.5 text-[10px] text-gray-500">
-                  Review Sales submissions
-                </p>
-              </div>
-            </div>
-
-            <ArrowUpRight className="h-4 w-4 text-gray-500 transition group-hover:text-[#A78BFA]" />
-          </button>
-
-          <button
-            type="button"
-            onClick={() =>
-              setActiveTab(
-                'attendance'
-              )
-            }
-            className="group flex items-center justify-between rounded-2xl border border-white/10 bg-[#09081E] p-4 text-left transition-all hover:border-cyan-500/30"
-          >
-            <div className="flex items-center gap-3">
-
-              <div className="rounded-xl bg-cyan-500/15 p-2.5 text-cyan-400">
-                <CalendarCheck className="h-4 w-4" />
-              </div>
-
-              <div>
-                <p className="text-xs font-bold text-white">
-                  Attendance
-                </p>
-
-                <p className="mt-0.5 text-[10px] text-gray-500">
-                  View staff attendance
-                </p>
-              </div>
-            </div>
-
-            <ArrowUpRight className="h-4 w-4 text-gray-500 transition group-hover:text-cyan-300" />
-          </button>
-
-          <button
-            type="button"
-            onClick={() =>
-              setActiveTab(
-                'staff'
-              )
-            }
-            className="group flex items-center justify-between rounded-2xl border border-white/10 bg-[#09081E] p-4 text-left transition-all hover:border-emerald-500/30"
-          >
-            <div className="flex items-center gap-3">
-
-              <div className="rounded-xl bg-emerald-500/15 p-2.5 text-emerald-400">
-                <Users className="h-4 w-4" />
-              </div>
-
-              <div>
-                <p className="text-xs font-bold text-white">
-                  Staff Management
-                </p>
-
-                <p className="mt-0.5 text-[10px] text-gray-500">
-                  Manage authorized staff
-                </p>
-              </div>
-            </div>
-
-            <ArrowUpRight className="h-4 w-4 text-gray-500 transition group-hover:text-emerald-300" />
+            <span className="mt-4 flex items-center gap-2 text-xs font-semibold text-purple-300">
+              <Play className="h-3.5 w-3.5" />
+              Explore learning
+              <ArrowUpRight className="h-3.5 w-3.5" />
+            </span>
           </button>
         </div>
-      )}
+      </section>
     </div>
   );
 };

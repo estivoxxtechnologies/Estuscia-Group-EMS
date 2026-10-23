@@ -41,6 +41,14 @@ const PayslipsPage: React.FC<PayslipsPageProps> = ({
     setSelectedPayslipForView,
   } = useApp();
 
+  const role = currentUser?.roleName?.trim().toLowerCase();
+
+  const canViewActions = [
+    'company_admin',
+    'hr_ops',
+    'branch_manager',
+  ].includes(role ?? '');
+
   const [payslips, setPayslips] =
     useState<Payslip[]>([]);
 
@@ -335,8 +343,8 @@ const PayslipsPage: React.FC<PayslipsPageProps> = ({
           >
             <RefreshCw
               className={`w-4 h-4 ${loading
-                  ? 'animate-spin'
-                  : ''
+                ? 'animate-spin'
+                : ''
                 }`}
             />
           </button>
@@ -447,6 +455,7 @@ const PayslipsPage: React.FC<PayslipsPageProps> = ({
       <PayslipTable
         payslips={paginatedPayslips}
         showEmployee={showEmployee}
+        canViewActions={canViewActions}
         onPrint={handlePreviewPayslip}
       />
 
@@ -510,8 +519,8 @@ const PayslipsPage: React.FC<PayslipsPageProps> = ({
                     )
                   }
                   className={`min-w-8 h-8 px-2 rounded-lg text-xs font-semibold border ${safePage === page
-                      ? 'bg-[#5C3FE0] border-[#5C3FE0] text-white'
-                      : 'bg-[#120e38] border-[#2d2770] text-slate-400 hover:text-white'
+                    ? 'bg-[#5C3FE0] border-[#5C3FE0] text-white'
+                    : 'bg-[#120e38] border-[#2d2770] text-slate-400 hover:text-white'
                     }`}
                 >
                   {page}
@@ -553,12 +562,14 @@ const PayslipsPage: React.FC<PayslipsPageProps> = ({
 const PayslipTable: React.FC<{
   payslips: Payslip[];
   showEmployee: boolean;
+  canViewActions: boolean;
   onPrint: (
     payslip: Payslip
   ) => void;
 }> = ({
   payslips,
   showEmployee,
+  canViewActions,
   onPrint,
 }) => (
 
@@ -600,9 +611,11 @@ const PayslipTable: React.FC<{
               Status
             </th>
 
-            <th className="p-3.5">
-              Action
-            </th>
+            {canViewActions && (
+              <th className="p-3.5">
+                Action
+              </th>
+            )}
 
           </tr>
 
@@ -667,30 +680,23 @@ const PayslipTable: React.FC<{
                 />
               </td>
 
-              <td className="p-3.5">
-
-                <button
-                  onClick={() =>
-                    onPrint(slip)
-                  }
-                  disabled={!slip.isLocked}
-                  title={
-                    !slip.isLocked
-                      ? 'Payslip becomes printable after payroll is locked.'
-                      : 'Preview payslip'
-                  }
-                  className="px-3 py-1.5 rounded-lg bg-[#1a144b] hover:bg-[#251d68] disabled:opacity-40 disabled:cursor-not-allowed border border-[#2d2770] text-[#A78BFA] hover:text-white text-xs font-medium transition-colors flex items-center gap-1"
-                >
-
-                  <Printer className="w-3 h-3" />
-
-                  <span>
-                    Preview
-                  </span>
-
-                </button>
-
-              </td>
+              {canViewActions && (
+                <td className="p-3.5">
+                  <button
+                    onClick={() => onPrint(slip)}
+                    disabled={!slip.isLocked}
+                    title={
+                      !slip.isLocked
+                        ? 'Payslip becomes printable after payroll is locked.'
+                        : 'Preview payslip'
+                    }
+                    className="px-3 py-1.5 rounded-lg bg-[#1a144b] hover:bg-[#251d68] disabled:opacity-40 disabled:cursor-not-allowed border border-[#2d2770] text-[#A78BFA] hover:text-white text-xs font-medium transition-colors flex items-center gap-1"
+                  >
+                    <Printer className="w-3 h-3" />
+                    <span>Preview</span>
+                  </button>
+                </td>
+              )}
 
             </tr>
 
