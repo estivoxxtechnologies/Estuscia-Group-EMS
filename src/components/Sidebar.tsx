@@ -199,16 +199,6 @@ export const Sidebar: React.FC = () => {
       // =======================================================
 
       {
-        id: 'knowledge_hub',
-        label: 'CEO Knowledge Hub',
-        icon: <Video className="w-4 h-4" />,
-        badge: 'Videos',
-        badgeColor:
-          'bg-[#5C3FE0]/20 text-[#5C3FE0] border border-[#5C3FE0]/30',
-        section: 'leadership_gov',
-      },
-
-      {
         id: 'company_details',
         label: 'Company Details',
         icon: <Building2 className="w-4 h-4" />,
@@ -257,6 +247,15 @@ export const Sidebar: React.FC = () => {
         icon: <Users className="w-4 h-4" />,
         section: 'leadership_gov',
         superAdminOnly: true,
+      },
+      {
+        id: 'knowledge_hub',
+        label: 'CEO Knowledge Hub',
+        icon: <Video className="w-4 h-4" />,
+        badge: 'Videos',
+        badgeColor:
+          'bg-[#5C3FE0]/20 text-[#5C3FE0] border border-[#5C3FE0]/30',
+        section: 'leadership_gov',
       },
     ];
 
