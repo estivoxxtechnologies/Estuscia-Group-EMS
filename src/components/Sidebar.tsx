@@ -13,12 +13,15 @@ import {
   Building2,
   Code2,
   GitBranch,
+  ClipboardCheck,
   X,
+  CalendarDays,
 } from 'lucide-react';
 
 import { useApp, AppTab } from '../context/AppContext';
 import { EstusciaLogo } from './EstusciaLogo';
 import { getFileUrl } from '../utils/fileUrl';
+import estusciaLogo from '../images/estuscia-logo.png';
 
 export const Sidebar: React.FC = () => {
   const {
@@ -137,6 +140,19 @@ export const Sidebar: React.FC = () => {
         badgeColor:
           'bg-amber-500/20 text-amber-300 border border-amber-500/30',
         section: 'daily_ops',
+      },
+
+      {
+        id: 'monthly_attendance',
+        label: 'Monthly Attendance Verification',
+        icon: <ClipboardCheck className="w-4 h-4" />,
+        section: 'daily_ops',
+      },
+      {
+        id: 'company_holidays',
+        label: 'Holiday Management',
+        icon: <CalendarDays className="w-4 h-4" />,
+        section:'daily_ops'
       },
 
       // =======================================================
@@ -419,50 +435,30 @@ export const Sidebar: React.FC = () => {
 
         {/* Brand */}
 
-        <div className="p-4 sm:p-5 flex items-center justify-between border-b border-white/10 bg-white/[0.01]">
 
-          <div className="flex items-center gap-3">
 
-            <EstusciaLogo size="sm" />
 
-            <div className="flex flex-col min-w-0">
-
-              <div className="flex items-center gap-1.5">
-
-                <span className="text-sm font-bold tracking-tight text-white truncate">
-                  {currentTenant?.name?.split(' ')[0] ??
-                    'Estuscia'}{' '}
-                  EMS
-                </span>
-
-              </div>
-
-              <span className="text-[10px] text-[#5C3FE0] font-semibold uppercase tracking-wider truncate">
-                {currentTenant?.plan ??
-                  'Enterprise'}{' '}
-                •{' '}
-                {currentTenant?.currency?.split(
-                  ' '
-                )[0] ?? 'USD'}
-              </span>
-
-            </div>
-
+        <div className="flex h-[64px] items-center justify-between border-b border-white/10 bg-[#080617] px-4 sm:px-5">
+          <div className="flex min-w-0 flex-1 items-center">
+            <img
+              src={estusciaLogo}
+              alt="Estuscia — Building a Trusted Ecosystem"
+              className="block h-auto w-[210px] max-w-full object-contain object-left"
+            />
           </div>
 
-          {/* Mobile close */}
-
           <button
-            onClick={() =>
-              setIsMobileMenuOpen(false)
-            }
-            className="lg:hidden p-1.5 rounded-lg text-gray-400 hover:text-white hover:bg-white/10"
+            onClick={() => setIsMobileMenuOpen(false)}
+            className="ml-2 shrink-0 rounded-lg p-1.5 text-gray-400 hover:bg-white/10 hover:text-white lg:hidden"
             aria-label="Close navigation"
           >
-            <X className="w-5 h-5" />
+            <X className="h-5 w-5" />
           </button>
-
         </div>
+
+
+
+
 
         {/* =================================================
             NAVIGATION
@@ -531,7 +527,7 @@ export const Sidebar: React.FC = () => {
 
         {/* Logout */}
 
-        <button
+        {/* <button
           onClick={() => {
             setIsMobileMenuOpen(false);
             logout();
@@ -545,7 +541,7 @@ export const Sidebar: React.FC = () => {
             Sign Out / Switch User
           </span>
 
-        </button>
+        </button> */}
 
       </div>
 

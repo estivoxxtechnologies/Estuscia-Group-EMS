@@ -81,7 +81,10 @@ export type AppTab =
   // | 'sales_leads'
   // | 'developer_work'
   | 'company_details'
-  | 'company_admin_management';
+  | 'company_admin_management'
+  | 'monthly_attendance'
+  | 'company_holidays'
+  ;
 
 export type ViewMode = 'portal' | 'public_web';
 
@@ -955,6 +958,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         'receipts_slabs',
         'sales_leads',
         'knowledge_hub',
+        'monthly_attendance',
+        'company_holidays'
       ].includes(tab);
     }
 
@@ -972,6 +977,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         'receipts_slabs',
         'payroll',
         'knowledge_hub',
+        'monthly_attendance',
+        'company_holidays'
       ].includes(tab);
     }
 

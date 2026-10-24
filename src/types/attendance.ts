@@ -260,3 +260,84 @@ export interface AttendanceBatchUploadResponse {
     message: string;
   }[];
 }
+
+
+export type MonthlyAttendanceReportStatus =
+  | 'Draft'
+  | 'Submitted'
+  | 'Approved'
+  | 'Returned';
+
+export interface MonthlyAttendanceEmployeeSummary {
+  id: number;
+  reportId: number;
+  tenantId: number;
+  branchId: number;
+  userId: number;
+  employeeCode: string;
+  employeeName: string;
+
+  // Calendar and attendance totals
+  workingDays: number;
+  presentDays: number;
+  approvedLeaveDays: number;
+  halfDays: number;
+  absentDays: number;
+  lateArrivals: number;
+  missingCheckIns: number;
+  missingCheckOuts: number;
+
+  // Working-hour totals
+  totalWorkedHours: number;
+  requiredWorkingHours: number;
+  daysBelowRequiredHours: number;
+  totalShortageHours: number;
+
+  // Snapshot metadata
+  calculatedAtUtc: string;
+}
+
+export interface MonthlyAttendanceReport {
+  id: number;
+  tenantId: number;
+  branchId: number;
+  branchName: string;
+  year: number;
+  month: number;
+  status: MonthlyAttendanceReportStatus;
+
+  submittedByUserId: number | null;
+  submittedByName: string | null;
+  submittedAtUtc: string | null;
+
+  approvedByUserId: number | null;
+  approvedByName: string | null;
+  approvedAtUtc: string | null;
+
+  returnedByUserId: number | null;
+  returnedByName: string | null;
+  returnedAtUtc: string | null;
+  returnReason: string | null;
+
+  createdAtUtc: string;
+  updatedAtUtc: string | null;
+
+  employees: MonthlyAttendanceEmployeeSummary[];
+}
+
+export interface MonthlyAttendanceReportFilters {
+  year: number;
+  month: number;
+  branchId?: number;
+  status?: MonthlyAttendanceReportStatus;
+}
+
+export interface SubmitMonthlyAttendanceRequest {
+  branchId: number;
+  year: number;
+  month: number;
+}
+
+export interface ReturnMonthlyAttendanceRequest {
+  reason: string;
+}
