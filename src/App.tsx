@@ -49,6 +49,7 @@ import SeniorDeveloperWorkView from './components/SeniorDeveloperWorkView';
 import JuniorDeveloperWorkView from './components/JuniorDeveloperWorkView';
 import CompanyDetailsView from './components/CompanyDetailsView';
 import CompanyHolidays from './components/CompanyHolidays';
+import MonthlyAttendanceView from './components/MonthlyAttendanceView';
 
 
 // ============================================================
@@ -60,6 +61,7 @@ const AppContent: React.FC = () => {
     activeTab,
     setActiveTab,
     currentUser,
+    branches
   } = useApp();
 
 
@@ -209,11 +211,30 @@ const AppContent: React.FC = () => {
       case 'company_details':
         return <CompanyDetailsView />;
 
-      // case 'monthly_attendance':
-      //   return <MonthlyAttendanceView />;
+      case 'monthly_attendance': {
+        const role = currentUser?.roleName?.toLowerCase();
 
-        case 'company_holidays':
-          return <CompanyHolidays />;
+        return (
+          <MonthlyAttendanceView
+            branches={(branches ?? []).map((branch) => ({
+              id: branch.id,
+              name: branch.branchName,
+            }))}
+            canGenerate={
+              role === 'hr_ops' ||  role ==='branch_manager'
+            }
+            canSubmit={
+              role === 'hr_ops' || role ==='branch_manager'
+            }
+            canApprove={
+              role === 'company_admin' ||  role ==='branch_manager'
+            }
+          />
+        );
+      }
+
+      case 'company_holidays':
+        return <CompanyHolidays />;
 
       // ------------------------------------------------------
       // SALES LEADS
@@ -305,11 +326,11 @@ const AppContent: React.FC = () => {
 
         {/* <div className="lg:hidden fixed bottom-0 left-0 right-0 h-16 bg-[#09081E]/95 backdrop-blur-md border-t border-white/10 flex items-center justify-around px-2 z-30"> */}
 
-          {/* --------------------------------------------------
+        {/* --------------------------------------------------
               DASHBOARD
           -------------------------------------------------- */}
 
-          {/* <button
+        {/* <button
             onClick={() =>
               setActiveTab('dashboard')
             }
@@ -332,11 +353,11 @@ const AppContent: React.FC = () => {
           </button> */}
 
 
-          {/* --------------------------------------------------
+        {/* --------------------------------------------------
               DAILY WORK
           -------------------------------------------------- */}
 
-          {/* <button
+        {/* <button
             onClick={() =>
               setActiveTab('daily_work')
             }
@@ -359,11 +380,11 @@ const AppContent: React.FC = () => {
           </button> */}
 
 
-          {/* --------------------------------------------------
+        {/* --------------------------------------------------
               ATTENDANCE
           -------------------------------------------------- */}
 
-          {/* <button
+        {/* <button
             onClick={() =>
               setActiveTab('attendance')
             }
@@ -386,11 +407,11 @@ const AppContent: React.FC = () => {
           </button> */}
 
 
-          {/* --------------------------------------------------
+        {/* --------------------------------------------------
               RECEIPTS / SLABS
           -------------------------------------------------- */}
 
-          {/* <button
+        {/* <button
             onClick={() =>
               setActiveTab('receipts_slabs')
             }
@@ -414,11 +435,11 @@ const AppContent: React.FC = () => {
           </button> */}
 
 
-          {/* --------------------------------------------------
+        {/* --------------------------------------------------
               KNOWLEDGE HUB
           -------------------------------------------------- */}
 
-          {/* <button
+        {/* <button
             onClick={() =>
               setActiveTab('knowledge_hub')
             }
