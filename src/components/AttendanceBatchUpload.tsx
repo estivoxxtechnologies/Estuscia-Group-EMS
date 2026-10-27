@@ -40,34 +40,74 @@ const normalizeHeader = (value: unknown): string => {
     .replace(/[\s_-]+/g, '');
 };
 
-const normalizeTime = (
-  value: unknown,
-): string | null => {
-  if (
-    value === null ||
-    value === undefined ||
-    value === ''
-  ) {
+const normalizeTime = (value: unknown): string | null => {
+  if (value === null || value === undefined || value === '') {
     return null;
   }
 
-  const text = String(value).trim();
+  // Excel may return a Date object for time cells.
+  if (value instanceof Date) {
+    return `${String(value.getHours()).padStart(2, '0')}:${String(
+      value.getMinutes()
+    ).padStart(2, '0')}:00`;
+  }
 
+  // Excel may return a numeric fraction representing time of day.
+  if (typeof value === 'number') {
+    const totalSeconds = Math.round(value * 24 * 60 * 60) % 86400;
+    const hours = Math.floor(totalSeconds / 3600);
+    const minutes = Math.floor((totalSeconds % 3600) / 60);
+    const seconds = totalSeconds % 60;
+
+    return `${String(hours).padStart(2, '0')}:${String(minutes).padStart(
+      2, '0'
+    )}:${String(seconds).padStart(2, '0')}`;
+  }
+
+  const text = String(value).trim();
   if (!text) return null;
 
-  // HH:mm
-  if (/^\d{1,2}:\d{2}$/.test(text)) {
-    const [hour, minute] = text.split(':');
+  // Convert 12-hour time such as "09:10 AM" to "09:10:00".
+  const amPm = text.match(
+    /^(\d{1,2}):(\d{2})(?::(\d{2}))?\s*(AM|PM)$/i
+  );
 
-    return `${hour.padStart(2, '0')}:${minute}`;
+  if (amPm) {
+    let hours = Number(amPm[1]);
+    const minutes = Number(amPm[2]);
+    const seconds = Number(amPm[3] ?? 0);
+    const period = amPm[4].toUpperCase();
+
+    if (hours < 1 || hours > 12 || minutes > 59 || seconds > 59) {
+      return null;
+    }
+
+    if (period === 'AM' && hours === 12) hours = 0;
+    if (period === 'PM' && hours !== 12) hours += 12;
+
+    return `${String(hours).padStart(2, '0')}:${String(minutes).padStart(
+      2, '0'
+    )}:${String(seconds).padStart(2, '0')}`;
   }
 
-  // HH:mm:ss
-  if (/^\d{1,2}:\d{2}:\d{2}$/.test(text)) {
-    return text.slice(0, 5);
+  // Normalize 24-hour time to HH:mm:ss.
+  const time24 = text.match(/^(\d{1,2}):(\d{2})(?::(\d{2}))?$/);
+
+  if (time24) {
+    const hours = Number(time24[1]);
+    const minutes = Number(time24[2]);
+    const seconds = Number(time24[3] ?? 0);
+
+    if (hours > 23 || minutes > 59 || seconds > 59) {
+      return null;
+    }
+
+    return `${String(hours).padStart(2, '0')}:${String(minutes).padStart(
+      2, '0'
+    )}:${String(seconds).padStart(2, '0')}`;
   }
 
-  return text;
+  return null;
 };
 
 const normalizeDate = (
@@ -244,15 +284,15 @@ const AttendanceBatchUpload: React.FC = () => {
 
       const worksheet =
         workbook.Sheets[
-          firstSheetName
+        firstSheetName
         ];
 
-      const json =
-        XLSX.utils.sheet_to_json<
-          Record<string, unknown>
-        >(worksheet, {
-          defval: '',
-        });
+      const json = XLSX.utils.sheet_to_json<
+        Record<string, unknown>
+      >(worksheet, {
+        defval: '',
+        range: 1, // Row 2 contains the column headers
+      });
 
       if (json.length === 0) {
         throw new Error(
@@ -305,21 +345,15 @@ const AttendanceBatchUpload: React.FC = () => {
                 ),
               ) ?? '',
 
-            checkInTime:
-              normalizeTime(
-                getCellValue(
-                  row,
-                  'CheckInTime',
-                ),
-              ),
+            checkInTime: normalizeTime(
+              getCellValue(row, 'CheckInTime') ??
+              getCellValue(row, 'InTime')
+            ),
 
-            checkOutTime:
-              normalizeTime(
-                getCellValue(
-                  row,
-                  'CheckOutTime',
-                ),
-              ),
+            checkOutTime: normalizeTime(
+              getCellValue(row, 'CheckOutTime') ??
+              getCellValue(row, 'OutTime')
+            ),
 
             biometricDeviceId:
               String(
@@ -784,15 +818,14 @@ const AttendanceBatchUpload: React.FC = () => {
 
                   <tr
                     key={`${row.rowNumber}-${row.employeeCode}-${row.date}`}
-                    className={`border-t border-[#1f1a4b] ${
-                      row.isValid
-                        ? ''
-                        : 'bg-rose-500/5'
-                    }`}
+                    className={`border-t border-[#1f1a4b] ${row.isValid
+                      ? ''
+                      : 'bg-rose-500/5'
+                      }`}
                   >
 
                     <td className="px-4 py-3 text-slate-500">
-                      {row.rowNumber}
+                      {row.rowNumber - 1}
                     </td>
 
                     <td className="px-4 py-3">
@@ -839,12 +872,11 @@ const AttendanceBatchUpload: React.FC = () => {
                     </td>
 
                     <td
-                      className={`px-4 py-3 ${
-                        row.workingHoursBalance <
+                      className={`px-4 py-3 ${row.workingHoursBalance <
                         0
-                          ? 'text-rose-300'
-                          : 'text-emerald-300'
-                      }`}
+                        ? 'text-rose-300'
+                        : 'text-emerald-300'
+                        }`}
                     >
                       {row.workingHoursBalance.toFixed(
                         2,
@@ -883,18 +915,17 @@ const AttendanceBatchUpload: React.FC = () => {
 
                       {row.status && (
                         <span
-                          className={`px-2 py-1 rounded-lg ${
-                            row.status ===
+                          className={`px-2 py-1 rounded-lg ${row.status ===
                             'Present'
-                              ? 'bg-emerald-500/10 text-emerald-300'
+                            ? 'bg-emerald-500/10 text-emerald-300'
+                            : row.status ===
+                              'Late'
+                              ? 'bg-amber-500/10 text-amber-300'
                               : row.status ===
-                                'Late'
-                                ? 'bg-amber-500/10 text-amber-300'
-                                : row.status ===
-                                  'HalfDay'
-                                  ? 'bg-orange-500/10 text-orange-300'
-                                  : 'bg-slate-500/10 text-slate-300'
-                          }`}
+                                'HalfDay'
+                                ? 'bg-orange-500/10 text-orange-300'
+                                : 'bg-slate-500/10 text-slate-300'
+                            }`}
                         >
                           {row.status}
                         </span>
@@ -978,25 +1009,24 @@ const SummaryCard: React.FC<
   positive,
   negative,
 }) => (
-  <div className="p-4 rounded-2xl bg-[#09071e] border border-[#2d2770]/70">
+    <div className="p-4 rounded-2xl bg-[#09071e] border border-[#2d2770]/70">
 
-    <p className="text-[10px] uppercase tracking-wider text-slate-500">
-      {label}
-    </p>
+      <p className="text-[10px] uppercase tracking-wider text-slate-500">
+        {label}
+      </p>
 
-    <p
-      className={`text-xl font-bold mt-1 ${
-        positive
+      <p
+        className={`text-xl font-bold mt-1 ${positive
           ? 'text-emerald-300'
           : negative
             ? 'text-rose-300'
             : 'text-white'
-      }`}
-    >
-      {value}
-    </p>
+          }`}
+      >
+        {value}
+      </p>
 
-  </div>
-);
+    </div>
+  );
 
 export default AttendanceBatchUpload;

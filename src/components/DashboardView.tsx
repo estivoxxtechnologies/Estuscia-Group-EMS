@@ -515,7 +515,7 @@ export const DashboardView: React.FC = () => {
         </div>
 
         <div className="flex flex-wrap gap-2">
-          {isHR && (
+          {/* {(isHR || isManager) && (
             <button
               type="button"
               onClick={() => setIsBatchUploadOpen(true)}
@@ -524,7 +524,7 @@ export const DashboardView: React.FC = () => {
               <FileSpreadsheet className="h-4 w-4" />
               Import Attendance
             </button>
-          )}
+          )} */}
 
           <button
             type="button"
@@ -826,24 +826,24 @@ export const DashboardView: React.FC = () => {
             isSupportStaff ||
             isKnowledgeTrainer ||
             isSalesStaff) && (
-            <>
-              <QuickLink
-                title="Salary"
-                description="View your salary details and payslips."
-                icon={Wallet}
-                color="text-purple-300"
-                onClick={() => setActiveTab('payroll')}
-              />
+              <>
+                <QuickLink
+                  title="Salary"
+                  description="View your salary details and payslips."
+                  icon={Wallet}
+                  color="text-purple-300"
+                  onClick={() => setActiveTab('payroll')}
+                />
 
-              <QuickLink
-                title="My Attendance"
-                description="Review your attendance records."
-                icon={CalendarCheck}
-                color="text-cyan-300"
-                onClick={() => setActiveTab('attendance')}
-              />
-            </>
-          )}
+                <QuickLink
+                  title="My Attendance"
+                  description="Review your attendance records."
+                  icon={CalendarCheck}
+                  color="text-cyan-300"
+                  onClick={() => setActiveTab('attendance')}
+                />
+              </>
+            )}
 
           <button
             type="button"

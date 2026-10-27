@@ -175,8 +175,8 @@ export const AttendanceView: React.FC = () => {
         >
           <RefreshCw
             className={`w-4 h-4 ${attendanceLoading
-                ? 'animate-spin'
-                : ''
+              ? 'animate-spin'
+              : ''
               }`}
           />
 
@@ -286,8 +286,8 @@ export const AttendanceView: React.FC = () => {
                 setActiveSubTab('records')
               }
               className={`px-4 py-2 rounded-xl font-bold transition-colors flex items-center gap-2 ${activeSubTab === 'records'
-                  ? 'bg-[#5C3FE0] text-white'
-                  : 'text-slate-400 hover:text-white hover:bg-[#120e38]'
+                ? 'bg-[#5C3FE0] text-white'
+                : 'text-slate-400 hover:text-white hover:bg-[#120e38]'
                 }`}
             >
               <Users className="w-3.5 h-3.5" />
@@ -301,25 +301,25 @@ export const AttendanceView: React.FC = () => {
                 setActiveSubTab('leaves')
               }
               className={`px-4 py-2 rounded-xl font-bold transition-colors ${activeSubTab === 'leaves'
-                  ? 'bg-[#5C3FE0] text-white'
-                  : 'text-slate-400 hover:text-white hover:bg-[#120e38]'
+                ? 'bg-[#5C3FE0] text-white'
+                : 'text-slate-400 hover:text-white hover:bg-[#120e38]'
                 }`}
             >
               Leave Management
             </button>
 
-            <button
-              type="button"
-              onClick={() =>
-                setActiveSubTab('batches')
-              }
-              className={`px-4 py-2 rounded-xl font-bold transition-colors ${activeSubTab === 'batches'
-                  ? 'bg-[#5C3FE0] text-white'
-                  : 'text-slate-400 hover:text-white hover:bg-[#120e38]'
-                }`}
-            >
-              Batch Upload
-            </button>
+            {(role === 'hr_ops' || role === 'branch_manager') && (
+              <button
+                type="button"
+                onClick={() => setActiveSubTab('batches')}
+                className={`px-4 py-2 rounded-xl font-bold transition-colors ${activeSubTab === 'batches'
+                    ? 'bg-[#5C3FE0] text-white'
+                    : 'text-slate-400 hover:text-white hover:bg-[#120e38]'
+                  }`}
+              >
+                Batch Upload
+              </button>
+            )}
 
           </div>
 
