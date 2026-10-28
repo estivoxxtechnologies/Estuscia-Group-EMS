@@ -16,10 +16,10 @@ import {
   ClipboardCheck,
   X,
   CalendarDays,
+  UserRound,
 } from 'lucide-react';
 
 import { useApp, AppTab } from '../context/AppContext';
-import { EstusciaLogo } from './EstusciaLogo';
 import { getFileUrl } from '../utils/fileUrl';
 import estusciaLogo from '../images/estuscia-logo.png';
 
@@ -29,7 +29,6 @@ export const Sidebar: React.FC = () => {
     setActiveTab,
     isTabAllowed,
     currentUser,
-    currentTenant,
     leaveRequests,
     incentiveTransactions,
     dailyWorkLogs,
@@ -43,7 +42,7 @@ export const Sidebar: React.FC = () => {
   }
 
   // ---------------------------------------------------------
-  // Current User Role
+  // CURRENT USER ROLE
   // ---------------------------------------------------------
 
   const normalizedRole =
@@ -55,6 +54,7 @@ export const Sidebar: React.FC = () => {
   const isCompanyAdmin = normalizedRole === 'company_admin';
   const avatarUrl = getFileUrl(currentUser.avatarUrl);
 
+  // Super Admin has a separate sidebar.
   const superAdminAllowedTabs: AppTab[] = [
     'dashboard',
     'tenants',
@@ -63,8 +63,9 @@ export const Sidebar: React.FC = () => {
     'company_admin_management',
     'knowledge_hub',
   ];
+
   // ---------------------------------------------------------
-  // Badges / Counts
+  // BADGES / COUNTS
   // ---------------------------------------------------------
 
   // const pendingLeavesCount = leaveRequests.filter(
@@ -79,14 +80,22 @@ export const Sidebar: React.FC = () => {
 
   const todayLogsCount = dailyWorkLogs.filter(
     (d) =>
-      d.date ===
-      new Date().toISOString().substring(0, 10)
+      d.date === new Date().toISOString().substring(0, 10)
   ).length;
 
   // ---------------------------------------------------------
-  // All available navigation items
+  // NAVIGATION SECTIONS
   // ---------------------------------------------------------
 
+  type NavSection =
+    | 'workspace'
+    | 'people_finance'
+    | 'company_admin';
+
+  // ---------------------------------------------------------
+  // ALL AVAILABLE NAVIGATION ITEMS
+  // Commented-out items are intentionally preserved.
+  // ---------------------------------------------------------
 
   const allNavItems: {
     id: AppTab;
@@ -94,245 +103,237 @@ export const Sidebar: React.FC = () => {
     icon: React.ReactNode;
     badge?: string | number;
     badgeColor?: string;
-    section: 'daily_ops' | 'finance_slabs' | 'leadership_gov';
+    section: NavSection;
     superAdminOnly?: boolean;
   }[] = [
-      // =======================================================
-      // DAILY OPERATIONS
-      // =======================================================
+    // =======================================================
+    // 1. WORKSPACE
+    // =======================================================
 
-      {
-        id: 'dashboard',
-        label: 'Portal Overview',
-        icon: <LayoutDashboard className="w-4 h-4" />,
-        section: 'daily_ops',
-      },
+    {
+      id: 'dashboard',
+      label: 'Portal Overview',
+      icon: <LayoutDashboard className="w-4 h-4" />,
+      section: 'workspace',
+    },
 
-      // {
-      //   id: 'daily_work',
-      //   label:
-      //     currentUser.roleName === 'developer'
-      //       ? 'Daily Code & Tasks'
-      //       : 'Daily Work & Calls',
-      //   icon:
-      //     currentUser.roleName === 'developer'
-      //       ? <Code2 className="w-4 h-4" />
-      //       : <PhoneCall className="w-4 h-4" />,
-      //   badge:
-      //     todayLogsCount > 0
-      //       ? `${todayLogsCount} Logged`
-      //       : 'Action Req',
-      //   badgeColor:
-      //     todayLogsCount > 0
-      //       ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30'
-      //       : 'bg-purple-500/20 text-purple-300 border border-purple-500/30',
-      //   section: 'daily_ops',
-      // },
+    // {
+    //   id: 'daily_work',
+    //   label:
+    //     currentUser.roleName === 'developer'
+    //       ? 'Daily Code & Tasks'
+    //       : 'Daily Work & Calls',
+    //   icon:
+    //     currentUser.roleName === 'developer'
+    //       ? <Code2 className="w-4 h-4" />
+    //       : <PhoneCall className="w-4 h-4" />,
+    //   badge:
+    //     todayLogsCount > 0
+    //       ? `${todayLogsCount} Logged`
+    //       : 'Action Req',
+    //   badgeColor:
+    //     todayLogsCount > 0
+    //       ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30'
+    //       : 'bg-purple-500/20 text-purple-300 border border-purple-500/30',
+    //   section: 'workspace',
+    // },
 
-      {
-        id: 'attendance',
-        label: 'Biometric & Attendance',
-        icon: <CalendarCheck className="w-4 h-4" />,
-        // badge:
-        //   pendingLeavesCount > 0
-        //     ? `${pendingLeavesCount} Leaves`
-        //     : undefined,
-        badgeColor:
-          'bg-amber-500/20 text-amber-300 border border-amber-500/30',
-        section: 'daily_ops',
-      },
+    {
+      id: 'attendance',
+      label: 'Biometric & Attendance',
+      icon: <CalendarCheck className="w-4 h-4" />,
+      // badge:
+      //   pendingLeavesCount > 0
+      //     ? `${pendingLeavesCount} Leaves`
+      //     : undefined,
+      badgeColor:
+        'bg-amber-500/20 text-amber-300 border border-amber-500/30',
+      section: 'workspace',
+    },
 
-      {
-        id: 'monthly_attendance',
-        label: 'Monthly Attendance Verification',
-        icon: <ClipboardCheck className="w-4 h-4" />,
-        section: 'daily_ops',
-      },
-      {
-        id: 'company_holidays',
-        label: 'Holiday Management',
-        icon: <CalendarDays className="w-4 h-4" />,
-        section:'daily_ops'
-      },
+    {
+      id: 'monthly_attendance',
+      label: 'Monthly Attendance Verification',
+      icon: <ClipboardCheck className="w-4 h-4" />,
+      section: 'workspace',
+    },
 
-      // =======================================================
-      // BUSINESS & COMPENSATION
-      // =======================================================
+    {
+      id: 'company_holidays',
+      label: 'Holiday Management',
+      icon: <CalendarDays className="w-4 h-4" />,
+      section: 'workspace',
+    },
 
-      // {
-      //   id: 'targets_incentives',
-      //   label: 'Targets & Incentives',
-      //   icon: <Target className="w-4 h-4" />,
-      //   badge:
-      //     pendingDealsCount > 0
-      //       ? `${pendingDealsCount} Deals`
-      //       : undefined,
-      //   badgeColor:
-      //     'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30',
-      //   section: 'finance_slabs',
-      // },
+    // =======================================================
+    // 2. PEOPLE & FINANCE
+    // =======================================================
 
-      // {
-      //   id: 'sales_leads',
-      //   label: 'Sales Leads',
-      //   icon: <Target className="w-4 h-4" />,
-      //   section: 'finance_slabs',
-      // },
+    // {
+    //   id: 'targets_incentives',
+    //   label: 'Targets & Incentives',
+    //   icon: <Target className="w-4 h-4" />,
+    //   badge:
+    //     pendingDealsCount > 0
+    //       ? `${pendingDealsCount} Deals`
+    //       : undefined,
+    //   badgeColor:
+    //     'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30',
+    //   section: 'people_finance',
+    // },
 
-      // {
-      //   id: 'developer_work',
-      //   label: 'Developer Work',
-      //   icon: <Code2 className="w-4 h-4" />,
-      //   section: 'finance_slabs',
-      // },
+    // {
+    //   id: 'sales_leads',
+    //   label: 'Sales Leads',
+    //   icon: <Target className="w-4 h-4" />,
+    //   section: 'people_finance',
+    // },
 
-      // {
-      //   id: 'receipts_slabs',
-      //   label: 'Customer Receipts & Slabs',
-      //   icon: <Receipt className="w-4 h-4" />,
-      //   badge: 'Official Slips',
-      //   badgeColor:
-      //     'bg-teal-500/20 text-teal-300 border border-teal-500/30',
-      //   section: 'finance_slabs',
-      // },
+    // {
+    //   id: 'developer_work',
+    //   label: 'Developer Work',
+    //   icon: <Code2 className="w-4 h-4" />,
+    //   section: 'people_finance',
+    // },
 
-      {
-        id: 'payroll',
-        label: 'Salary & Payslips',
-        icon: <CreditCard className="w-4 h-4" />,
-        section: 'finance_slabs',
-      },
+    // {
+    //   id: 'receipts_slabs',
+    //   label: 'Customer Receipts & Slabs',
+    //   icon: <Receipt className="w-4 h-4" />,
+    //   badge: 'Official Slips',
+    //   badgeColor:
+    //     'bg-teal-500/20 text-teal-300 border border-teal-500/30',
+    //   section: 'people_finance',
+    // },
 
-      {
-        id: 'staff',
-        label: 'Staff & Team Directory',
-        icon: <Users className="w-4 h-4" />,
-        section: 'finance_slabs',
-      },
+    {
+      id: 'staff',
+      label: 'Staff & Team Directory',
+      icon: <Users className="w-4 h-4" />,
+      section: 'people_finance',
+    },
 
-      // =======================================================
-      // GOVERNANCE & COMPANY INFORMATION
-      // =======================================================
+    {
+      id: 'user_details',
+      label: 'User Details & Documents',
+      icon: <UserRound className="w-4 h-4" />,
+      section: 'people_finance',
+    },
 
-      {
-        id: 'company_details',
-        label: 'Company Details',
-        icon: <Building2 className="w-4 h-4" />,
-        section: 'leadership_gov',
-      },
+    {
+      id: 'payroll',
+      label: 'Salary & Payslips',
+      icon: <CreditCard className="w-4 h-4" />,
+      section: 'people_finance',
+    },
 
-      // {
-      //   id: 'audit_settings',
-      //   label: 'Access Matrix',
-      //   icon: <ShieldCheck className="w-4 h-4" />,
-      //   section: 'leadership_gov',
-      // },
+    // =======================================================
+    // 3. COMPANY & ADMINISTRATION
+    // =======================================================
 
-      // =======================================================
-      // TENANT MANAGEMENT
-      // SUPER ADMIN ONLY
-      // =======================================================
+    {
+      id: 'company_details',
+      label: 'Company Details',
+      icon: <Building2 className="w-4 h-4" />,
+      section: 'company_admin',
+    },
 
-      {
-        id: 'tenants',
-        label: 'Tenant Management',
-        icon: <Building2 className="w-4 h-4" />,
-        section: 'leadership_gov',
-        superAdminOnly: true,
-      },
+    // {
+    //   id: 'audit_settings',
+    //   label: 'Access Matrix',
+    //   icon: <ShieldCheck className="w-4 h-4" />,
+    //   section: 'company_admin',
+    // },
 
-      {
-        id: 'branch_management',
-        label: 'Branch Management',
-        icon: <GitBranch className="w-4 h-4" />,
-        section: 'leadership_gov',
-        superAdminOnly: true,
-      },
+    {
+      id: 'knowledge_hub',
+      label: 'CEO Knowledge Hub',
+      icon: <Video className="w-4 h-4" />,
+      badge: 'Videos',
+      badgeColor:
+        'bg-[#5C3FE0]/20 text-[#A78BFA] border border-[#5C3FE0]/30',
+      section: 'company_admin',
+    },
 
-      {
-        id: 'tenant_payment',
-        label: 'Tenant Payment',
-        icon: <CreditCard className="w-4 h-4" />,
-        section: 'leadership_gov',
-        superAdminOnly: true,
-      },
+    // =======================================================
+    // SUPER ADMIN ONLY
+    // =======================================================
 
-      {
-        id: 'company_admin_management',
-        label: 'Company Admin Management',
-        icon: <Users className="w-4 h-4" />,
-        section: 'leadership_gov',
-        superAdminOnly: true,
-      },
-      {
-        id: 'knowledge_hub',
-        label: 'CEO Knowledge Hub',
-        icon: <Video className="w-4 h-4" />,
-        badge: 'Videos',
-        badgeColor:
-          'bg-[#5C3FE0]/20 text-[#5C3FE0] border border-[#5C3FE0]/30',
-        section: 'leadership_gov',
-      },
-    ];
+    {
+      id: 'tenants',
+      label: 'Tenant Management',
+      icon: <Building2 className="w-4 h-4" />,
+      section: 'company_admin',
+      superAdminOnly: true,
+    },
 
+    {
+      id: 'branch_management',
+      label: 'Branch Management',
+      icon: <GitBranch className="w-4 h-4" />,
+      section: 'company_admin',
+      superAdminOnly: true,
+    },
+
+    {
+      id: 'tenant_payment',
+      label: 'Tenant Payment',
+      icon: <CreditCard className="w-4 h-4" />,
+      section: 'company_admin',
+      superAdminOnly: true,
+    },
+
+    {
+      id: 'company_admin_management',
+      label: 'Company Admin Management',
+      icon: <Users className="w-4 h-4" />,
+      section: 'company_admin',
+      superAdminOnly: true,
+    },
+  ];
 
   // ---------------------------------------------------------
-  // Filter Navigation
-  //
-  // First:
-  //   - Check normal tab permissions
-  //
-  // Second:
-  //   - Explicitly restrict Tenants to Super Admin
+  // FILTER NAVIGATION
   // ---------------------------------------------------------
 
   const allowedNavItems = allNavItems.filter((item) => {
-
-    // =======================================================
-    // SUPER ADMIN HAS A COMPLETELY SEPARATE SIDEBAR
-    // =======================================================
+    // Super Admin has a separate navigation.
     if (isSuperAdmin) {
       return superAdminAllowedTabs.includes(item.id);
     }
 
-    // =======================================================
-    // COMPANY DETAILS — COMPANY ADMIN ONLY
-    // =======================================================
+    // Company Details is restricted to Company Admin.
     if (item.id === 'company_details') {
       return isCompanyAdmin;
     }
 
-    // =======================================================
-    // NORMAL SUPER-ADMIN-ONLY ITEMS
-    // =======================================================
+    // Tenant administration is restricted to Super Admin.
     if (item.superAdminOnly) {
       return false;
     }
 
-    // =======================================================
-    // NORMAL ROLE PERMISSIONS
-    // =======================================================
+    // Standard role-based permissions.
     return isTabAllowed(item.id);
   });
 
   // ---------------------------------------------------------
-  // Group Navigation Items
+  // GROUP NAVIGATION ITEMS
   // ---------------------------------------------------------
 
-  const dailyOpsItems = allowedNavItems.filter(
-    (i) => i.section === 'daily_ops'
+  const workspaceItems = allowedNavItems.filter(
+    (item) => item.section === 'workspace'
   );
 
-  const financeItems = allowedNavItems.filter(
-    (i) => i.section === 'finance_slabs'
+  const peopleFinanceItems = allowedNavItems.filter(
+    (item) => item.section === 'people_finance'
   );
 
-  const leadershipItems = allowedNavItems.filter(
-    (i) => i.section === 'leadership_gov'
+  const companyAdminItems = allowedNavItems.filter(
+    (item) => item.section === 'company_admin'
   );
 
   // ---------------------------------------------------------
-  // Tab Click
+  // TAB CLICK
   // ---------------------------------------------------------
 
   const handleTabClick = (tabId: AppTab) => {
@@ -341,103 +342,87 @@ export const Sidebar: React.FC = () => {
   };
 
   // ---------------------------------------------------------
-  // Render Navigation Group
+  // RENDER NAVIGATION GROUP
   // ---------------------------------------------------------
 
   const renderNavGroup = (
     title: string,
     items: typeof allNavItems
   ) => {
-
     if (items.length === 0) {
       return null;
     }
 
     return (
-      <div className="space-y-1 mb-4">
-
-        <div className="text-[10px] uppercase text-gray-500 font-bold mb-2 ml-2 tracking-widest">
+      <div className="mb-4 space-y-1">
+        <div className="mb-2 ml-2 text-[10px] font-bold uppercase tracking-widest text-gray-500">
           {title}
         </div>
 
         {items.map((item) => {
-
-          const isActive =
-            activeTab === item.id;
+          const isActive = activeTab === item.id;
 
           return (
             <div
               key={item.id}
-              onClick={() =>
-                handleTabClick(item.id)
-              }
+              onClick={() => handleTabClick(item.id)}
               id={`nav-tab-${item.id}`}
-              className={`flex items-center justify-between px-3 py-2.5 text-xs font-semibold transition-all cursor-pointer rounded-xl ${isActive
-                ? 'bg-[#5C3FE0] text-white shadow-lg shadow-[#5C3FE0]/25'
-                : 'text-gray-400 hover:text-white hover:bg-white/5'
-                }`}
+              role="button"
+              tabIndex={0}
+              onKeyDown={(event) => {
+                if (event.key === 'Enter' || event.key === ' ') {
+                  event.preventDefault();
+                  handleTabClick(item.id);
+                }
+              }}
+              className={`flex cursor-pointer items-center justify-between rounded-xl px-3 py-2.5 text-xs font-semibold transition-all ${
+                isActive
+                  ? 'bg-[#5C3FE0] text-white shadow-lg shadow-[#5C3FE0]/25'
+                  : 'text-gray-400 hover:bg-white/5 hover:text-white'
+              }`}
             >
-
               {/* Left side */}
-
-              <div className="flex items-center gap-2.5 min-w-0">
-
+              <div className="flex min-w-0 items-center gap-2.5">
                 <span
                   className={
-                    isActive
-                      ? 'text-white'
-                      : 'text-gray-400'
+                    isActive ? 'text-white' : 'text-gray-400'
                   }
                 >
                   {item.icon}
                 </span>
 
-                <span className="truncate">
-                  {item.label}
-                </span>
-
+                <span className="truncate">{item.label}</span>
               </div>
 
               {/* Badge */}
-
               {item.badge && (
                 <span
-                  className={`text-[9px] font-mono px-1.5 py-0.5 rounded font-bold uppercase shrink-0 ${isActive
-                    ? 'bg-white/20 text-white'
-                    : item.badgeColor ||
-                    'bg-white/10 text-gray-300'
-                    }`}
+                  className={`shrink-0 rounded px-1.5 py-0.5 font-mono text-[9px] font-bold uppercase ${
+                    isActive
+                      ? 'bg-white/20 text-white'
+                      : item.badgeColor ||
+                        'bg-white/10 text-gray-300'
+                  }`}
                 >
                   {item.badge}
                 </span>
               )}
-
             </div>
           );
         })}
-
       </div>
     );
   };
 
   // ---------------------------------------------------------
-  // Sidebar Content
+  // SIDEBAR CONTENT
   // ---------------------------------------------------------
 
   const sidebarContent = (
-    <div className="flex flex-col justify-between h-full">
-
-      {/* =====================================================
-          TOP SECTION
-      ===================================================== */}
-
+    <div className="flex h-full flex-col justify-between">
+      {/* TOP SECTION */}
       <div>
-
-        {/* Brand */}
-
-
-
-
+        {/* BRAND */}
         <div className="flex h-[64px] items-center justify-between border-b border-white/10 bg-[#080617] px-4 sm:px-5">
           <div className="flex min-w-0 flex-1 items-center">
             <img
@@ -456,76 +441,59 @@ export const Sidebar: React.FC = () => {
           </button>
         </div>
 
+        {/* NAVIGATION */}
+        <nav className="custom-scrollbar max-h-[calc(100vh-210px)] space-y-2 overflow-y-auto p-3.5">
+          {isSuperAdmin ? (
+            renderNavGroup(
+              'Super Admin Workspace',
+              allowedNavItems
+            )
+          ) : (
+            <>
+              {renderNavGroup('Workspace', workspaceItems)}
 
+              {renderNavGroup(
+                'People & Finance',
+                peopleFinanceItems
+              )}
 
-
-
-        {/* =================================================
-            NAVIGATION
-        ================================================= */}
-
-        <nav className="p-3.5 space-y-2 overflow-y-auto max-h-[calc(100vh-210px)] custom-scrollbar">
-
-          {renderNavGroup(
-            'Daily Operations',
-            dailyOpsItems
+              {renderNavGroup(
+                'Company & Administration',
+                companyAdminItems
+              )}
+            </>
           )}
-
-          {renderNavGroup(
-            'Business & Compensation',
-            financeItems
-          )}
-
-          {renderNavGroup(
-            'Governance & Masterclasses',
-            leadershipItems
-          )}
-
         </nav>
-
       </div>
 
-      {/* =====================================================
-          USER SESSION
-      ===================================================== */}
-
-      <div className="p-4 bg-[#09081E] border-t border-white/10 space-y-3">
-
+      {/* USER SESSION */}
+      <div className="space-y-3 border-t border-white/10 bg-[#09081E] p-4">
         <div className="flex items-center gap-2.5">
-
           {avatarUrl ? (
-
             <img
               src={avatarUrl}
               alt={currentUser.username}
-              className="w-9 h-9 rounded-full object-cover border border-white/15 shrink-0"
+              className="h-9 w-9 shrink-0 rounded-full border border-white/15 object-cover"
             />
-
           ) : (
-
-            <div className="w-9 h-9 rounded-full bg-[#5C3FE0] flex items-center justify-center text-white text-xs font-bold border border-white/15 shrink-0">
-              {currentUser.username
-                ?.charAt(0)
-                ?.toUpperCase() || 'U'}
+            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-white/15 bg-[#5C3FE0] text-xs font-bold text-white">
+              {currentUser.username?.charAt(0)?.toUpperCase() ||
+                'U'}
             </div>
-
           )}
 
-          <div className="overflow-hidden min-w-0 flex-1">
-
-            <p className="text-xs font-bold text-white truncate">
+          <div className="min-w-0 flex-1 overflow-hidden">
+            <p className="truncate text-xs font-bold text-white">
               {currentUser.username}
             </p>
 
-            <p className="text-[10px] text-gray-400 truncate">
+            <p className="truncate text-[10px] text-gray-400">
               {currentUser.designation}
             </p>
-
           </div>
-
         </div>
 
-        {/* Logout */}
+        {/* LOGOUT - PRESERVED AS COMMENTED CODE */}
 
         {/* <button
           onClick={() => {
@@ -534,66 +502,39 @@ export const Sidebar: React.FC = () => {
           }}
           className="w-full py-1.5 px-3 rounded-lg bg-white/5 hover:bg-rose-500/20 hover:border-rose-500/30 text-gray-300 hover:text-rose-300 border border-white/10 text-xs font-semibold transition-all flex items-center justify-center gap-2 group cursor-pointer"
         >
-
           <LogOut className="w-3.5 h-3.5 group-hover:-translate-x-0.5 transition-transform" />
-
-          <span>
-            Sign Out / Switch User
-          </span>
-
+          <span>Sign Out / Switch User</span>
         </button> */}
-
       </div>
-
     </div>
   );
 
   // ---------------------------------------------------------
-  // Render
+  // RENDER
   // ---------------------------------------------------------
 
   return (
     <>
-
-      {/* =====================================================
-          DESKTOP SIDEBAR
-      ===================================================== */}
-
-      <aside className="hidden lg:flex w-64 bg-[#07051A] border-r border-white/10 flex-col shrink-0 select-none h-screen">
-
+      {/* DESKTOP SIDEBAR */}
+      <aside className="hidden h-screen w-64 shrink-0 select-none flex-col border-r border-white/10 bg-[#07051A] lg:flex">
         {sidebarContent}
-
       </aside>
 
-      {/* =====================================================
-          MOBILE SIDEBAR
-      ===================================================== */}
-
+      {/* MOBILE SIDEBAR */}
       {isMobileMenuOpen && (
-
-        <div className="lg:hidden fixed inset-0 z-50 flex">
-
-          {/* Backdrop */}
-
+        <div className="fixed inset-0 z-50 flex lg:hidden">
+          {/* BACKDROP */}
           <div
-            className="fixed inset-0 bg-black/80 backdrop-blur-sm animate-in fade-in duration-200"
-            onClick={() =>
-              setIsMobileMenuOpen(false)
-            }
+            className="fixed inset-0 animate-in fade-in bg-black/80 backdrop-blur-sm duration-200"
+            onClick={() => setIsMobileMenuOpen(false)}
           />
 
-          {/* Drawer */}
-
-          <div className="relative w-72 max-w-[85vw] bg-[#07051A] border-r border-white/15 h-full z-10 shadow-2xl flex flex-col animate-in slide-in-from-left duration-200">
-
+          {/* DRAWER */}
+          <div className="relative z-10 flex h-full w-72 max-w-[85vw] animate-in slide-in-from-left flex-col border-r border-white/15 bg-[#07051A] shadow-2xl duration-200">
             {sidebarContent}
-
           </div>
-
         </div>
-
       )}
-
     </>
   );
 };

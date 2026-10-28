@@ -9,8 +9,6 @@ import {
   ChevronRight,
   Clock,
   CreditCard,
-  FileSpreadsheet,
-  Play,
   RefreshCw,
   TrendingUp,
   Users,
@@ -25,9 +23,16 @@ import {
   type DashboardCountItem,
 } from '../api/dashboard';
 
-const panel = 'rounded-2xl border border-white/10 bg-[#09081E] p-5';
+const panel =
+  'rounded-2xl border border-white/10 bg-[#09081E] p-5';
 
 const numberFormat = new Intl.NumberFormat('en-IN');
+
+const currencyFormat = new Intl.NumberFormat('en-IN', {
+  style: 'currency',
+  currency: 'INR',
+  maximumFractionDigits: 0,
+});
 
 const monthLabel = (year: number, month: number) =>
   new Date(year, month - 1, 1).toLocaleDateString('en-IN', {
@@ -40,26 +45,68 @@ const readableStatus = (value: string) =>
     .replace(/([a-z])([A-Z])/g, '$1 $2')
     .replace(/[_-]/g, ' ');
 
+const statusColor = (status: string) => {
+  const value = status.toLowerCase().replace(/[_-]/g, ' ');
+
+  if (value.includes('early leaving')) {
+    return 'border-orange-500/20 bg-orange-500/10 text-orange-300';
+  }
+
+  if (
+    value.includes('present') ||
+    value.includes('approved') ||
+    value.includes('paid') ||
+    value.includes('completed')
+  ) {
+    return 'border-emerald-500/20 bg-emerald-500/10 text-emerald-300';
+  }
+
+  if (
+    value.includes('pending') ||
+    value.includes('late') ||
+    value.includes('submitted')
+  ) {
+    return 'border-amber-500/20 bg-amber-500/10 text-amber-300';
+  }
+
+  if (
+    value.includes('absent') ||
+    value.includes('reject') ||
+    value.includes('overdue')
+  ) {
+    return 'border-red-500/20 bg-red-500/10 text-red-300';
+  }
+
+  if (
+    value.includes('half day') ||
+    value.includes('halfday')
+  ) {
+    return 'border-cyan-500/20 bg-cyan-500/10 text-cyan-300';
+  }
+
+  if (
+    value.includes('leave')
+  ) {
+    return 'border-purple-500/20 bg-purple-500/10 text-purple-300';
+  }
+
+  return 'border-white/10 bg-white/5 text-gray-300';
+};
+
+const StatusBadge: React.FC<{ status: string }> = ({ status }) => (
+  <span
+    className={`inline-flex whitespace-nowrap rounded-full border px-2.5 py-1 text-[10px] font-semibold ${statusColor(status)}`}
+  >
+    {readableStatus(status)}
+  </span>
+);
+
 interface MetricCardProps {
   label: string;
   value: string | number;
   description: string;
   icon: React.ElementType;
   color?: 'purple' | 'green' | 'blue' | 'amber' | 'red';
-}
-
-/**
- * Branch fields supported here:
- * - id
- * - tenantId (optional)
- * - branchName (preferred)
- * - name (fallback)
- */
-interface BranchDisplayInfo {
-  id: number | string;
-  tenantId?: number | string | null;
-  branchName?: string | null;
-  name?: string | null;
 }
 
 const MetricCard: React.FC<MetricCardProps> = ({
@@ -123,14 +170,11 @@ const StatusBreakdown: React.FC<{
       <h3 className="text-sm font-bold text-white">{title}</h3>
 
       {items.length === 0 ? (
-        <p className="mt-4 text-xs text-gray-500">
-          No records available yet.
-        </p>
+        <p className="mt-4 text-xs text-gray-500">No records available yet.</p>
       ) : (
         <>
           <div className="mt-2 text-xs text-gray-500">
-            Total:{' '}
-            <span className="font-semibold text-gray-300">
+            Total: <span className="font-semibold text-gray-300">
               {numberFormat.format(total)}
             </span>
           </div>
@@ -138,9 +182,7 @@ const StatusBreakdown: React.FC<{
           <div className="mt-4 space-y-4">
             {items.map((item) => {
               const count = Math.max(0, Number(item.count) || 0);
-              const percentage = total
-                ? Math.round((count / total) * 100)
-                : 0;
+              const percentage = total ? (count / total) * 100 : 0;
 
               return (
                 <div key={item.status}>
@@ -148,18 +190,17 @@ const StatusBreakdown: React.FC<{
                     <span className="capitalize text-gray-300">
                       {readableStatus(item.status)}
                     </span>
-
                     <span className="shrink-0 font-semibold text-white">
                       {numberFormat.format(count)}
                       <span className="ml-1 text-gray-500">
-                        ({percentage}%)
+                        ({Math.round(percentage)}%)
                       </span>
                     </span>
                   </div>
 
                   <div className="h-2 overflow-hidden rounded-full bg-white/5">
                     <div
-                      className="h-full rounded-full bg-gradient-to-r from-[#5C3FE0] to-purple-400 transition-all"
+                      className="h-full rounded-full bg-gradient-to-r from-[#5C3FE0] to-purple-400"
                       style={{ width: `${percentage}%` }}
                     />
                   </div>
@@ -168,63 +209,6 @@ const StatusBreakdown: React.FC<{
             })}
           </div>
         </>
-      )}
-    </section>
-  );
-};
-
-const MonthlyBars: React.FC<{
-  title: string;
-  data: { year: number; month: number; value: number }[];
-  valueLabel: string;
-}> = ({ title, data, valueLabel }) => {
-  const maximum = Math.max(
-    1,
-    ...data.map((item) => Math.max(0, Number(item.value) || 0)),
-  );
-
-  return (
-    <section className={panel}>
-      <div className="flex items-center justify-between gap-3">
-        <h3 className="text-sm font-bold text-white">{title}</h3>
-        <span className="text-[10px] text-gray-500">{valueLabel}</span>
-      </div>
-
-      {data.length === 0 ? (
-        <p className="mt-5 text-xs text-gray-500">
-          No monthly data available.
-        </p>
-      ) : (
-        <div className="mt-5 flex h-40 items-end gap-2 sm:gap-3">
-          {data.map((item) => {
-            const value = Math.max(0, Number(item.value) || 0);
-            const height =
-              value > 0 ? Math.max(5, (value / maximum) * 100) : 0;
-
-            return (
-              <div
-                key={`${item.year}-${item.month}`}
-                className="flex min-w-0 flex-1 flex-col items-center justify-end gap-2"
-                title={`${monthLabel(item.year, item.month)}: ${numberFormat.format(value)} ${valueLabel}`}
-              >
-                <span className="max-w-full truncate text-[9px] text-gray-400">
-                  {numberFormat.format(value)}
-                </span>
-
-                <div className="flex h-24 w-full items-end">
-                  <div
-                    className="w-full rounded-t-md bg-gradient-to-t from-[#5C3FE0] to-purple-400 transition-all"
-                    style={{ height: `${height}%` }}
-                  />
-                </div>
-
-                <span className="text-center text-[9px] text-gray-500">
-                  {monthLabel(item.year, item.month)}
-                </span>
-              </div>
-            );
-          })}
-        </div>
       )}
     </section>
   );
@@ -246,7 +230,6 @@ const QuickLink: React.FC<{
       <span className={`shrink-0 ${color}`}>
         <Icon className="h-5 w-5" />
       </span>
-
       <span className="min-w-0">
         <span className="block text-xs font-bold text-white">{title}</span>
         <span className="mt-1 block text-[10px] leading-relaxed text-gray-500">
@@ -254,10 +237,366 @@ const QuickLink: React.FC<{
         </span>
       </span>
     </span>
-
     <ChevronRight className="h-4 w-4 shrink-0 text-gray-500" />
   </button>
 );
+
+const AttendanceTable: React.FC<{
+  data: DashboardResponse['todayAttendance'];
+}> = ({ data }) => (
+  <section className={`${panel} min-w-0`}>
+    <div className="mb-4 flex items-start justify-between gap-3">
+      <div>
+        <h3 className="text-sm font-bold text-white">
+          Today's Attendance
+        </h3>
+        <p className="mt-1 text-xs text-gray-500">
+          Check-in, check-out, working hours and attendance status
+        </p>
+      </div>
+
+      <CalendarCheck className="h-5 w-5 shrink-0 text-cyan-300" />
+    </div>
+
+    {data.length === 0 ? (
+      <p className="py-6 text-center text-xs text-gray-500">
+        No attendance records for today.
+      </p>
+    ) : (
+      <div className="overflow-x-auto">
+        <table className="w-full min-w-[680px] text-left text-xs">
+          <thead className="text-[10px] uppercase tracking-wide text-gray-500">
+            <tr className="border-b border-white/10">
+              <th className="pb-3 pr-4 font-medium">Employee</th>
+              <th className="pb-3 pr-4 font-medium">Check-in</th>
+              <th className="pb-3 pr-4 font-medium">Check-out</th>
+              <th className="pb-3 pr-4 font-medium">Hours</th>
+              <th className="pb-3 font-medium">Status</th>
+            </tr>
+          </thead>
+
+          <tbody>
+            {data.map((item, index) => (
+              <tr
+                key={`${item.userId}-${item.date}-${index}`}
+                className="border-b border-white/5 last:border-0"
+              >
+                <td className="py-3 pr-4">
+                  <p className="font-semibold text-gray-200">
+                    {item.employeeName}
+                  </p>
+
+                  <p className="mt-1 text-[10px] text-gray-500">
+                    {item.employeeCode || `User ${item.userId}`}
+                  </p>
+                </td>
+
+                <td className="py-3 pr-4 text-gray-300">
+                  {item.checkInTime || '—'}
+                </td>
+
+                <td className="py-3 pr-4 text-gray-300">
+                  {item.checkOutTime || '—'}
+                </td>
+
+                <td className="py-3 pr-4 text-gray-300">
+                  {Number(item.workedHours || 0).toFixed(1)} h
+                </td>
+
+                <td className="py-3">
+                  <div className="flex flex-wrap items-center gap-1.5">
+                    <StatusBadge status={item.status} />
+
+                    {item.isEarlyLeaving && (
+                      <StatusBadge status="Early Leaving" />
+                    )}
+                  </div>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    )}
+  </section>
+);
+
+const LeaveTable: React.FC<{
+  data: DashboardResponse['recentLeaveRequests'];
+}> = ({ data }) => (
+  <section className={`${panel} min-w-0`}>
+    <div className="mb-4 flex items-start justify-between gap-3">
+      <div>
+        <h3 className="text-sm font-bold text-white">
+          Leave Requests This Month
+        </h3>
+        <p className="mt-1 text-xs text-gray-500">
+          Latest submitted requests and their current status
+        </p>
+      </div>
+      <Clock className="h-5 w-5 shrink-0 text-amber-300" />
+    </div>
+
+    {data.length === 0 ? (
+      <p className="py-6 text-center text-xs text-gray-500">
+        No leave requests submitted this month.
+      </p>
+    ) : (
+      <div className="space-y-3">
+        {data.map((item) => (
+          <div
+            key={item.id}
+            className="rounded-xl border border-white/5 bg-white/[0.02] p-3"
+          >
+            <div className="flex flex-col justify-between gap-2 sm:flex-row sm:items-start">
+              <div className="min-w-0">
+                <p className="text-xs font-semibold text-gray-200">
+                  {item.employeeName}
+                </p>
+                <p className="mt-1 text-[10px] text-gray-500">
+                  {item.employeeCode || `User ${item.userId}`} ·{' '}
+                  {readableStatus(item.leaveType)}
+                </p>
+              </div>
+              <StatusBadge status={item.status} />
+            </div>
+
+            <p className="mt-3 text-[11px] text-gray-400">
+              {item.startDate} – {item.endDate} · {item.requestedDays} day(s)
+            </p>
+            {item.reason && (
+              <p className="mt-2 break-words text-[11px] text-gray-500">
+                {item.reason}
+              </p>
+            )}
+          </div>
+        ))}
+      </div>
+    )}
+  </section>
+);
+
+const PayrollOverview: React.FC<{
+  data: DashboardResponse;
+}> = ({ data }) => {
+  const summary = data.payrollSummary;
+  const total = Math.max(0, summary.totalNetSalary);
+  const paid = Math.max(0, summary.paidAmount);
+  const unpaid = Math.max(0, summary.unpaidAmount);
+  const paidPercentage = total > 0 ? Math.min(100, (paid / total) * 100) : 0;
+
+  return (
+    <section className={panel}>
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <h3 className="text-sm font-bold text-white">Payroll Overview</h3>
+          <p className="mt-1 text-xs text-gray-500">
+            Current month's payroll records
+          </p>
+        </div>
+        <Wallet className="h-5 w-5 text-purple-300" />
+      </div>
+
+      <p className="mt-5 text-xs text-gray-400">Total net payroll</p>
+      <p className="mt-1 text-2xl font-bold text-white">
+        {currencyFormat.format(total)}
+      </p>
+
+      <div className="mt-5 h-3 overflow-hidden rounded-full bg-white/5">
+        <div
+          className="h-full rounded-full bg-emerald-400 transition-all"
+          style={{ width: `${paidPercentage}%` }}
+        />
+      </div>
+      <div className="mt-2 flex justify-between gap-3 text-[10px] text-gray-500">
+        <span>{Math.round(paidPercentage)}% paid by amount</span>
+        <span>{Math.round(100 - paidPercentage)}% unpaid</span>
+      </div>
+
+      <div className="mt-5 grid grid-cols-1 gap-3 sm:grid-cols-2">
+        <div className="rounded-xl border border-emerald-500/15 bg-emerald-500/5 p-3">
+          <p className="text-[11px] text-gray-400">Paid</p>
+          <p className="mt-1 break-words text-lg font-bold text-emerald-300">
+            {currencyFormat.format(paid)}
+          </p>
+          <p className="mt-1 text-[10px] text-gray-500">
+            {numberFormat.format(summary.paidEmployees)} employee(s)
+          </p>
+        </div>
+        <div className="rounded-xl border border-amber-500/15 bg-amber-500/5 p-3">
+          <p className="text-[11px] text-gray-400">Unpaid</p>
+          <p className="mt-1 break-words text-lg font-bold text-amber-300">
+            {currencyFormat.format(unpaid)}
+          </p>
+          <p className="mt-1 text-[10px] text-gray-500">
+            {numberFormat.format(summary.unpaidEmployees)} employee(s)
+          </p>
+        </div>
+      </div>
+    </section>
+  );
+};
+
+const MonthlyPayrollBars: React.FC<{
+  data: DashboardResponse['charts']['monthlyPayroll'];
+}> = ({ data }) => {
+  const maximum = Math.max(
+    1,
+    ...data.map((item) =>
+      Math.max(Number(item.paidAmount) || 0, Number(item.unpaidAmount) || 0),
+    ),
+  );
+
+  return (
+    <section className={panel}>
+      <h3 className="text-sm font-bold text-white">
+        Monthly Payroll: Paid vs Unpaid
+      </h3>
+      <p className="mt-1 text-xs text-gray-500">
+        Amounts grouped by payroll cycle month
+      </p>
+
+      <div className="mt-4 flex flex-wrap gap-4 text-[10px] text-gray-400">
+        <span className="flex items-center gap-2">
+          <span className="h-2.5 w-2.5 rounded-sm bg-emerald-400" />
+          Paid
+        </span>
+        <span className="flex items-center gap-2">
+          <span className="h-2.5 w-2.5 rounded-sm bg-amber-400" />
+          Unpaid
+        </span>
+      </div>
+
+      {data.length === 0 ? (
+        <p className="py-8 text-xs text-gray-500">No payroll trend available.</p>
+      ) : (
+        <div className="mt-5 flex h-44 items-end gap-3 overflow-x-auto">
+          {data.map((item) => {
+            const paidHeight = Math.max(
+              0,
+              (Math.max(0, item.paidAmount) / maximum) * 100,
+            );
+            const unpaidHeight = Math.max(
+              0,
+              (Math.max(0, item.unpaidAmount) / maximum) * 100,
+            );
+
+            return (
+              <div
+                key={`${item.year}-${item.month}`}
+                className="flex h-full min-w-10 flex-1 flex-col items-center justify-end gap-2"
+                title={`${monthLabel(item.year, item.month)} · Paid ${currencyFormat.format(item.paidAmount)} · Unpaid ${currencyFormat.format(item.unpaidAmount)}`}
+              >
+                <div className="flex h-32 w-full items-end justify-center gap-1">
+                  <div
+                    className="w-1/2 max-w-5 rounded-t-sm bg-emerald-400"
+                    style={{ height: `${paidHeight}%` }}
+                  />
+                  <div
+                    className="w-1/2 max-w-5 rounded-t-sm bg-amber-400"
+                    style={{ height: `${unpaidHeight}%` }}
+                  />
+                </div>
+                <span className="whitespace-nowrap text-[9px] text-gray-500">
+                  {monthLabel(item.year, item.month)}
+                </span>
+              </div>
+            );
+          })}
+        </div>
+      )}
+    </section>
+  );
+};
+
+const MonthlyAttendanceBars: React.FC<{
+  data: DashboardResponse['charts']['monthlyAttendance'];
+}> = ({ data }) => {
+  const statuses = [
+    { key: 'present', label: 'Present', color: 'bg-emerald-400' },
+    { key: 'late', label: 'Late', color: 'bg-amber-400' },
+    { key: 'absent', label: 'Absent', color: 'bg-red-400' },
+    { key: 'halfDay', label: 'Half day', color: 'bg-cyan-400' },
+    { key: 'onLeave', label: 'On leave', color: 'bg-purple-400' },
+  ] as const;
+
+  const maximum = Math.max(
+    1,
+    ...data.map((item) =>
+      Math.max(
+        item.present,
+        item.late,
+        item.absent,
+        item.halfDay,
+        item.onLeave,
+      ),
+    ),
+  );
+
+  return (
+    <section className={panel}>
+      <h3 className="text-sm font-bold text-white">
+        Monthly Attendance by Status
+      </h3>
+      <p className="mt-1 text-xs text-gray-500">
+        Recorded attendance entries for the last six months
+      </p>
+
+      <div className="mt-4 flex flex-wrap gap-3">
+        {statuses.map((status) => (
+          <span
+            key={status.key}
+            className="flex items-center gap-1.5 text-[10px] text-gray-400"
+          >
+            <span className={`h-2 w-2 rounded-sm ${status.color}`} />
+            {status.label}
+          </span>
+        ))}
+      </div>
+
+      {data.length === 0 ? (
+        <p className="py-8 text-xs text-gray-500">
+          No attendance trend available.
+        </p>
+      ) : (
+        <div className="mt-5 flex h-44 items-end gap-3 overflow-x-auto">
+          {data.map((item) => (
+            <div
+              key={`${item.year}-${item.month}`}
+              className="flex h-full min-w-10 flex-1 flex-col items-center justify-end gap-2"
+            >
+              <div className="flex h-32 w-full items-end justify-center gap-0.5">
+                {statuses.map((status) => {
+                  const value = item[status.key];
+                  const height = value > 0 ? Math.max(3, (value / maximum) * 100) : 0;
+
+                  return (
+                    <div
+                      key={status.key}
+                      title={`${status.label}: ${value}`}
+                      className={`w-full max-w-3 rounded-t-sm ${status.color}`}
+                      style={{ height: `${height}%` }}
+                    />
+                  );
+                })}
+              </div>
+              <span className="whitespace-nowrap text-[9px] text-gray-500">
+                {monthLabel(item.year, item.month)}
+              </span>
+            </div>
+          ))}
+        </div>
+      )}
+    </section>
+  );
+};
+
+interface BranchDisplayInfo {
+  id: number | string;
+  tenantId?: number | string | null;
+  branchName?: string | null;
+  name?: string | null;
+}
 
 export const DashboardView: React.FC = () => {
   const {
@@ -265,57 +604,33 @@ export const DashboardView: React.FC = () => {
     selectedBranchId,
     branches,
     setActiveTab,
-    setIsBatchUploadOpen,
   } = useApp();
 
   const [data, setData] = useState<DashboardResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
-
-  // Prevent an older request from overwriting data for a newer selection.
-  const dashboardRequestId = useRef(0);
+  const requestId = useRef(0);
 
   const roleName = (
     currentUser?.roleName ??
     currentUser?.role ??
     ''
-  )
-    .trim()
-    .toLowerCase();
+  ).trim().toLowerCase();
 
   const canSelectBranch =
     roleName === 'company_admin' || roleName === 'hr_ops';
 
-  /**
-   * Resolve the selected branch name using the branch ID.
-   * The branches collection is expected to contain branches
-   * already loaded for the current user's authorized tenant.
-   *
-   * If tenantId is present on a branch, verify that it matches
-   * the current user's tenant before using the branch.
-   */
   const selectedBranchName = React.useMemo(() => {
-    if (selectedBranchId == null || !branches?.length) {
-      return undefined;
-    }
+    if (selectedBranchId == null || !branches?.length) return undefined;
 
     const tenantId = currentUser?.tenantId;
 
     const matchingBranch = (
       branches as unknown as BranchDisplayInfo[]
     ).find((branch) => {
-      if (Number(branch.id) !== Number(selectedBranchId)) {
-        return false;
-      }
+      if (Number(branch.id) !== Number(selectedBranchId)) return false;
 
-      // If the branch has no tenant ID, rely on the tenant-scoped
-      // branches collection supplied by AppContext.
-      if (
-        branch.tenantId == null ||
-        tenantId == null
-      ) {
-        return true;
-      }
+      if (branch.tenantId == null || tenantId == null) return true;
 
       return Number(branch.tenantId) === Number(tenantId);
     });
@@ -327,14 +642,8 @@ export const DashboardView: React.FC = () => {
     );
   }, [branches, currentUser?.tenantId, selectedBranchId]);
 
-  const activeBranchesValue: string | number =
-    selectedBranchId != null
-      ? selectedBranchName ?? `Branch ID: ${selectedBranchId}`
-      : data?.kpis.activeBranches ?? 0;
-
   const loadDashboard = useCallback(async () => {
-    const requestId = ++dashboardRequestId.current;
-
+    const currentRequest = ++requestId.current;
     setLoading(true);
     setError('');
 
@@ -343,21 +652,17 @@ export const DashboardView: React.FC = () => {
         branchId: canSelectBranch ? selectedBranchId : undefined,
       });
 
-      if (requestId !== dashboardRequestId.current) return;
-
-      setData(result);
+      if (currentRequest === requestId.current) setData(result);
     } catch (err) {
-      if (requestId !== dashboardRequestId.current) return;
-
-      setError(
-        err instanceof Error
-          ? err.message
-          : 'Unable to load dashboard data.',
-      );
-    } finally {
-      if (requestId === dashboardRequestId.current) {
-        setLoading(false);
+      if (currentRequest === requestId.current) {
+        setError(
+          err instanceof Error
+            ? err.message
+            : 'Unable to load dashboard data.',
+        );
       }
+    } finally {
+      if (currentRequest === requestId.current) setLoading(false);
     }
   }, [canSelectBranch, selectedBranchId]);
 
@@ -371,18 +676,24 @@ export const DashboardView: React.FC = () => {
     void loadDashboard();
 
     return () => {
-      dashboardRequestId.current += 1;
+      requestId.current += 1;
     };
   }, [currentUser, loadDashboard]);
 
+  if (!currentUser) {
+    return (
+      <div className="flex min-h-[300px] items-center justify-center text-sm text-gray-400">
+        Loading your workspace...
+      </div>
+    );
+  }
+
   const role = (
     data?.role ||
-    currentUser?.roleName ||
-    currentUser?.role ||
+    currentUser.roleName ||
+    currentUser.role ||
     ''
-  )
-    .trim()
-    .toLowerCase();
+  ).trim().toLowerCase();
 
   const isSalesStaff = role === 'sales_staff';
   const isSupportStaff = role === 'support_staff';
@@ -394,20 +705,8 @@ export const DashboardView: React.FC = () => {
   const isKnowledgeTrainer = role === 'knowledge_trainer';
 
   const isManagement = isManager || isCompanyAdmin || isHR;
-
   const isIndividual =
-    isSalesStaff ||
-    isSupportStaff ||
-    isDeveloper ||
-    isKnowledgeTrainer;
-
-  if (!currentUser) {
-    return (
-      <div className="flex min-h-[300px] items-center justify-center text-sm text-gray-400">
-        Loading your workspace...
-      </div>
-    );
-  }
+    isSalesStaff || isSupportStaff || isDeveloper || isKnowledgeTrainer;
 
   if (loading && !data) {
     return (
@@ -425,9 +724,7 @@ export const DashboardView: React.FC = () => {
           <AlertCircle className="h-5 w-5" />
           <h2 className="font-semibold">Dashboard could not load</h2>
         </div>
-
         <p className="text-sm text-gray-400">{error}</p>
-
         <button
           type="button"
           onClick={() => void loadDashboard()}
@@ -463,33 +760,25 @@ export const DashboardView: React.FC = () => {
                   : 'Dashboard';
 
   const description = isSuperAdmin
-    ? 'Tenant growth, branches, users and subscription payment overview.'
+    ? 'Tenant growth, branches, users and payment overview.'
     : isCompanyAdmin
-      ? `Operational and workforce overview for ${currentUser.tenantName ?? 'your company'}.`
+      ? `Workforce and finance overview for ${currentUser.tenantName ?? 'your company'}.`
       : isHR
-        ? 'Workforce attendance, leave requests, payroll and salary approvals.'
+        ? 'Attendance, leave requests, payroll and salary approvals.'
         : isManager
           ? 'Branch attendance, employee activity and operational progress.'
-          : isSalesStaff
-            ? 'Your daily sales activity, work logs and monthly performance.'
-            : isDeveloper
-              ? 'Your engineering activity, attendance and task progress.'
-              : isSupportStaff
-                ? 'Your work activity, attendance and operational information.'
-                : isKnowledgeTrainer
-                  ? 'Learning activity, work records and attendance.'
-                  : 'Your workspace overview.';
+          : 'Your attendance, work activity and available payroll information.';
 
-  const priorityItems = (
-    charts.developerTaskPriority as Array<{
-      priority?: string;
-      status?: string;
-      count: number;
-    }>
-  ).map((item) => ({
-    status: item.priority ?? item.status ?? 'Unknown',
-    count: item.count,
-  }));
+  const priorityItems = charts.developerTaskPriority as Array<{
+    status?: string;
+    priority?: string;
+    count: number;
+  }>;
+
+  const branchValue =
+    selectedBranchId != null
+      ? selectedBranchName ?? `Branch ID: ${selectedBranchId}`
+      : kpis.activeBranches;
 
   return (
     <div className="space-y-6 pb-12">
@@ -499,58 +788,38 @@ export const DashboardView: React.FC = () => {
             <h1 className="text-xl font-bold tracking-tight text-white">
               {heading}
             </h1>
-
             {currentUser.designation && (
               <span className="rounded-full border border-purple-500/30 bg-purple-500/15 px-2 py-1 text-[10px] font-semibold text-purple-300">
                 {currentUser.designation}
               </span>
             )}
           </div>
-
           <p className="mt-1 text-xs text-gray-400">{description}</p>
-
+          {isManagement && selectedBranchId != null && (
+            <p className="mt-2 text-[11px] text-purple-300">
+              Current branch: {selectedBranchName ?? `Branch ${selectedBranchId}`}
+            </p>
+          )}
           <p className="mt-1 text-[10px] text-gray-600">
             Updated {new Date(data.generatedAtUtc).toLocaleString('en-IN')}
           </p>
         </div>
 
-        <div className="flex flex-wrap gap-2">
-          {/* {(isHR || isManager) && (
-            <button
-              type="button"
-              onClick={() => setIsBatchUploadOpen(true)}
-              className="flex items-center gap-2 rounded-xl bg-purple-600 px-3.5 py-2 text-xs font-bold text-white hover:bg-purple-500"
-            >
-              <FileSpreadsheet className="h-4 w-4" />
-              Import Attendance
-            </button>
-          )} */}
-
-          <button
-            type="button"
-            disabled={loading}
-            onClick={() => void loadDashboard()}
-            className="flex items-center gap-2 rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-xs font-semibold text-gray-300 hover:bg-white/10 disabled:opacity-50"
-          >
-            <RefreshCw
-              className={`h-3.5 w-3.5 ${loading ? 'animate-spin' : ''}`}
-            />
-            Refresh
-          </button>
-        </div>
+        <button
+          type="button"
+          disabled={loading}
+          onClick={() => void loadDashboard()}
+          className="flex items-center gap-2 self-start rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-xs font-semibold text-gray-300 hover:bg-white/10 disabled:opacity-50 sm:self-auto"
+        >
+          <RefreshCw className={`h-3.5 w-3.5 ${loading ? 'animate-spin' : ''}`} />
+          Refresh
+        </button>
       </header>
 
       {error && (
         <div className="flex items-center justify-between gap-3 rounded-xl border border-amber-500/20 bg-amber-500/5 p-3 text-xs text-amber-200">
-          <span>
-            Refresh failed. Showing the last successfully loaded dashboard.
-          </span>
-
-          <button
-            type="button"
-            onClick={() => void loadDashboard()}
-            className="shrink-0 underline"
-          >
+          <span>Refresh failed. Showing the last successfully loaded dashboard.</span>
+          <button type="button" onClick={() => void loadDashboard()} className="shrink-0 underline">
             Retry
           </button>
         </div>
@@ -558,38 +827,12 @@ export const DashboardView: React.FC = () => {
 
       {isSuperAdmin && data.superAdmin && (
         <section>
-          <SectionHeading
-            title="Platform Statistics"
-            description="Company-wide platform and tenant information."
-          />
-
-          <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
-            <MetricCard
-              label="Total Tenants"
-              value={data.superAdmin.totalTenants}
-              description="Registered companies"
-              icon={Building2}
-            />
-            <MetricCard
-              label="Active Tenants"
-              value={data.superAdmin.activeTenants}
-              description="Currently active companies"
-              icon={CheckCircle2}
-              color="green"
-            />
-            <MetricCard
-              label="Active Branches"
-              value={kpis.activeBranches}
-              description="Branches in the current scope"
-              icon={Building2}
-              color="blue"
-            />
-            <MetricCard
-              label="Active Users"
-              value={kpis.activeUsers}
-              description="Users in the current scope"
-              icon={Users}
-            />
+          <SectionHeading title="Platform Statistics" description="Tenant and platform overview." />
+          <div className="grid grid-cols-2 gap-4 xl:grid-cols-4">
+            <MetricCard label="Total Tenants" value={data.superAdmin.totalTenants} description="Registered companies" icon={Building2} />
+            <MetricCard label="Active Tenants" value={data.superAdmin.activeTenants} description="Currently active companies" icon={CheckCircle2} color="green" />
+            <MetricCard label="Active Branches" value={kpis.activeBranches} description="Branches in the current scope" icon={Building2} color="blue" />
+            <MetricCard label="Active Users" value={kpis.activeUsers} description="Users in the current scope" icon={Users} />
           </div>
         </section>
       )}
@@ -597,73 +840,31 @@ export const DashboardView: React.FC = () => {
       {isManagement && (
         <>
           <section>
-            <SectionHeading
-              title="Daily Operations"
-              description="Current attendance and workforce workload."
-            />
-
+            <SectionHeading title="Daily Operations" description="Today's recorded workforce activity." />
             <div className="grid grid-cols-2 gap-4 xl:grid-cols-4">
-              <MetricCard
-                label="Active Employees"
-                value={kpis.activeUsers}
-                description="Active users in your scope"
-                icon={Users}
-              />
-              <MetricCard
-                label="Attendance Records Today"
-                value={kpis.attendanceRecordsToday}
-                description="Attendance entries dated today"
-                icon={CalendarCheck}
-                color="green"
-              />
-              <MetricCard
-                label="Leave Requests"
-                value={kpis.leaveRequests}
-                description="Leave requests in your scope"
-                icon={Clock}
-                color="amber"
-              />
-              <MetricCard
-                label="Active Branches"
-                value={activeBranchesValue}
-                description={
-                  selectedBranchId != null
-                    ? 'Currently selected branch'
-                    : 'Total active branches across your scope'
-                }
-                icon={Building2}
-                color="blue"
-              />
+              <MetricCard label="Active Employees" value={kpis.activeUsers} description="Active users in your scope" icon={Users} />
+              <MetricCard label="Present Today" value={kpis.employeesPresentToday} description="Distinct employees marked Present or Late" icon={CalendarCheck} color="green" />
+              <MetricCard label="Recorded Absences" value={kpis.recordedAbsencesToday} description="Employees explicitly marked Absent" icon={Clock} color="red" />
+              <MetricCard label="Active Branches" value={branchValue} description={selectedBranchId != null ? 'Selected branch' : 'Active branches in your scope'} icon={Building2} color="blue" />
             </div>
           </section>
 
           <section>
-            <SectionHeading
-              title="Monthly Operations"
-              description="Payroll, approvals and work requiring attention."
-            />
-
+            <SectionHeading title="Monthly Operations" description="Payroll, requests and items requiring attention." />
             <div className="grid grid-cols-2 gap-4 xl:grid-cols-3">
-              <MetricCard
-                label="Payroll Cycles"
-                value={kpis.payrollCycles}
-                description="Payroll cycles in your scope"
-                icon={CreditCard}
-                color="blue"
-              />
-              <MetricCard
-                label="Payroll Records This Month"
-                value={kpis.payrollRecordsThisMonth}
-                description="Monthly payroll records"
-                icon={CreditCard}
-              />
-              <MetricCard
-                label="Salary Changes Pending"
-                value={kpis.pendingSalaryChanges}
-                description="Pending salary change approvals"
-                icon={TrendingUp}
-                color="amber"
-              />
+              <MetricCard label="Leave Requests" value={kpis.leaveRequests} description="Requests submitted this month" icon={Clock} color="amber" />
+              <MetricCard label="Payroll Records" value={kpis.payrollRecordsThisMonth} description="Records created this month" icon={CreditCard} color="blue" />
+              <MetricCard label="Pending Salary Changes" value={kpis.pendingSalaryChanges} description="Awaiting salary change approval" icon={TrendingUp} color="amber" />
+            </div>
+          </section>
+
+          <PayrollOverview data={data} />
+
+          <section>
+            <SectionHeading title="Attendance & Leave Details" description="Review the latest operational records." />
+            <div className="grid grid-cols-1 gap-4 2xl:grid-cols-2">
+              <AttendanceTable data={data.todayAttendance} />
+              <LeaveTable data={data.recentLeaveRequests} />
             </div>
           </section>
         </>
@@ -671,179 +872,76 @@ export const DashboardView: React.FC = () => {
 
       {isIndividual && (
         <section>
-          <SectionHeading
-            title="My Daily Overview"
-            description="Work activity and attendance information available to your account."
-          />
-
+          <SectionHeading title="My Overview" description="Personal records only." />
           <div className="grid grid-cols-2 gap-4 xl:grid-cols-3">
-            <MetricCard
-              label="Attendance Records Today"
-              value={kpis.attendanceRecordsToday}
-              description="Attendance records returned by the API"
-              icon={CalendarCheck}
-              color="green"
-            />
-            <MetricCard
-              label="My Leave Requests"
-              value={kpis.leaveRequests}
-              description="Leave requests"
-              icon={Clock}
-              color="amber"
-            />
-            <MetricCard
-              label="Payroll Records This Month"
-              value={kpis.payrollRecordsThisMonth}
-              description="Monthly payroll records"
-              icon={CreditCard}
-              color="blue"
-            />
+            <MetricCard label="My Attendance Today" value={kpis.attendanceRecordsToday} description="Your attendance records today" icon={CalendarCheck} color="green" />
+            <MetricCard label="My Leave Requests" value={kpis.leaveRequests} description="Requests submitted this month" icon={Clock} color="amber" />
+            <MetricCard label="My Payroll Records" value={kpis.payrollRecordsThisMonth} description="Records created this month" icon={CreditCard} color="blue" />
+          </div>
+          <div className="mt-4">
+            <AttendanceTable data={data.todayAttendance} />
           </div>
         </section>
       )}
 
       <section>
-        <SectionHeading
-          title="Attendance & Requests"
-          description="Status breakdowns from the dashboard API."
-        />
-
+        <SectionHeading title="Status Overview" description="Current status counts in your authorized scope." />
         <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
           {isSuperAdmin && data.superAdmin && (
-            <StatusBreakdown
-              title="Tenant Payment Status"
-              items={data.superAdmin.paymentStatus}
-            />
+            <StatusBreakdown title="Tenant Payment Status" items={data.superAdmin.paymentStatus} />
           )}
-
-          <StatusBreakdown
-            title="Attendance Status"
-            items={charts.attendanceStatus}
-          />
-
-          <StatusBreakdown
-            title="Leave Request Status"
-            items={charts.leaveStatus}
-          />
-
+          <StatusBreakdown title="Today's Attendance Status" items={charts.attendanceStatus} />
+          <StatusBreakdown title="Leave Request Status" items={charts.leaveStatus} />
           {(isCompanyAdmin || isHR) && (
             <>
-              <StatusBreakdown
-                title="Salary Change Status"
-                items={charts.salaryChangeStatus}
-              />
-              <StatusBreakdown
-                title="Payroll Cycle Status"
-                items={charts.payrollStatus}
-              />
+              <StatusBreakdown title="Salary Change Status" items={charts.salaryChangeStatus} />
+              <StatusBreakdown title="Payroll Cycle Status" items={charts.payrollStatus} />
             </>
           )}
-
           {isDeveloper && (
             <>
-              <StatusBreakdown
-                title="Developer Task Status"
-                items={charts.developerTaskStatus}
-              />
+              <StatusBreakdown title="Developer Task Status" items={charts.developerTaskStatus} />
               <StatusBreakdown
                 title="Developer Task Priority"
-                items={priorityItems}
+                items={priorityItems.map((item) => ({
+                  status: item.priority ?? item.status ?? 'Unknown',
+                  count: item.count,
+                }))}
               />
             </>
           )}
         </div>
       </section>
 
-      {(isCompanyAdmin || isHR || isManager || isDeveloper || isIndividual) && (
+      {(isManagement || isDeveloper || isIndividual) && (
         <section>
-          <SectionHeading
-            title="Monthly Trends"
-            description="Historical totals returned by the backend."
-          />
-
+          <SectionHeading title="Monthly Trends" description="Attendance status and payroll payment progress." />
           <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
-            <MonthlyBars
-              title="Monthly Attendance Records"
-              data={charts.monthlyAttendance.map((item) => ({
-                year: item.year,
-                month: item.month,
-                value: item.records,
-              }))}
-              valueLabel="Records"
-            />
-
+            <MonthlyAttendanceBars data={charts.monthlyAttendance} />
             {(isCompanyAdmin || isHR) && (
-              <MonthlyBars
-                title="Monthly Net Payroll"
-                data={charts.monthlyPayroll.map((item) => ({
-                  year: item.year,
-                  month: item.month,
-                  value: item.netSalary,
-                }))}
-                valueLabel="Net salary"
-              />
+              <MonthlyPayrollBars data={charts.monthlyPayroll} />
             )}
           </div>
         </section>
       )}
 
       <section>
-        <SectionHeading
-          title="Quick Access"
-          description="Open the areas relevant to your role."
-        />
-
+        <SectionHeading title="Quick Access" description="Open the areas relevant to your role." />
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3">
           {(isCompanyAdmin || isHR || isManager) && (
             <>
-              <QuickLink
-                title="Attendance"
-                description="Review attendance records and daily attendance status."
-                icon={CalendarCheck}
-                color="text-cyan-300"
-                onClick={() => setActiveTab('attendance')}
-              />
-
-              <QuickLink
-                title="Staff Management"
-                description="Manage staff within your authorized scope."
-                icon={Users}
-                color="text-emerald-300"
-                onClick={() => setActiveTab('staff')}
-              />
-
-              <QuickLink
-                title="Salary & Payroll"
-                description="Review payroll, salaries and payslips."
-                icon={CreditCard}
-                color="text-purple-300"
-                onClick={() => setActiveTab('payroll')}
-              />
+              <QuickLink title="Attendance" description="Review attendance and leave records." icon={CalendarCheck} color="text-cyan-300" onClick={() => setActiveTab('attendance')} />
+              <QuickLink title="Staff Management" description="Manage employees in your authorized scope." icon={Users} color="text-emerald-300" onClick={() => setActiveTab('staff')} />
+              <QuickLink title="Salary & Payroll" description="Review payroll and payslips." icon={CreditCard} color="text-purple-300" onClick={() => setActiveTab('payroll')} />
             </>
           )}
 
-          {(isDeveloper ||
-            isSupportStaff ||
-            isKnowledgeTrainer ||
-            isSalesStaff) && (
-              <>
-                <QuickLink
-                  title="Salary"
-                  description="View your salary details and payslips."
-                  icon={Wallet}
-                  color="text-purple-300"
-                  onClick={() => setActiveTab('payroll')}
-                />
-
-                <QuickLink
-                  title="My Attendance"
-                  description="Review your attendance records."
-                  icon={CalendarCheck}
-                  color="text-cyan-300"
-                  onClick={() => setActiveTab('attendance')}
-                />
-              </>
-            )}
+          {isIndividual && (
+            <>
+              <QuickLink title="My Attendance" description="Review your attendance records." icon={CalendarCheck} color="text-cyan-300" onClick={() => setActiveTab('attendance')} />
+              <QuickLink title="My Salary" description="View your salary details and payslips." icon={Wallet} color="text-purple-300" onClick={() => setActiveTab('payroll')} />
+            </>
+          )}
 
           <button
             type="button"
@@ -854,13 +952,10 @@ export const DashboardView: React.FC = () => {
               <Video className="h-4 w-4 text-purple-300" />
               CEO Knowledge Hub
             </span>
-
             <p className="mt-2 text-xs leading-relaxed text-gray-400">
               Access leadership masterclasses and training resources.
             </p>
-
             <span className="mt-4 flex items-center gap-2 text-xs font-semibold text-purple-300">
-              <Play className="h-3.5 w-3.5" />
               Explore learning
               <ArrowUpRight className="h-3.5 w-3.5" />
             </span>

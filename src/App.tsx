@@ -50,6 +50,7 @@ import JuniorDeveloperWorkView from './components/JuniorDeveloperWorkView';
 import CompanyDetailsView from './components/CompanyDetailsView';
 import CompanyHolidays from './components/CompanyHolidays';
 import MonthlyAttendanceView from './components/MonthlyAttendanceView';
+import UserDetailsView from './components/UserDetailsView';
 
 
 // ============================================================
@@ -235,7 +236,8 @@ const AppContent: React.FC = () => {
 
       case 'company_holidays':
         return <CompanyHolidays />;
-
+      case 'user_details':
+        return <UserDetailsView />;
       // ------------------------------------------------------
       // SALES LEADS
       // ------------------------------------------------------

@@ -84,6 +84,7 @@ export type AppTab =
   | 'company_admin_management'
   | 'monthly_attendance'
   | 'company_holidays'
+  | 'user_details'
   ;
 
 export type ViewMode = 'portal' | 'public_web';
