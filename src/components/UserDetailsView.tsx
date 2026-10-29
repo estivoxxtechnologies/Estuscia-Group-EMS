@@ -94,14 +94,14 @@ const DOCUMENT_TYPE_OPTIONS: {
   value: EmployeeDocumentType;
   label: string;
 }[] = [
-  { value: 'EducationCertificate', label: 'Education Certificate' },
-  { value: 'Aadhaar', label: 'Aadhaar Card' },
-  { value: 'PAN', label: 'PAN Card' },
-  { value: 'BankDocument', label: 'Bank Document' },
-  { value: 'PassportPhoto', label: 'Passport-size Photo' },
-  { value: 'Passport', label: 'Passport' },
-  { value: 'Other', label: 'Other Document' },
-];
+    { value: 'EducationCertificate', label: 'Education Certificate' },
+    { value: 'Aadhaar', label: 'Aadhaar Card' },
+    { value: 'PAN', label: 'PAN Card' },
+    { value: 'BankDocument', label: 'Bank Document' },
+    { value: 'PassportPhoto', label: 'Passport-size Photo' },
+    { value: 'Passport', label: 'Passport' },
+    { value: 'Other', label: 'Other Document' },
+  ];
 
 // ============================================================
 // INPUT FIELD
@@ -153,9 +153,8 @@ const InputField: React.FC<InputFieldProps> = ({
         onChange={onChange}
         placeholder={placeholder}
         disabled={disabled}
-        className={`w-full rounded-lg border border-white/10 bg-[#0e0b2e] px-4 py-3 text-sm text-white outline-none transition placeholder:text-slate-600 focus:border-[#5C3FE0]/60 disabled:cursor-not-allowed disabled:opacity-60 ${
-          icon ? 'pl-10' : ''
-        }`}
+        className={`w-full rounded-lg border border-white/10 bg-[#0e0b2e] px-4 py-3 text-sm text-white outline-none transition placeholder:text-slate-600 focus:border-[#5C3FE0]/60 disabled:cursor-not-allowed disabled:opacity-60 ${icon ? 'pl-10' : ''
+          }`}
       />
     </div>
   </div>
@@ -227,7 +226,20 @@ const UserDetailsView: React.FC<UserDetailsViewProps> = ({
 
   const fileInputRef = useRef<HTMLInputElement | null>(null);
 
-  const role = currentUser?.roleName?.toLowerCase() ?? '';
+  const role = (
+    currentUser?.roleName ??
+    currentUser?.role ??
+    ''
+  ).trim().toLowerCase();
+
+  // These roles can view permitted information but cannot modify records.
+  // Keep this UI restriction in sync with backend authorization policies.
+  const isReadOnlyRole = [
+    'developer',
+    'sales_staff',
+    'support_staff',
+    'knowledge_trainer',
+  ].includes(role);
 
   const isManagement = [
     'super_admin',
@@ -240,10 +252,13 @@ const UserDetailsView: React.FC<UserDetailsViewProps> = ({
 
   const targetUserId = employeeId ?? profile?.employee.id;
 
-  // Employees can edit their own profile.
-  // Management can edit an employee profile opened by employeeId.
+  // Users may edit their own profile unless their role is read-only.
+  // Management may edit another employee's profile unless read-only.
   const canManageEmployee =
-    !isViewingEmployee || isManagement;
+    !isReadOnlyRole && (!isViewingEmployee || isManagement);
+
+  const canUploadDocuments = canManageEmployee;
+  const canReviewDocuments = isManagement && !isReadOnlyRole;
 
   // ----------------------------------------------------------
   // LOAD PROFILE
@@ -336,9 +351,7 @@ const UserDetailsView: React.FC<UserDetailsViewProps> = ({
       setMessage(null);
 
       if (!canManageEmployee) {
-        setError(
-          'You are not authorized to edit this employee profile.',
-        );
+        setError('Your role has read-only access to employee details.');
         return;
       }
 
@@ -442,6 +455,11 @@ const UserDetailsView: React.FC<UserDetailsViewProps> = ({
   // ----------------------------------------------------------
 
   const handleUploadDocument = async () => {
+    if (!canUploadDocuments) {
+      setError('Your role has read-only access and cannot upload documents.');
+      return;
+    }
+
     if (targetUserId == null) {
       setError('Employee information is not available.');
       return;
@@ -532,7 +550,7 @@ const UserDetailsView: React.FC<UserDetailsViewProps> = ({
     document: EmployeeDocument,
     status: 'Verified' | 'Rejected',
   ) => {
-    if (!isManagement) {
+    if (!canReviewDocuments) {
       setError('You are not authorized to review documents.');
       return;
     }
@@ -654,7 +672,7 @@ const UserDetailsView: React.FC<UserDetailsViewProps> = ({
             </h1>
 
             <p className="mt-1 text-sm text-slate-400">
-              Manage employee information, bank details and supporting documents.
+              View employee information, bank details and supporting documents.
             </p>
           </div>
         </div>
@@ -668,6 +686,28 @@ const UserDetailsView: React.FC<UserDetailsViewProps> = ({
           <RefreshCw size={16} />
           Refresh
         </button>
+      </div>
+
+      {/* MESSAGES */}
+
+      {/* ACCESS PERMISSION NOTICE */}
+      <div className="flex items-start gap-3 rounded-xl border border-amber-500/20 bg-amber-500/5 px-4 py-3">
+        <ShieldCheck
+          size={20}
+          className="mt-0.5 shrink-0 text-amber-400"
+        />
+
+        <div>
+          <p className="text-sm font-semibold text-amber-300">
+            Company Authorisation Required
+          </p>
+
+          <p className="mt-1 text-sm text-slate-400">
+            Only authorised Company Admin users can add or edit
+            employee details and documents. Other roles have
+            read-only access and cannot make changes.
+          </p>
+        </div>
       </div>
 
       {/* MESSAGES */}
@@ -908,13 +948,6 @@ const UserDetailsView: React.FC<UserDetailsViewProps> = ({
           description="Bank information for authorized payroll processing."
         />
 
-        <div className="mb-5 rounded-xl border border-amber-500/20 bg-amber-500/5 px-4 py-3 text-xs leading-5 text-amber-200/80">
-          Bank account numbers are stored as plain text in the
-          database. Restrict access to authorized personnel.
-          Leave the account number unchanged to preserve the
-          saved value.
-        </div>
-
         {savedAccountNumber && (
           <div className="mb-5 rounded-lg border border-emerald-500/20 bg-emerald-500/5 px-4 py-3">
             <p className="text-xs text-slate-400">
@@ -1017,22 +1050,24 @@ const UserDetailsView: React.FC<UserDetailsViewProps> = ({
 
       {/* SAVE PROFILE */}
 
-      <div className="flex justify-end">
-        <button
-          type="button"
-          onClick={() => void handleSave()}
-          disabled={saving || uploading || !canManageEmployee}
-          className="flex items-center gap-2 rounded-lg bg-[#5C3FE0] px-6 py-3 text-sm font-semibold text-white shadow-lg shadow-[#5C3FE0]/20 transition hover:bg-[#6d4ff0] disabled:cursor-not-allowed disabled:opacity-50"
-        >
-          {saving ? (
-            <Loader2 size={18} className="animate-spin" />
-          ) : (
-            <Save size={18} />
-          )}
+      {canManageEmployee && (
+        <div className="flex justify-end">
+          <button
+            type="button"
+            onClick={() => void handleSave()}
+            disabled={saving || uploading || !canManageEmployee}
+            className="flex items-center gap-2 rounded-lg bg-[#5C3FE0] px-6 py-3 text-sm font-semibold text-white shadow-lg shadow-[#5C3FE0]/20 transition hover:bg-[#6d4ff0] disabled:cursor-not-allowed disabled:opacity-50"
+          >
+            {saving ? (
+              <Loader2 size={18} className="animate-spin" />
+            ) : (
+              <Save size={18} />
+            )}
 
-          {saving ? 'Saving...' : 'Save Employee Details'}
-        </button>
-      </div>
+            {saving ? 'Saving...' : 'Save Employee Details'}
+          </button>
+        </div>
+      )}
 
       {/* DOCUMENT UPLOAD */}
 
@@ -1060,6 +1095,7 @@ const UserDetailsView: React.FC<UserDetailsViewProps> = ({
                   event.target.value as EmployeeDocumentType,
                 )
               }
+              disabled={!canUploadDocuments}
               className="w-full rounded-lg border border-white/10 bg-[#0e0b2e] px-4 py-3 text-sm text-white outline-none focus:border-[#5C3FE0]/60"
             >
               {DOCUMENT_TYPE_OPTIONS.map((option) => (
@@ -1084,7 +1120,8 @@ const UserDetailsView: React.FC<UserDetailsViewProps> = ({
               type="file"
               accept=".pdf,.jpg,.jpeg,.png,application/pdf,image/jpeg,image/png"
               onChange={handleFileSelection}
-              className="block w-full rounded-lg border border-white/10 bg-[#0e0b2e] p-2.5 text-sm text-slate-300 file:mr-3 file:rounded-md file:border-0 file:bg-[#5C3FE0]/20 file:px-3 file:py-2 file:text-xs file:font-medium file:text-[#C4B5FD] hover:file:bg-[#5C3FE0]/30"
+              disabled={!canUploadDocuments}
+              className="block w-full disabled:cursor-not-allowed disabled:opacity-50 rounded-lg border border-white/10 bg-[#0e0b2e] p-2.5 text-sm text-slate-300 file:mr-3 file:rounded-md file:border-0 file:bg-[#5C3FE0]/20 file:px-3 file:py-2 file:text-xs file:font-medium file:text-[#C4B5FD] hover:file:bg-[#5C3FE0]/30"
             />
           </div>
         </div>
@@ -1099,6 +1136,7 @@ const UserDetailsView: React.FC<UserDetailsViewProps> = ({
             onClick={() => void handleUploadDocument()}
             disabled={
               uploading ||
+              !canUploadDocuments ||
               !selectedFile ||
               targetUserId == null
             }
@@ -1215,8 +1253,8 @@ const UserDetailsView: React.FC<UserDetailsViewProps> = ({
                           Uploaded{' '}
                           {document.uploadedAtUtc
                             ? new Date(
-                                document.uploadedAtUtc,
-                              ).toLocaleDateString()
+                              document.uploadedAtUtc,
+                            ).toLocaleDateString()
                             : 'date unavailable'}
                         </p>
 
@@ -1231,13 +1269,12 @@ const UserDetailsView: React.FC<UserDetailsViewProps> = ({
 
                     <div className="flex flex-wrap items-center gap-2 lg:justify-end">
                       <span
-                        className={`inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs ${
-                          verified
+                        className={`inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs ${verified
                             ? 'border-emerald-500/20 bg-emerald-500/10 text-emerald-300'
                             : rejected
                               ? 'border-red-500/20 bg-red-500/10 text-red-300'
                               : 'border-amber-500/20 bg-amber-500/10 text-amber-300'
-                        }`}
+                          }`}
                       >
                         {verified ? (
                           <ShieldCheck size={14} />
@@ -1270,7 +1307,7 @@ const UserDetailsView: React.FC<UserDetailsViewProps> = ({
                         Download
                       </button>
 
-                      {isManagement && !verified && (
+                      {canReviewDocuments && !verified && (
                         <>
                           <button
                             type="button"

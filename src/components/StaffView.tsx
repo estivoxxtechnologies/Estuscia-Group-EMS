@@ -93,6 +93,13 @@ export const StaffView: React.FC = () => {
   // Search + role filter
   const role = currentUser?.roleName?.trim().toLowerCase();
 
+  const canViewSalary = ![
+    'developer',
+    'sales_staff',
+    'support_staff',
+    'knowledge_trainer',
+  ].includes(role ?? '');
+
   const isCompanyAdmin = role === 'company_admin';
   const isHrOps = role === 'hr_ops';
 
@@ -335,15 +342,17 @@ export const StaffView: React.FC = () => {
                 </span>
               </div>
 
-              <div className="flex items-center justify-between">
-                <span className="text-slate-400">
-                  Salary
-                </span>
+              {canViewSalary && (
+                <div className="flex items-center justify-between">
+                  <span className="text-slate-400">
+                    Salary
+                  </span>
 
-                <span className="font-mono text-white font-semibold">
-                  {user.salaryBase.toLocaleString()}
-                </span>
-              </div>
+                  <span className="font-mono text-white font-semibold">
+                    {user.salaryBase.toLocaleString()}
+                  </span>
+                </div>
+              )}
 
               <div className="flex items-center justify-between">
                 <span className="text-slate-400">
@@ -473,15 +482,17 @@ export const StaffView: React.FC = () => {
                 </span>
               </div>
 
-              <div className="p-3 rounded-xl bg-[#0e0b2e] border border-[#231e54]">
-                <span className="text-[10px] text-slate-400 uppercase block">
-                  Basic Salary
-                </span>
+              {canViewSalary && (
+                <div className="p-3 rounded-xl bg-[#0e0b2e] border border-[#231e54]">
+                  <span className="text-[10px] text-slate-400 uppercase block">
+                    Basic Salary
+                  </span>
 
-                <span className="font-mono text-white font-bold">
-                  {selectedUserForDetail.salaryBase.toLocaleString()}
-                </span>
-              </div>
+                  <span className="font-mono text-white font-bold">
+                    {selectedUserForDetail.salaryBase.toLocaleString()}
+                  </span>
+                </div>
+              )}
 
               <div className="p-3 rounded-xl bg-[#0e0b2e] border border-[#231e54]">
                 <span className="text-[10px] text-slate-400 uppercase block">

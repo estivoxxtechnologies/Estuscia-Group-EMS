@@ -960,7 +960,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         'sales_leads',
         'knowledge_hub',
         'monthly_attendance',
-        'company_holidays'
+        'company_holidays',
+        'user_details'
       ].includes(tab);
     }
 
@@ -979,7 +980,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         'payroll',
         'knowledge_hub',
         'monthly_attendance',
-        'company_holidays'
+        'company_holidays',
+        'user_details'
       ].includes(tab);
     }
 
@@ -999,6 +1001,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         'receipts_slabs',
         'knowledge_hub',
         'payroll',
+        'staff',
+        'user_details',
+        'monthly_attendance'
       ].includes(tab);
     }
 
@@ -1013,6 +1018,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         'developer_work',
         'knowledge_hub',
         'payroll',
+        'staff',
+        'user_details',
+        'monthly_attendance'
       ].includes(tab);
     }
 
@@ -1027,6 +1035,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         'receipts_slabs',
         'knowledge_hub',
         'payroll',
+        'staff',
+        'user_details',
+        'monthly_attendance'
       ].includes(tab);
     }
 

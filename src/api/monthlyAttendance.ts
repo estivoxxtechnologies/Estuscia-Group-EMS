@@ -54,6 +54,57 @@ export interface ReturnMonthlyAttendanceRequest {
     reason: string;
 }
 
+export interface MyMonthlyAttendanceReport {
+    reportId: number;
+    year: number;
+    month: number;
+    status: number | string;
+    branchName?: string;
+
+    workingDays: number;
+    presentDays: number;
+    approvedLeaveDays: number;
+    halfDays: number;
+    absentDays: number;
+    lateArrivals: number;
+
+    missingCheckIns: number;
+    missingCheckOuts: number;
+    totalWorkedHours: number;
+    requiredWorkingHours: number;
+    daysBelowRequiredHours: number;
+    totalShortageHours: number;
+    missingAttendanceDays: number;
+
+    approvedAtUtc?: string | null;
+}
+
+/**
+ * Get the logged-in employee's monthly attendance reports.
+ * The backend must identify the employee from the authenticated user.
+ */
+export async function getMyMonthlyAttendanceReports(filters?: {
+    year?: number;
+    month?: number;
+}): Promise<MyMonthlyAttendanceReport[]> {
+    const params = new URLSearchParams();
+
+    if (filters?.year != null) {
+        params.set('year', String(filters.year));
+    }
+
+    if (filters?.month != null) {
+        params.set('month', String(filters.month));
+    }
+
+    const query = params.toString();
+
+    return apiRequest<MyMonthlyAttendanceReport[]>(
+        `/MonthlyAttendance/my-reports${query ? `?${query}` : ''}`,
+        { method: 'GET' }
+    );
+}
+
 /**
  * Get monthly attendance reports using optional filters.
  */

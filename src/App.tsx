@@ -26,6 +26,7 @@ import { AddEmployeeModal } from './components/AddEmployeeModal';
 import { BranchManagementView } from './components/BranchManagementView';
 import { TenantView } from './components/TenantView';
 import { CompanyAdminManagementView } from './components/CompanyAdminManagementView';
+import MyMonthlyAttendance from './components/MyMonthlyAttendance';
 
 import {
   LayoutDashboard,
@@ -212,9 +213,23 @@ const AppContent: React.FC = () => {
       case 'company_details':
         return <CompanyDetailsView />;
 
+
       case 'monthly_attendance': {
         const role = currentUser?.roleName?.toLowerCase();
 
+        // Employees can view only their own approved monthly report.
+        const isEmployee = [
+          'sales_staff',
+          'developer',
+          'support_staff',
+          'knowledge_trainer',
+        ].includes(role ?? '');
+
+        if (isEmployee) {
+          return <MyMonthlyAttendance />;
+        }
+
+        // Management can access the monthly report workflow.
         return (
           <MonthlyAttendanceView
             branches={(branches ?? []).map((branch) => ({
@@ -222,22 +237,23 @@ const AppContent: React.FC = () => {
               name: branch.branchName,
             }))}
             canGenerate={
-              role === 'hr_ops' ||  role ==='branch_manager'
+              role === 'hr_ops' || role === 'branch_manager'
             }
             canSubmit={
-              role === 'hr_ops' || role ==='branch_manager'
+              role === 'hr_ops' || role === 'branch_manager'
             }
-            canApprove={
-              role === 'company_admin' ||  role ==='branch_manager'
-            }
+            canApprove={role === 'company_admin'}
           />
         );
       }
+
 
       case 'company_holidays':
         return <CompanyHolidays />;
       case 'user_details':
         return <UserDetailsView />;
+
+
       // ------------------------------------------------------
       // SALES LEADS
       // ------------------------------------------------------

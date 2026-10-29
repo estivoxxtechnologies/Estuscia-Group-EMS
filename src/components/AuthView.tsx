@@ -72,7 +72,7 @@ export const AuthView: React.FC = () => {
                   src="/estuscia-logo.png"
                   alt="Estuscia"
                   onError={() => setLogoFailed(true)}
-                  className="max-h-full w-auto max-w-[145px] object-contain object-left sm:max-w-[190px] lg:max-h-28 lg:max-w-full"
+                  className="max-h-full w-auto max-w-[145px] object-contain object-left sm:max-w-[190px] lg:max-h-35 lg:max-w-full"
                 />
               ) : (
                 <div className="flex items-center gap-2.5">
