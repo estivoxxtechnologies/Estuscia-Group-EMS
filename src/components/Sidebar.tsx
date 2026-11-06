@@ -106,191 +106,190 @@ export const Sidebar: React.FC = () => {
     section: NavSection;
     superAdminOnly?: boolean;
   }[] = [
-    // =======================================================
-    // 1. WORKSPACE
-    // =======================================================
+      // =======================================================
+      // 1. WORKSPACE
+      // =======================================================
 
-    {
-      id: 'dashboard',
-      label: 'Portal Overview',
-      icon: <LayoutDashboard className="w-4 h-4" />,
-      section: 'workspace',
-    },
+      {
+        id: 'dashboard',
+        label: 'Portal Overview',
+        icon: <LayoutDashboard className="w-4 h-4" />,
+        section: 'workspace',
+      },
 
-    // {
-    //   id: 'daily_work',
-    //   label:
-    //     currentUser.roleName === 'developer'
-    //       ? 'Daily Code & Tasks'
-    //       : 'Daily Work & Calls',
-    //   icon:
-    //     currentUser.roleName === 'developer'
-    //       ? <Code2 className="w-4 h-4" />
-    //       : <PhoneCall className="w-4 h-4" />,
-    //   badge:
-    //     todayLogsCount > 0
-    //       ? `${todayLogsCount} Logged`
-    //       : 'Action Req',
-    //   badgeColor:
-    //     todayLogsCount > 0
-    //       ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30'
-    //       : 'bg-purple-500/20 text-purple-300 border border-purple-500/30',
-    //   section: 'workspace',
-    // },
+      // {
+      //   id: 'daily_work',
+      //   label:
+      //     currentUser.roleName === 'developer'
+      //       ? 'Daily Code & Tasks'
+      //       : 'Daily Work & Calls',
+      //   icon:
+      //     currentUser.roleName === 'developer'
+      //       ? <Code2 className="w-4 h-4" />
+      //       : <PhoneCall className="w-4 h-4" />,
+      //   badge:
+      //     todayLogsCount > 0
+      //       ? `${todayLogsCount} Logged`
+      //       : 'Action Req',
+      //   badgeColor:
+      //     todayLogsCount > 0
+      //       ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30'
+      //       : 'bg-purple-500/20 text-purple-300 border border-purple-500/30',
+      //   section: 'workspace',
+      // },
 
-    {
-      id: 'attendance',
-      label: 'Biometric & Attendance',
-      icon: <CalendarCheck className="w-4 h-4" />,
-      // badge:
-      //   pendingLeavesCount > 0
-      //     ? `${pendingLeavesCount} Leaves`
-      //     : undefined,
-      badgeColor:
-        'bg-amber-500/20 text-amber-300 border border-amber-500/30',
-      section: 'workspace',
-    },
+      {
+        id: 'attendance',
+        label: 'Biometric & Attendance',
+        icon: <CalendarCheck className="w-4 h-4" />,
+        // badge:
+        //   pendingLeavesCount > 0
+        //     ? `${pendingLeavesCount} Leaves`
+        //     : undefined,
+        badgeColor:
+          'bg-amber-500/20 text-amber-300 border border-amber-500/30',
+        section: 'workspace',
+      },
 
-    {
-      id: 'monthly_attendance',
-      label: 'Monthly Attendance Verification',
-      icon: <ClipboardCheck className="w-4 h-4" />,
-      section: 'workspace',
-    },
+      {
+        id: 'monthly_attendance',
+        label: 'Monthly Attendance Verification',
+        icon: <ClipboardCheck className="w-4 h-4" />,
+        section: 'workspace',
+      },
 
-    {
-      id: 'company_holidays',
-      label: 'Holiday Management',
-      icon: <CalendarDays className="w-4 h-4" />,
-      section: 'workspace',
-    },
+      {
+        id: 'company_holidays',
+        label: 'Holiday Management',
+        icon: <CalendarDays className="w-4 h-4" />,
+        section: 'workspace',
+      },
 
-    // =======================================================
-    // 2. PEOPLE & FINANCE
-    // =======================================================
+      // =======================================================
+      // 2. PEOPLE & FINANCE
+      // =======================================================
 
-    // {
-    //   id: 'targets_incentives',
-    //   label: 'Targets & Incentives',
-    //   icon: <Target className="w-4 h-4" />,
-    //   badge:
-    //     pendingDealsCount > 0
-    //       ? `${pendingDealsCount} Deals`
-    //       : undefined,
-    //   badgeColor:
-    //     'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30',
-    //   section: 'people_finance',
-    // },
+      // {
+      //   id: 'targets_incentives',
+      //   label: 'Targets & Incentives',
+      //   icon: <Target className="w-4 h-4" />,
+      //   badge:
+      //     pendingDealsCount > 0
+      //       ? `${pendingDealsCount} Deals`
+      //       : undefined,
+      //   badgeColor:
+      //     'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30',
+      //   section: 'people_finance',
+      // },
 
-    // {
-    //   id: 'sales_leads',
-    //   label: 'Sales Leads',
-    //   icon: <Target className="w-4 h-4" />,
-    //   section: 'people_finance',
-    // },
+      // {
+      //   id: 'sales_leads',
+      //   label: 'Sales Leads',
+      //   icon: <Target className="w-4 h-4" />,
+      //   section: 'people_finance',
+      // },
 
-    // {
-    //   id: 'developer_work',
-    //   label: 'Developer Work',
-    //   icon: <Code2 className="w-4 h-4" />,
-    //   section: 'people_finance',
-    // },
+      // {
+      //   id: 'developer_work',
+      //   label: 'Developer Work',
+      //   icon: <Code2 className="w-4 h-4" />,
+      //   section: 'people_finance',
+      // },
 
-    // {
-    //   id: 'receipts_slabs',
-    //   label: 'Customer Receipts & Slabs',
-    //   icon: <Receipt className="w-4 h-4" />,
-    //   badge: 'Official Slips',
-    //   badgeColor:
-    //     'bg-teal-500/20 text-teal-300 border border-teal-500/30',
-    //   section: 'people_finance',
-    // },
+      // {
+      //   id: 'receipts_slabs',
+      //   label: 'Customer Receipts & Slabs',
+      //   icon: <Receipt className="w-4 h-4" />,
+      //   badge: 'Official Slips',
+      //   badgeColor:
+      //     'bg-teal-500/20 text-teal-300 border border-teal-500/30',
+      //   section: 'people_finance',
+      // },
 
-    {
-      id: 'staff',
-      label: 'Staff & Team Directory',
-      icon: <Users className="w-4 h-4" />,
-      section: 'people_finance',
-    },
+      {
+        id: 'staff',
+        label: 'Staff & Team Directory',
+        icon: <Users className="w-4 h-4" />,
+        section: 'people_finance',
+      },
 
-    {
-      id: 'user_details',
-      label: 'User Details & Documents',
-      icon: <UserRound className="w-4 h-4" />,
-      section: 'people_finance',
-    },
+      {
+        id: 'user_details',
+        label: 'User Details & Documents',
+        icon: <UserRound className="w-4 h-4" />,
+        section: 'people_finance',
+      },
 
-    {
-      id: 'payroll',
-      label: 'Salary & Payslips',
-      icon: <CreditCard className="w-4 h-4" />,
-      section: 'people_finance',
-    },
+      {
+        id: 'payroll',
+        label: 'Salary & Payslips',
+        icon: <CreditCard className="w-4 h-4" />,
+        section: 'people_finance',
+      },
 
-    // =======================================================
-    // 3. COMPANY & ADMINISTRATION
-    // =======================================================
+      // =======================================================
+      // 3. COMPANY & ADMINISTRATION
+      // =======================================================
 
-    {
-      id: 'company_details',
-      label: 'Company Details',
-      icon: <Building2 className="w-4 h-4" />,
-      section: 'company_admin',
-    },
+      {
+        id: 'company_details',
+        label: 'Company Details',
+        icon: <Building2 className="w-4 h-4" />,
+        section: 'company_admin',
+      },
 
-    // {
-    //   id: 'audit_settings',
-    //   label: 'Access Matrix',
-    //   icon: <ShieldCheck className="w-4 h-4" />,
-    //   section: 'company_admin',
-    // },
+      // {
+      //   id: 'audit_settings',
+      //   label: 'Access Matrix',
+      //   icon: <ShieldCheck className="w-4 h-4" />,
+      //   section: 'company_admin',
+      // },
 
-    {
-      id: 'knowledge_hub',
-      label: 'CEO Knowledge Hub',
-      icon: <Video className="w-4 h-4" />,
-      badge: 'Videos',
-      badgeColor:
-        'bg-[#5C3FE0]/20 text-[#A78BFA] border border-[#5C3FE0]/30',
-      section: 'company_admin',
-    },
+      // =======================================================
+      // SUPER ADMIN ONLY
+      // =======================================================
 
-    // =======================================================
-    // SUPER ADMIN ONLY
-    // =======================================================
+      {
+        id: 'tenants',
+        label: 'Tenant Management',
+        icon: <Building2 className="w-4 h-4" />,
+        section: 'company_admin',
+        superAdminOnly: true,
+      },
 
-    {
-      id: 'tenants',
-      label: 'Tenant Management',
-      icon: <Building2 className="w-4 h-4" />,
-      section: 'company_admin',
-      superAdminOnly: true,
-    },
+      {
+        id: 'branch_management',
+        label: 'Branch Management',
+        icon: <GitBranch className="w-4 h-4" />,
+        section: 'company_admin',
+        superAdminOnly: true,
+      },
 
-    {
-      id: 'branch_management',
-      label: 'Branch Management',
-      icon: <GitBranch className="w-4 h-4" />,
-      section: 'company_admin',
-      superAdminOnly: true,
-    },
+      {
+        id: 'tenant_payment',
+        label: 'Tenant Payment',
+        icon: <CreditCard className="w-4 h-4" />,
+        section: 'company_admin',
+        superAdminOnly: true,
+      },
 
-    {
-      id: 'tenant_payment',
-      label: 'Tenant Payment',
-      icon: <CreditCard className="w-4 h-4" />,
-      section: 'company_admin',
-      superAdminOnly: true,
-    },
-
-    {
-      id: 'company_admin_management',
-      label: 'Company Admin Management',
-      icon: <Users className="w-4 h-4" />,
-      section: 'company_admin',
-      superAdminOnly: true,
-    },
-  ];
+      {
+        id: 'company_admin_management',
+        label: 'Company Admin Management',
+        icon: <Users className="w-4 h-4" />,
+        section: 'company_admin',
+        superAdminOnly: true,
+      },
+      {
+        id: 'knowledge_hub',
+        label: 'CEO Knowledge Hub',
+        icon: <Video className="w-4 h-4" />,
+        badge: 'Videos',
+        badgeColor:
+          'bg-[#5C3FE0]/20 text-[#A78BFA] border border-[#5C3FE0]/30',
+        section: 'company_admin',
+      },
+    ];
 
   // ---------------------------------------------------------
   // FILTER NAVIGATION
@@ -375,11 +374,10 @@ export const Sidebar: React.FC = () => {
                   handleTabClick(item.id);
                 }
               }}
-              className={`flex cursor-pointer items-center justify-between rounded-xl px-3 py-2.5 text-xs font-semibold transition-all ${
-                isActive
+              className={`flex cursor-pointer items-center justify-between rounded-xl px-3 py-2.5 text-xs font-semibold transition-all ${isActive
                   ? 'bg-[#5C3FE0] text-white shadow-lg shadow-[#5C3FE0]/25'
                   : 'text-gray-400 hover:bg-white/5 hover:text-white'
-              }`}
+                }`}
             >
               {/* Left side */}
               <div className="flex min-w-0 items-center gap-2.5">
@@ -397,12 +395,11 @@ export const Sidebar: React.FC = () => {
               {/* Badge */}
               {item.badge && (
                 <span
-                  className={`shrink-0 rounded px-1.5 py-0.5 font-mono text-[9px] font-bold uppercase ${
-                    isActive
+                  className={`shrink-0 rounded px-1.5 py-0.5 font-mono text-[9px] font-bold uppercase ${isActive
                       ? 'bg-white/20 text-white'
                       : item.badgeColor ||
-                        'bg-white/10 text-gray-300'
-                  }`}
+                      'bg-white/10 text-gray-300'
+                    }`}
                 >
                   {item.badge}
                 </span>

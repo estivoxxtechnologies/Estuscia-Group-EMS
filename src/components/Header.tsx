@@ -308,8 +308,8 @@ export const Header: React.FC = () => {
                     setIsBranchOpen(!isBranchOpen);
                   }}
                   className={`bg-[#09081E] px-2.5 sm:px-3 py-1.5 rounded-xl border border-white/10 flex items-center gap-1.5 transition-colors ${branchDropdownDisabled
-                      ? 'opacity-70 cursor-not-allowed'
-                      : 'hover:border-[#5C3FE0]/50 cursor-pointer'
+                    ? 'opacity-70 cursor-not-allowed'
+                    : 'hover:border-[#5C3FE0]/50 cursor-pointer'
                     }`}
                 >
                   <MapPin className="w-3.5 h-3.5 text-cyan-400 shrink-0" />
@@ -353,7 +353,7 @@ export const Header: React.FC = () => {
                   />
                 </button>
 
-                {isBranchOpen &&  !hasFixedHrBranch && (
+                {isBranchOpen && !hasFixedHrBranch && (
                   <div className="absolute left-0 mt-2 w-64 bg-[#09081E] border border-white/15 rounded-xl shadow-2xl p-2 z-50">
                     <div className="px-2.5 py-1 text-[10px] font-bold tracking-wider text-gray-400 uppercase">
                       Select Branch Scope
@@ -617,16 +617,18 @@ export const Header: React.FC = () => {
                   <span>Customer Deposit Slips</span>
                   <Receipt className="w-3.5 h-3.5 text-emerald-400" />
                 </button> */}
-                <button
-                  onClick={() => {
-                    setActiveTab('payroll');
-                    setIsUserMenuOpen(false);
-                  }}
-                  className="w-full text-left px-2.5 py-1.5 rounded-lg text-gray-300 hover:bg-white/5 flex items-center justify-between cursor-pointer"
-                >
-                  <span>My Salary & Payslips</span>
-                  <CreditCard className="w-3.5 h-3.5 text-cyan-400" />
-                </button>
+                {!isSuperAdmin && (
+                  <button
+                    onClick={() => {
+                      setActiveTab('payroll');
+                      setIsUserMenuOpen(false);
+                    }}
+                    className="w-full text-left px-2.5 py-1.5 rounded-lg text-gray-300 hover:bg-white/5 flex items-center justify-between cursor-pointer"
+                  >
+                    <span>My Salary & Payslips</span>
+                    <CreditCard className="w-3.5 h-3.5 text-cyan-400" />
+                  </button>
+                )}
               </div>
 
               <div className="pt-2 border-t border-white/10">
