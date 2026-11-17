@@ -260,3 +260,23 @@ export async function reviewEmployeeDocument(
     },
   );
 }
+
+// ----------------------------------------------------
+// GET EMPLOYEES BY BRANCH
+// GET: /api/UserDetails/employees?branchId={branchId}
+// ----------------------------------------------------
+
+export async function getEmployeesByBranch(
+  branchId: number,
+): Promise<EmployeeBasicInfo[]> {
+  if (!branchId || branchId <= 0) {
+    throw new Error('A valid branch ID is required.');
+  }
+
+  return apiRequest<EmployeeBasicInfo[]>(
+    `/UserDetails/employees?branchId=${encodeURIComponent(branchId)}`,
+    {
+      method: 'GET',
+    },
+  );
+}

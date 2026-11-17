@@ -85,6 +85,7 @@ export type AppTab =
   | 'monthly_attendance'
   | 'company_holidays'
   | 'user_details'
+  | 'add_user_details'
   ;
 
 export type ViewMode = 'portal' | 'public_web';
@@ -961,6 +962,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         'knowledge_hub',
         'monthly_attendance',
         'company_holidays',
+        'add_user_details',
         'user_details'
       ].includes(tab);
     }
@@ -981,6 +983,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         'knowledge_hub',
         'monthly_attendance',
         'company_holidays',
+        'add_user_details',
         'user_details'
       ].includes(tab);
     }

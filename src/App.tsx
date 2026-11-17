@@ -22,7 +22,7 @@ import { PayslipModal } from './components/PayslipModal';
 import { BatchUploadModal } from './components/BatchUploadModal';
 import { LogDealModal } from './components/LogDealModal';
 import { AddEmployeeModal } from './components/AddEmployeeModal';
-
+import AddUserDetailsView from './components/AddUserDetailsView';
 import { BranchManagementView } from './components/BranchManagementView';
 import { TenantView } from './components/TenantView';
 import { CompanyAdminManagementView } from './components/CompanyAdminManagementView';
@@ -250,10 +250,12 @@ const AppContent: React.FC = () => {
 
       case 'company_holidays':
         return <CompanyHolidays />;
+
       case 'user_details':
         return <UserDetailsView />;
 
-
+      case 'add_user_details':
+        return <AddUserDetailsView />;
       // ------------------------------------------------------
       // SALES LEADS
       // ------------------------------------------------------

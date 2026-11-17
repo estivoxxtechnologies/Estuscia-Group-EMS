@@ -219,6 +219,12 @@ export const Sidebar: React.FC = () => {
         icon: <UserRound className="w-4 h-4" />,
         section: 'people_finance',
       },
+      {
+        id: 'add_user_details',
+        label: 'Add User Details',
+        icon: <UserRound className="w-4 h-4" />,
+        section: 'people_finance',
+      },
 
       {
         id: 'payroll',
@@ -375,8 +381,8 @@ export const Sidebar: React.FC = () => {
                 }
               }}
               className={`flex cursor-pointer items-center justify-between rounded-xl px-3 py-2.5 text-xs font-semibold transition-all ${isActive
-                  ? 'bg-[#5C3FE0] text-white shadow-lg shadow-[#5C3FE0]/25'
-                  : 'text-gray-400 hover:bg-white/5 hover:text-white'
+                ? 'bg-[#5C3FE0] text-white shadow-lg shadow-[#5C3FE0]/25'
+                : 'text-gray-400 hover:bg-white/5 hover:text-white'
                 }`}
             >
               {/* Left side */}
@@ -396,9 +402,9 @@ export const Sidebar: React.FC = () => {
               {item.badge && (
                 <span
                   className={`shrink-0 rounded px-1.5 py-0.5 font-mono text-[9px] font-bold uppercase ${isActive
-                      ? 'bg-white/20 text-white'
-                      : item.badgeColor ||
-                      'bg-white/10 text-gray-300'
+                    ? 'bg-white/20 text-white'
+                    : item.badgeColor ||
+                    'bg-white/10 text-gray-300'
                     }`}
                 >
                   {item.badge}
