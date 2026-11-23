@@ -300,151 +300,151 @@ export const Header: React.FC = () => {
       </div>
 
       <div className="flex items-center gap-2 sm:gap-3 w-full min-w-0 sm:flex-1">
-            {/* Branch Selector for Company Managers / Admins */}
-            {/* Branch Selector */}
-            {canSelectBranch && (
-              <div className="relative min-w-0 flex-1 sm:flex-initial" ref={branchRef}>
-                <button
-                  disabled={isBranchSelectionRestoring}
-                  onClick={() => {
-                    if (isBranchSelectionRestoring) {
-                      return;
-                    }
+        {/* Branch Selector for Company Managers / Admins */}
+        {/* Branch Selector */}
+        {canSelectBranch && (
+          <div className="relative min-w-0 flex-1 sm:flex-initial" ref={branchRef}>
+            <button
+              disabled={isBranchSelectionRestoring}
+              onClick={() => {
+                if (isBranchSelectionRestoring) {
+                  return;
+                }
 
-                    setIsBranchOpen(!isBranchOpen);
-                  }}
-                  className={`w-full sm:w-auto min-h-11 bg-[#09081E] px-3 sm:px-3 py-2 sm:py-1.5 rounded-xl border border-white/10 flex items-center justify-start gap-2 min-w-0 sm:max-w-[22rem] transition-colors ${branchDropdownDisabled
-                    ? 'opacity-70 cursor-not-allowed'
-                    : 'hover:border-[#5C3FE0]/50 cursor-pointer'
-                    }`}
-                >
-                  <MapPin className="w-3.5 h-3.5 text-cyan-400 shrink-0" />
+                setIsBranchOpen(!isBranchOpen);
+              }}
+              className={`w-full sm:w-auto min-h-11 bg-[#09081E] px-3 sm:px-3 py-2 sm:py-1.5 rounded-xl border border-white/10 flex items-center justify-start gap-2 min-w-0 sm:max-w-[22rem] transition-colors ${branchDropdownDisabled
+                ? 'opacity-70 cursor-not-allowed'
+                : 'hover:border-[#5C3FE0]/50 cursor-pointer'
+                }`}
+            >
+              <MapPin className="w-3.5 h-3.5 text-cyan-400 shrink-0" />
 
-                  <div className="text-left min-w-0 flex-1">
-                    {isBranchSelectionRestoring ? (
-                      <div className="flex items-center gap-1.5 text-xs text-gray-400">
-                        <Loader2 className="w-3 h-3 animate-spin" />
-                        <span>Loading...</span>
-                      </div>
+              <div className="text-left min-w-0 flex-1">
+                {isBranchSelectionRestoring ? (
+                  <div className="flex items-center gap-1.5 text-xs text-gray-400">
+                    <Loader2 className="w-3 h-3 animate-spin" />
+                    <span>Loading...</span>
+                  </div>
+                ) : (
+                  <>
+                    <div className="text-xs font-medium text-gray-200 whitespace-normal break-words leading-tight max-w-none sm:max-w-[19rem]">
+                      {hasFixedHrBranch
+                        ? currentUser.branchName ?? 'Assigned Branch'
+                        : selectedBranch?.branchName ?? 'All Branches'}
+                    </div>
+
+                    {hasFixedHrBranch ? (
+                      currentUser.currency && (
+                        <div className="text-[9px] text-cyan-400 font-medium">
+                          {currentUser.currency.code}{' '}
+                          {currentUser.currency.symbol}
+                        </div>
+                      )
                     ) : (
-                      <>
-                        <div className="text-xs font-medium text-gray-200 whitespace-normal break-words leading-tight max-w-none sm:max-w-[19rem]">
-                          {hasFixedHrBranch
-                            ? currentUser.branchName ?? 'Assigned Branch'
-                            : selectedBranch?.branchName ?? 'All Branches'}
+                      selectedBranch?.currency && (
+                        <div className="text-[9px] text-cyan-400 font-medium">
+                          {selectedBranch.currency.code}{' '}
+                          {selectedBranch.currency.symbol}
                         </div>
-
-                        {hasFixedHrBranch ? (
-                          currentUser.currency && (
-                            <div className="text-[9px] text-cyan-400 font-medium">
-                              {currentUser.currency.code}{' '}
-                              {currentUser.currency.symbol}
-                            </div>
-                          )
-                        ) : (
-                          selectedBranch?.currency && (
-                            <div className="text-[9px] text-cyan-400 font-medium">
-                              {selectedBranch.currency.code}{' '}
-                              {selectedBranch.currency.symbol}
-                            </div>
-                          )
-                        )}
-                      </>
+                      )
                     )}
-                  </div>
-
-                  <ChevronDown
-                    className={`w-3 h-3 text-gray-400 transition-transform ${isBranchOpen ? 'rotate-180' : ''
-                      }`}
-                  />
-                </button>
-
-                {isBranchOpen && !hasFixedHrBranch && (
-                  <div className="absolute left-0 mt-2 w-72 max-w-[calc(100vw-1.5rem)] bg-[#09081E] border border-white/15 rounded-xl shadow-2xl p-2 z-50 max-h-[min(70vh,28rem)] overflow-y-auto">
-                    <div className="px-2.5 py-1 text-[10px] font-bold tracking-wider text-gray-400 uppercase">
-                      Select Branch Scope
-                    </div>
-
-                    <div className="space-y-1 mt-1">
-
-                      {/* All Branches */}
-                      <button
-                        onClick={() => {
-                          setSelectedBranchId(null);
-                          setIsBranchOpen(false);
-                        }}
-                        className={`w-full text-left px-2.5 py-1.5 rounded-lg text-xs transition-colors flex items-center justify-between ${selectedBranch === null
-                          ? 'bg-[#5C3FE0]/20 text-[#5C3FE0] font-semibold'
-                          : 'text-gray-300 hover:bg-white/5'
-                          }`}
-                      >
-                        <span>All Branches</span>
-
-                        {selectedBranch === null && (
-                          <CheckCircle2 className="w-3.5 h-3.5 text-[#5C3FE0]" />
-                        )}
-                      </button>
-
-                      {/* Loading */}
-                      {isBranchesLoading && (
-                        <div className="px-2.5 py-2 text-xs text-gray-500">
-                          Loading branches...
-                        </div>
-                      )}
-
-                      {/* Empty */}
-                      {!isBranchesLoading && branches.length === 0 && (
-                        <div className="px-2.5 py-2 text-xs text-gray-500">
-                          No branches available
-                        </div>
-                      )}
-
-                      {/* Branches */}
-                      {!isBranchesLoading &&
-                        branches.map((branch) => {
-                          const isSelected =
-                            selectedBranch?.id === branch.id;
-
-                          return (
-                            <button
-                              key={branch.id}
-                              onClick={() => {
-                                setSelectedBranchId(branch.id);
-                                setIsBranchOpen(false);
-                              }}
-                              className={`w-full text-left px-2.5 py-1.5 rounded-lg text-xs transition-colors flex items-center justify-between ${isSelected
-                                ? 'bg-[#5C3FE0]/20 text-[#5C3FE0] font-semibold'
-                                : 'text-gray-300 hover:bg-white/5'
-                                }`}
-                            >
-                              <div className="min-w-0">
-                                <div className="truncate">
-                                  {branch.branchName}
-                                </div>
-
-                                {branch.city && (
-                                  <div className="text-[10px] text-gray-500 truncate">
-                                    {branch.city}
-                                  </div>
-                                )}
-                              </div>
-
-                              {isSelected && (
-                                <CheckCircle2 className="w-3.5 h-3.5 text-[#5C3FE0] shrink-0" />
-                              )}
-                            </button>
-                          );
-                        })}
-                    </div>
-                  </div>
+                  </>
                 )}
               </div>
-            )}
-      {/* Center/Right Action Bar */}
-      <div className="flex items-center justify-end gap-1.5 sm:gap-2.5 md:gap-3 w-auto sm:w-auto min-w-0 shrink-0 ml-auto">
 
-        {/* Quick Action: Log Work */}
-        {/* {!isSuperAdmin && (
+              <ChevronDown
+                className={`w-3 h-3 text-gray-400 transition-transform ${isBranchOpen ? 'rotate-180' : ''
+                  }`}
+              />
+            </button>
+
+            {isBranchOpen && !hasFixedHrBranch && (
+              <div className="absolute left-0 mt-2 w-72 max-w-[calc(100vw-1.5rem)] bg-[#09081E] border border-white/15 rounded-xl shadow-2xl p-2 z-50 max-h-[min(70vh,28rem)] overflow-y-auto">
+                <div className="px-2.5 py-1 text-[10px] font-bold tracking-wider text-gray-400 uppercase">
+                  Select Branch Scope
+                </div>
+
+                <div className="space-y-1 mt-1">
+
+                  {/* All Branches */}
+                  <button
+                    onClick={() => {
+                      setSelectedBranchId(null);
+                      setIsBranchOpen(false);
+                    }}
+                    className={`w-full text-left px-2.5 py-1.5 rounded-lg text-xs transition-colors flex items-center justify-between ${selectedBranch === null
+                      ? 'bg-[#5C3FE0]/20 text-[#5C3FE0] font-semibold'
+                      : 'text-gray-300 hover:bg-white/5'
+                      }`}
+                  >
+                    <span>All Branches</span>
+
+                    {selectedBranch === null && (
+                      <CheckCircle2 className="w-3.5 h-3.5 text-[#5C3FE0]" />
+                    )}
+                  </button>
+
+                  {/* Loading */}
+                  {isBranchesLoading && (
+                    <div className="px-2.5 py-2 text-xs text-gray-500">
+                      Loading branches...
+                    </div>
+                  )}
+
+                  {/* Empty */}
+                  {!isBranchesLoading && branches.length === 0 && (
+                    <div className="px-2.5 py-2 text-xs text-gray-500">
+                      No branches available
+                    </div>
+                  )}
+
+                  {/* Branches */}
+                  {!isBranchesLoading &&
+                    branches.map((branch) => {
+                      const isSelected =
+                        selectedBranch?.id === branch.id;
+
+                      return (
+                        <button
+                          key={branch.id}
+                          onClick={() => {
+                            setSelectedBranchId(branch.id);
+                            setIsBranchOpen(false);
+                          }}
+                          className={`w-full text-left px-2.5 py-1.5 rounded-lg text-xs transition-colors flex items-center justify-between ${isSelected
+                            ? 'bg-[#5C3FE0]/20 text-[#5C3FE0] font-semibold'
+                            : 'text-gray-300 hover:bg-white/5'
+                            }`}
+                        >
+                          <div className="min-w-0">
+                            <div className="truncate">
+                              {branch.branchName}
+                            </div>
+
+                            {branch.city && (
+                              <div className="text-[10px] text-gray-500 truncate">
+                                {branch.city}
+                              </div>
+                            )}
+                          </div>
+
+                          {isSelected && (
+                            <CheckCircle2 className="w-3.5 h-3.5 text-[#5C3FE0] shrink-0" />
+                          )}
+                        </button>
+                      );
+                    })}
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+        {/* Center/Right Action Bar */}
+        <div className="flex items-center justify-end gap-1.5 sm:gap-2.5 md:gap-3 w-auto sm:w-auto min-w-0 shrink-0 ml-auto">
+
+          {/* Quick Action: Log Work */}
+          {/* {!isSuperAdmin && (
           <button
             onClick={() => setIsWorkLogModalOpen(true)}
             className="hidden sm:flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-purple-500/15 hover:bg-purple-500/25 border border-purple-500/30 text-purple-200 text-xs font-semibold transition-all cursor-pointer"
@@ -455,8 +455,8 @@ export const Header: React.FC = () => {
           </button>
         )} */}
 
-        {/* Quick Action: Customer Deposit Slip */}
-        {/* {!isSuperAdmin && (
+          {/* Quick Action: Customer Deposit Slip */}
+          {/* {!isSuperAdmin && (
           <button
             onClick={() => setIsCreateReceiptModalOpen(true)}
             className="hidden md:flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-emerald-500/15 hover:bg-emerald-500/25 border border-emerald-500/30 text-emerald-200 text-xs font-semibold transition-all cursor-pointer"
@@ -466,8 +466,8 @@ export const Header: React.FC = () => {
           </button>
         )} */}
 
-        {/* HR Quick Action: Biometric Excel */}
-        {/* {isHR || !isSuperAdmin && (
+          {/* HR Quick Action: Biometric Excel */}
+          {/* {isHR || !isSuperAdmin && (
           <button
             onClick={() => setIsBatchUploadOpen(true)}
             className="hidden lg:flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 text-gray-300 text-xs font-semibold transition-all cursor-pointer"
@@ -477,8 +477,8 @@ export const Header: React.FC = () => {
           </button>
         )} */}
 
-        {/* Global Search */}
-        {/* {!isSuperAdmin && (
+          {/* Global Search */}
+          {/* {!isSuperAdmin && (
           <button
             onClick={() => setIsSearchOpen(true)}
             className="p-2 sm:px-3 sm:py-1.5 rounded-xl bg-[#09081E] hover:bg-white/5 border border-white/10 text-xs text-gray-400 transition-colors flex items-center gap-2 cursor-pointer"
@@ -489,23 +489,75 @@ export const Header: React.FC = () => {
           </button>
         )} */}
 
-        {/* Role Switcher Pill */}
-        {/* Current Role */}
-        <div
-          className={`flex items-center justify-center gap-1.5 sm:gap-2 px-2 sm:px-3 py-2 sm:py-1.5 rounded-xl border text-xs font-semibold shrink-0 ${roleLabels[currentUser.roleName as Role]?.color ||
-            'bg-white/10 text-white border-white/10'
-            }`}
-        >
-          {roleLabels[currentUser.roleName as Role]?.icon}
+          {/* Role Switcher Pill */}
+          {/* Current Role */}
 
-          <span className="hidden md:inline">
-            {roleLabels[currentUser.roleName as Role]?.title ||
-              currentUser.roleName}
-          </span>
-        </div>
+          {/* Current Role */}
+          <div className="relative shrink-0" ref={roleRef}>
+            <button
+              type="button"
+              onClick={() => setIsRoleOpen(!isRoleOpen)}
+              className={`flex items-center justify-center gap-1.5 sm:gap-2 px-2 sm:px-3 py-2 sm:py-1.5 rounded-xl border text-xs font-semibold transition-all hover:brightness-110 ${roleLabels[currentUser.roleName as Role]?.color ||
+                'bg-white/10 text-white border-white/10'
+                }`}
+              aria-label={`Current role: ${roleLabels[currentUser.roleName as Role]?.title ||
+                currentUser.roleName
+                }`}
+              aria-expanded={isRoleOpen}
+            >
+              {roleLabels[currentUser.roleName as Role]?.icon}
 
-        {/* Notifications Bell */}
-        <div className="relative" ref={notifRef}>
+              {/* Desktop: Show role name inline */}
+              <span className="hidden md:inline">
+                {roleLabels[currentUser.roleName as Role]?.title ||
+                  currentUser.roleName}
+              </span>
+
+              {/* Mobile: Small dropdown indicator */}
+              <ChevronDown
+                className={`w-3 h-3 md:hidden transition-transform ${isRoleOpen ? 'rotate-180' : ''
+                  }`}
+              />
+            </button>
+
+            {/* Mobile & Desktop Role Popup */}
+            {isRoleOpen && (
+              <div className="absolute right-0 top-full mt-2 w-64 max-w-[calc(100vw-1.5rem)] bg-[#09081E] border border-white/15 rounded-xl shadow-2xl p-3 z-[60] animate-in fade-in zoom-in-95 duration-150">
+
+                <div className="flex items-center gap-2.5">
+                  <div
+                    className={`w-9 h-9 rounded-lg border flex items-center justify-center ${roleLabels[currentUser.roleName as Role]?.color ||
+                      'bg-white/10 text-white border-white/10'
+                      }`}
+                  >
+                    {roleLabels[currentUser.roleName as Role]?.icon}
+                  </div>
+
+                  <div className="min-w-0">
+                    <p className="text-[10px] text-gray-400 uppercase tracking-wider font-bold">
+                      Current Role
+                    </p>
+
+                    <p className="text-sm font-bold text-white">
+                      {roleLabels[currentUser.roleName as Role]?.title ||
+                        currentUser.roleName}
+                    </p>
+                  </div>
+                </div>
+
+                <div className="mt-3 pt-3 border-t border-white/10">
+                  <p className="text-xs text-gray-300 leading-relaxed">
+                    {roleLabels[currentUser.roleName as Role]?.desc ||
+                      'Your assigned system role'}
+                  </p>
+                </div>
+              </div>
+            )}
+          </div>
+
+
+          {/* Notifications Bell */}
+          {/* <div className="relative" ref={notifRef}>
           <button
             onClick={() => setIsNotifsOpen(!isNotifsOpen)}
             className="relative p-2.5 rounded-xl bg-[#09081E] hover:bg-white/5 border border-white/10 text-gray-400 hover:text-white transition-colors cursor-pointer shrink-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#5C3FE0]"
@@ -544,62 +596,70 @@ export const Header: React.FC = () => {
               </div>
             </div>
           )}
-        </div>
+        </div> */}
 
-        {/* User Profile & Logout Dropdown */}
-        <div className="relative" ref={userRef}>
-          <button
-            onClick={() => setIsUserMenuOpen(!isUserMenuOpen)}
-            className="flex items-center gap-2 p-1.5 rounded-xl hover:bg-white/5 transition-colors cursor-pointer shrink-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#5C3FE0]"
-            aria-label="User profile menu"
-          >
-            {avatarUrl ? (
-              <img
-                src={avatarUrl}
-                alt={currentUser.username}
-                className="w-9 h-9 rounded-full object-cover border border-white/15 shrink-0"
-              />
-            ) : (
-              <div className="w-9 h-9 rounded-full bg-[#5C3FE0]/20 border border-[#5C3FE0]/30 flex items-center justify-center text-white text-xs font-bold shrink-0">
-                {currentUser.username?.charAt(0)?.toUpperCase() ?? 'U'}
-              </div>
-            )}
-          </button>
+          {/* User Profile & Logout Dropdown */}
+          <div className="relative" ref={userRef}>
 
-          {isUserMenuOpen && (
-            <div className="absolute right-0 mt-2 w-64 max-w-[calc(100vw-1.5rem)] bg-[#09081E] border border-white/15 rounded-2xl shadow-2xl p-3 z-50 animate-in fade-in zoom-in-95 duration-100 max-h-[min(75vh,36rem)] overflow-y-auto">
-              <div className="flex items-center gap-3 pb-3 border-b border-white/10">
-                {avatarUrl ? (
-                  <img
-                    src={avatarUrl}
-                    alt={currentUser.username}
-                    className="w-9 h-9 rounded-full object-cover border border-white/15 shrink-0"
-                  />
-                ) : (
-                  <div className="w-9 h-9 rounded-full bg-[#5C3FE0]/20 border border-[#5C3FE0]/30 flex items-center justify-center text-white text-xs font-bold shrink-0">
-                    {currentUser.username?.charAt(0)?.toUpperCase() ?? 'U'}
-                  </div>
-                )}
-                <div className="min-w-0">
-                  <div className="text-xs font-bold text-white truncate">{currentUser.username}</div>
-                  <div className="text-[10px] text-gray-400 truncate">{currentUser.designation}</div>
-                  <div className="text-[10px] text-purple-300 font-mono mt-0.5">{currentUser.employeeCode}</div>
+            <button
+              onClick={() => setIsUserMenuOpen(!isUserMenuOpen)}
+              className="flex items-center gap-1.5 p-1.5 rounded-xl hover:bg-white/5 transition-colors cursor-pointer shrink-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#5C3FE0]"
+              aria-label="User profile menu"
+              aria-expanded={isUserMenuOpen}
+            >
+              {avatarUrl ? (
+                <img
+                  src={avatarUrl}
+                  alt={currentUser.username}
+                  className="w-9 h-9 rounded-full object-cover border border-white/15 shrink-0"
+                />
+              ) : (
+                <div className="w-9 h-9 rounded-full bg-[#5C3FE0]/20 border border-[#5C3FE0]/30 flex items-center justify-center text-white text-xs font-bold shrink-0">
+                  {currentUser.username?.charAt(0)?.toUpperCase() ?? 'U'}
                 </div>
-              </div>
+              )}
 
-              <div className="py-2 space-y-1 text-xs">
-                {/* My Profile */}
-                <button
-                  onClick={() => {
-                    setActiveTab('profile');
-                    setIsUserMenuOpen(false);
-                  }}
-                  className="w-full text-left px-2.5 py-1.5 rounded-lg text-gray-300 hover:bg-white/5 flex items-center justify-between cursor-pointer"
-                >
-                  <span>My Profile</span>
-                  <UserCircle className="w-3.5 h-3.5 text-[#A78BFA]" />
-                </button>
-                {/* <button
+              <ChevronDown
+                className={`w-3.5 h-3.5 text-gray-400 transition-transform duration-200 ${isUserMenuOpen ? 'rotate-180' : ''
+                  }`}
+              />
+            </button>
+
+
+            {isUserMenuOpen && (
+              <div className="absolute right-0 mt-2 w-64 max-w-[calc(100vw-1.5rem)] bg-[#09081E] border border-white/15 rounded-2xl shadow-2xl p-3 z-50 animate-in fade-in zoom-in-95 duration-100 max-h-[min(75vh,36rem)] overflow-y-auto">
+                <div className="flex items-center gap-3 pb-3 border-b border-white/10">
+                  {avatarUrl ? (
+                    <img
+                      src={avatarUrl}
+                      alt={currentUser.username}
+                      className="w-9 h-9 rounded-full object-cover border border-white/15 shrink-0"
+                    />
+                  ) : (
+                    <div className="w-9 h-9 rounded-full bg-[#5C3FE0]/20 border border-[#5C3FE0]/30 flex items-center justify-center text-white text-xs font-bold shrink-0">
+                      {currentUser.username?.charAt(0)?.toUpperCase() ?? 'U'}
+                    </div>
+                  )}
+                  <div className="min-w-0">
+                    <div className="text-xs font-bold text-white truncate">{currentUser.username}</div>
+                    <div className="text-[10px] text-gray-400 truncate">{currentUser.designation}</div>
+                    <div className="text-[10px] text-purple-300 font-mono mt-0.5">{currentUser.employeeCode}</div>
+                  </div>
+                </div>
+
+                <div className="py-2 space-y-1 text-xs">
+                  {/* My Profile */}
+                  <button
+                    onClick={() => {
+                      setActiveTab('profile');
+                      setIsUserMenuOpen(false);
+                    }}
+                    className="w-full text-left px-2.5 py-1.5 rounded-lg text-gray-300 hover:bg-white/5 flex items-center justify-between cursor-pointer"
+                  >
+                    <span>My Profile</span>
+                    <UserCircle className="w-3.5 h-3.5 text-[#A78BFA]" />
+                  </button>
+                  {/* <button
                   onClick={() => {
                     setActiveTab('daily_work');
                     setIsUserMenuOpen(false);
@@ -609,7 +669,7 @@ export const Header: React.FC = () => {
                   <span>My Daily Work Submissions</span>
                   <PhoneCall className="w-3.5 h-3.5 text-purple-400" />
                 </button> */}
-                {/* <button
+                  {/* <button
                   onClick={() => {
                     setActiveTab('receipts_slabs');
                     setIsUserMenuOpen(false);
@@ -619,37 +679,37 @@ export const Header: React.FC = () => {
                   <span>Customer Deposit Slips</span>
                   <Receipt className="w-3.5 h-3.5 text-emerald-400" />
                 </button> */}
-                {!isSuperAdmin && (
+                  {!isSuperAdmin && (
+                    <button
+                      onClick={() => {
+                        setActiveTab('payroll');
+                        setIsUserMenuOpen(false);
+                      }}
+                      className="w-full text-left px-2.5 py-1.5 rounded-lg text-gray-300 hover:bg-white/5 flex items-center justify-between cursor-pointer"
+                    >
+                      <span>My Salary & Payslips</span>
+                      <CreditCard className="w-3.5 h-3.5 text-cyan-400" />
+                    </button>
+                  )}
+                </div>
+
+                <div className="pt-2 border-t border-white/10">
                   <button
                     onClick={() => {
-                      setActiveTab('payroll');
                       setIsUserMenuOpen(false);
+                      logout();
                     }}
-                    className="w-full text-left px-2.5 py-1.5 rounded-lg text-gray-300 hover:bg-white/5 flex items-center justify-between cursor-pointer"
+                    className="w-full text-left px-2.5 py-1.5 rounded-lg text-rose-400 hover:bg-rose-500/10 flex items-center gap-2 text-xs font-semibold cursor-pointer"
                   >
-                    <span>My Salary & Payslips</span>
-                    <CreditCard className="w-3.5 h-3.5 text-cyan-400" />
+                    <LogOut className="w-3.5 h-3.5" />
+                    <span>Log Out</span>
                   </button>
-                )}
+                </div>
               </div>
+            )}
+          </div>
 
-              <div className="pt-2 border-t border-white/10">
-                <button
-                  onClick={() => {
-                    setIsUserMenuOpen(false);
-                    logout();
-                  }}
-                  className="w-full text-left px-2.5 py-1.5 rounded-lg text-rose-400 hover:bg-rose-500/10 flex items-center gap-2 text-xs font-semibold cursor-pointer"
-                >
-                  <LogOut className="w-3.5 h-3.5" />
-                  <span>Log Out</span>
-                </button>
-              </div>
-            </div>
-          )}
         </div>
-
-      </div>
       </div>
     </header>
   );
