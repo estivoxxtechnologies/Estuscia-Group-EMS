@@ -210,14 +210,14 @@ export const Header: React.FC = () => {
   // currentUser.roleName === 'super_admin';
 
   return (
-    <header className="h-16 border-b border-white/10 bg-[#040312]/80 backdrop-blur-md flex items-center justify-between px-3 sm:px-4 lg:px-8 select-none shrink-0 sticky top-0 z-40">
+    <header className="min-h-16 h-auto border-b border-white/10 bg-[#040312]/90 backdrop-blur-md flex flex-col sm:flex-row sm:items-center sm:justify-start gap-2 sm:gap-3 px-3 sm:px-4 lg:px-8 py-2 sm:py-0 select-none shrink-0 sticky top-0 z-40 w-full min-w-0">
 
       {/* Left: Mobile Menu Trigger & Tenant/Branch Controls */}
-      <div className="flex items-center gap-2 sm:gap-3">
+      <div className="flex items-center gap-2 sm:gap-3 w-full sm:w-auto min-w-0 flex-1 sm:flex-none">
         {/* Mobile Hamburger Toggle */}
         <button
           onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
-          className="lg:hidden p-2 rounded-xl bg-[#09081E] hover:bg-white/5 border border-white/10 text-gray-300 hover:text-white transition-colors"
+          className="lg:hidden p-2.5 shrink-0 rounded-xl bg-[#09081E] hover:bg-white/5 border border-white/10 text-gray-300 hover:text-white transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#5C3FE0]"
           aria-label="Toggle navigation menu"
         >
           {isMobileMenuOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
@@ -281,23 +281,29 @@ export const Header: React.FC = () => {
           // </div>
           // ) : (
           // Non-superadmin: Tenant is locked, Branch selector is available
-          <div className="flex items-center gap-1.5 sm:gap-2">
-            <div className="bg-[#09081E] px-2.5 sm:px-3 py-1.5 rounded-xl border border-white/10 flex items-center gap-1.5">
+          <div className="flex items-center justify-center gap-1.5 sm:gap-2 min-w-0 flex-1">
+            <div className="mx-auto sm:mx-0 bg-[#09081E] px-3 sm:px-3 py-2 sm:py-1.5 rounded-xl border border-white/10 flex items-center justify-center gap-2 min-w-0 max-w-[calc(100%-3.5rem)] sm:max-w-none">
               <Building2 className="w-3.5 h-3.5 text-[#5C3FE0] shrink-0" />
               <div className="text-left">
                 <div className="text-[9px] text-[#A78BFA] font-bold uppercase tracking-wider hidden sm:block">
                   Company Tenant
                 </div>
-                <div className="text-xs font-bold text-white max-w-[100px] sm:max-w-[140px] truncate">
+                <div className="text-xs font-bold text-white max-w-[min(58vw,15rem)] sm:max-w-[140px] truncate">
                   {currentUser?.tenantName ?? 'No Tenant Selected'}
                 </div>
               </div>
             </div>
 
+
+          </div>
+        )}
+      </div>
+
+      <div className="flex items-center gap-2 sm:gap-3 w-full min-w-0 sm:flex-1">
             {/* Branch Selector for Company Managers / Admins */}
             {/* Branch Selector */}
             {canSelectBranch && (
-              <div className="relative" ref={branchRef}>
+              <div className="relative min-w-0 flex-1 sm:flex-initial" ref={branchRef}>
                 <button
                   disabled={isBranchSelectionRestoring}
                   onClick={() => {
@@ -307,14 +313,14 @@ export const Header: React.FC = () => {
 
                     setIsBranchOpen(!isBranchOpen);
                   }}
-                  className={`bg-[#09081E] px-2.5 sm:px-3 py-1.5 rounded-xl border border-white/10 flex items-center gap-1.5 transition-colors ${branchDropdownDisabled
+                  className={`w-full sm:w-auto min-h-11 bg-[#09081E] px-3 sm:px-3 py-2 sm:py-1.5 rounded-xl border border-white/10 flex items-center justify-start gap-2 min-w-0 sm:max-w-[22rem] transition-colors ${branchDropdownDisabled
                     ? 'opacity-70 cursor-not-allowed'
                     : 'hover:border-[#5C3FE0]/50 cursor-pointer'
                     }`}
                 >
                   <MapPin className="w-3.5 h-3.5 text-cyan-400 shrink-0" />
 
-                  <div className="text-left min-w-0">
+                  <div className="text-left min-w-0 flex-1">
                     {isBranchSelectionRestoring ? (
                       <div className="flex items-center gap-1.5 text-xs text-gray-400">
                         <Loader2 className="w-3 h-3 animate-spin" />
@@ -322,7 +328,7 @@ export const Header: React.FC = () => {
                       </div>
                     ) : (
                       <>
-                        <div className="text-xs font-medium text-gray-200 max-w-[90px] sm:max-w-[130px] truncate">
+                        <div className="text-xs font-medium text-gray-200 whitespace-normal break-words leading-tight max-w-none sm:max-w-[19rem]">
                           {hasFixedHrBranch
                             ? currentUser.branchName ?? 'Assigned Branch'
                             : selectedBranch?.branchName ?? 'All Branches'}
@@ -354,7 +360,7 @@ export const Header: React.FC = () => {
                 </button>
 
                 {isBranchOpen && !hasFixedHrBranch && (
-                  <div className="absolute left-0 mt-2 w-64 bg-[#09081E] border border-white/15 rounded-xl shadow-2xl p-2 z-50">
+                  <div className="absolute left-0 mt-2 w-72 max-w-[calc(100vw-1.5rem)] bg-[#09081E] border border-white/15 rounded-xl shadow-2xl p-2 z-50 max-h-[min(70vh,28rem)] overflow-y-auto">
                     <div className="px-2.5 py-1 text-[10px] font-bold tracking-wider text-gray-400 uppercase">
                       Select Branch Scope
                     </div>
@@ -434,12 +440,8 @@ export const Header: React.FC = () => {
                 )}
               </div>
             )}
-          </div>
-        )}
-      </div>
-
       {/* Center/Right Action Bar */}
-      <div className="flex items-center gap-1.5 sm:gap-2.5 md:gap-3">
+      <div className="flex items-center justify-end gap-1.5 sm:gap-2.5 md:gap-3 w-auto sm:w-auto min-w-0 shrink-0 ml-auto">
 
         {/* Quick Action: Log Work */}
         {/* {!isSuperAdmin && (
@@ -490,7 +492,7 @@ export const Header: React.FC = () => {
         {/* Role Switcher Pill */}
         {/* Current Role */}
         <div
-          className={`flex items-center gap-1.5 sm:gap-2 px-2.5 sm:px-3 py-1.5 rounded-xl border text-xs font-semibold ${roleLabels[currentUser.roleName as Role]?.color ||
+          className={`flex items-center justify-center gap-1.5 sm:gap-2 px-2 sm:px-3 py-2 sm:py-1.5 rounded-xl border text-xs font-semibold shrink-0 ${roleLabels[currentUser.roleName as Role]?.color ||
             'bg-white/10 text-white border-white/10'
             }`}
         >
@@ -506,7 +508,7 @@ export const Header: React.FC = () => {
         <div className="relative" ref={notifRef}>
           <button
             onClick={() => setIsNotifsOpen(!isNotifsOpen)}
-            className="relative p-2 rounded-xl bg-[#09081E] hover:bg-white/5 border border-white/10 text-gray-400 hover:text-white transition-colors cursor-pointer"
+            className="relative p-2.5 rounded-xl bg-[#09081E] hover:bg-white/5 border border-white/10 text-gray-400 hover:text-white transition-colors cursor-pointer shrink-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#5C3FE0]"
             aria-label="Notifications"
           >
             <Bell className="w-4 h-4" />
@@ -516,7 +518,7 @@ export const Header: React.FC = () => {
           </button>
 
           {isNotifsOpen && (
-            <div className="absolute right-0 mt-2 w-80 sm:w-96 bg-[#09081E] border border-white/15 rounded-2xl shadow-2xl p-3 z-50 animate-in fade-in zoom-in-95 duration-100">
+            <div className="absolute right-0 mt-2 w-[min(24rem,calc(100vw-1.5rem))] bg-[#09081E] border border-white/15 rounded-2xl shadow-2xl p-3 z-50 animate-in fade-in zoom-in-95 duration-100 max-h-[min(75vh,36rem)] overflow-hidden">
               <div className="flex items-center justify-between pb-2 border-b border-white/10">
                 <div className="text-xs font-bold text-white flex items-center gap-2">
                   <span>Notifications</span>
@@ -525,7 +527,7 @@ export const Header: React.FC = () => {
                   </span>
                 </div>
               </div>
-              <div className="divide-y divide-white/5 max-h-80 overflow-y-auto mt-2 space-y-1 custom-scrollbar">
+              <div className="divide-y divide-white/5 max-h-[min(55vh,20rem)] overflow-y-auto mt-2 space-y-1 custom-scrollbar">
                 {notifications.map((n) => (
                   <div
                     key={n.id}
@@ -548,7 +550,7 @@ export const Header: React.FC = () => {
         <div className="relative" ref={userRef}>
           <button
             onClick={() => setIsUserMenuOpen(!isUserMenuOpen)}
-            className="flex items-center gap-2 p-1 rounded-xl hover:bg-white/5 transition-colors cursor-pointer"
+            className="flex items-center gap-2 p-1.5 rounded-xl hover:bg-white/5 transition-colors cursor-pointer shrink-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#5C3FE0]"
             aria-label="User profile menu"
           >
             {avatarUrl ? (
@@ -565,7 +567,7 @@ export const Header: React.FC = () => {
           </button>
 
           {isUserMenuOpen && (
-            <div className="absolute right-0 mt-2 w-64 bg-[#09081E] border border-white/15 rounded-2xl shadow-2xl p-3 z-50 animate-in fade-in zoom-in-95 duration-100">
+            <div className="absolute right-0 mt-2 w-64 max-w-[calc(100vw-1.5rem)] bg-[#09081E] border border-white/15 rounded-2xl shadow-2xl p-3 z-50 animate-in fade-in zoom-in-95 duration-100 max-h-[min(75vh,36rem)] overflow-y-auto">
               <div className="flex items-center gap-3 pb-3 border-b border-white/10">
                 {avatarUrl ? (
                   <img
@@ -647,6 +649,7 @@ export const Header: React.FC = () => {
           )}
         </div>
 
+      </div>
       </div>
     </header>
   );
