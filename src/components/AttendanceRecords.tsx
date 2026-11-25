@@ -872,11 +872,10 @@ export default function AttendanceRecords() {
                 >
 
                     <RefreshCw
-                        className={`h-4 w-4 ${
-                            attendanceLoading
-                                ? 'animate-spin'
-                                : ''
-                        }`}
+                        className={`h-4 w-4 ${attendanceLoading
+                            ? 'animate-spin'
+                            : ''
+                            }`}
                     />
 
                     Refresh
@@ -896,61 +895,63 @@ export default function AttendanceRecords() {
 
                     {/* From */}
 
-                    <div>
 
+                    <div>
                         <label className="mb-2 block text-xs font-medium text-slate-400">
                             From Date
                         </label>
 
-                        <div className="relative">
-
-                            <CalendarDays className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-500" />
-
-                            <input
-                                type="date"
-                                value={fromDate}
-                                max={toDate}
-                                onChange={e =>
-                                    setFromDate(
-                                        e.target.value
-                                    )
-                                }
-                                className="w-full rounded-xl border border-white/10 bg-white/5 py-2.5 pl-10 pr-3 text-sm text-white outline-none focus:border-[#5C3FE0]"
-                            />
-
-                        </div>
-
+                        <input
+                            type="date"
+                            value={fromDate}
+                            max={toDate}
+                            onChange={e => setFromDate(e.target.value)}
+                            className="
+            block w-full min-w-0 box-border
+            appearance-none
+            rounded-xl
+            border border-white/10
+            bg-white/5
+            px-4 py-3
+            text-sm text-white
+            outline-none
+            focus:border-[#5C3FE0]
+            [color-scheme:dark]
+        "
+                        />
                     </div>
+
 
 
                     {/* To */}
 
-                    <div>
 
+                    <div>
                         <label className="mb-2 block text-xs font-medium text-slate-400">
                             To Date
                         </label>
 
-                        <div className="relative">
-
-                            <CalendarDays className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-500" />
-
-                            <input
-                                type="date"
-                                value={toDate}
-                                min={fromDate}
-                                max={getToday()}
-                                onChange={e =>
-                                    setToDate(
-                                        e.target.value
-                                    )
-                                }
-                                className="w-full rounded-xl border border-white/10 bg-white/5 py-2.5 pl-10 pr-3 text-sm text-white outline-none focus:border-[#5C3FE0]"
-                            />
-
-                        </div>
-
+                        <input
+                            type="date"
+                            value={toDate}
+                            min={fromDate}
+                            max={getToday()}
+                            onChange={e => setToDate(e.target.value)}
+                            className="
+            block w-full min-w-0 box-border
+            appearance-none
+            rounded-xl
+            border border-white/10
+            bg-white/5
+            px-4 py-3
+            text-sm text-white
+            outline-none
+            focus:border-[#5C3FE0]
+            [color-scheme:dark]
+        "
+                        />
                     </div>
+
 
 
                     {/* Search */}
@@ -1104,7 +1105,7 @@ export default function AttendanceRecords() {
 
                                 <p className="mt-0.5 text-sm text-white">
                                     {selectedBranchId !== null &&
-                                    selectedBranchId !== undefined
+                                        selectedBranchId !== undefined
                                         ? `Header: ${selectedBranchName}`
                                         : `Filter: ${selectedBranchName}`}
                                 </p>
@@ -1117,7 +1118,7 @@ export default function AttendanceRecords() {
                         <p className="text-xs text-slate-500">
 
                             {selectedBranchId !== null &&
-                            selectedBranchId !== undefined
+                                selectedBranchId !== undefined
                                 ? 'Following header branch'
                                 : 'Attendance branch can be selected here'}
 
