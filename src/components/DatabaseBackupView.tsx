@@ -1,5 +1,5 @@
 
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
   Database,
   Download,
@@ -8,11 +8,13 @@ import {
   Clock,
   HardDrive,
   CheckCircle2,
-  AlertCircle,
   Loader2,
   Play,
   FileArchive,
+  X,
+  AlertTriangle,
 } from 'lucide-react';
+import { toast } from 'react-toastify';
 
 import {
   DatabaseBackup,
@@ -24,6 +26,11 @@ import {
 
 const isRunning = (status: string) =>
   ['QUEUED', 'CREATED', 'IN_PROGRESS'].includes(
+    status?.toUpperCase()
+  );
+
+const isFailed = (status: string) =>
+  ['FAILED', 'ERROR', 'CANCELLED'].includes(
     status?.toUpperCase()
   );
 
@@ -79,14 +86,14 @@ const DatabaseBackupView: React.FC = () => {
   const [starting, setStarting] = useState(false);
   const [downloadingId, setDownloadingId] = useState<number | null>(null);
   const [refreshing, setRefreshing] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [successMessage, setSuccessMessage] = useState<string | null>(null);
+  const [showConfirmModal, setShowConfirmModal] = useState(false);
+
+  // Track previous backup statuses to notify only when a job finishes.
+  const previousStatuses = useRef<Map<number, string>>(new Map());
 
   const loadHistory = useCallback(async (showLoader = false) => {
     try {
       if (showLoader) setLoading(true);
-
-      setError(null);
 
       const data = await getDatabaseBackupHistory();
 
@@ -94,7 +101,7 @@ const DatabaseBackupView: React.FC = () => {
     } catch (err) {
       console.error('Failed to load database backup history:', err);
 
-      setError(
+      toast.error(
         err instanceof Error
           ? err.message
           : 'Unable to load backup history.'
@@ -141,17 +148,43 @@ const DatabaseBackupView: React.FC = () => {
     return () => window.clearInterval(timer);
   }, [backups]);
 
+  // Notify when a running backup reaches a final status.
+  useEffect(() => {
+    backups.forEach((backup) => {
+      const currentStatus = backup.status?.toUpperCase();
+      const previousStatus = previousStatuses.current.get(backup.id);
+
+      if (
+        previousStatus &&
+        isRunning(previousStatus) &&
+        currentStatus === 'SUCCESS'
+      ) {
+        toast.success(
+          'Database backup completed successfully!'
+        );
+      }
+
+      if (
+        previousStatus &&
+        isRunning(previousStatus) &&
+        isFailed(currentStatus)
+      ) {
+        toast.error(
+          `Database backup ${currentStatus.toLowerCase()}. Please check backup history.`
+        );
+      }
+
+      previousStatuses.current.set(
+        backup.id,
+        currentStatus
+      );
+    });
+  }, [backups]);
+
   const handleStartBackup = async () => {
-    const confirmed = window.confirm(
-      'Start a new full database backup of EstusciaEMS?'
-    );
-
-    if (!confirmed) return;
-
     try {
       setStarting(true);
-      setError(null);
-      setSuccessMessage(null);
+      setShowConfirmModal(false);
 
       const newBackup = await startDatabaseBackup();
 
@@ -160,7 +193,7 @@ const DatabaseBackupView: React.FC = () => {
         ...previous.filter((item) => item.id !== newBackup.id),
       ]);
 
-      setSuccessMessage(
+      toast.success(
         'Database backup request submitted successfully.'
       );
 
@@ -168,7 +201,7 @@ const DatabaseBackupView: React.FC = () => {
     } catch (err) {
       console.error('Failed to start database backup:', err);
 
-      setError(
+      toast.error(
         err instanceof Error
           ? err.message
           : 'Unable to start the database backup.'
@@ -190,23 +223,23 @@ const DatabaseBackupView: React.FC = () => {
   const handleDownload = async (backup: DatabaseBackup) => {
     try {
       setDownloadingId(backup.id);
-      setError(null);
 
       const downloadUrl = await getDatabaseBackupDownloadUrl(
         backup.id
       );
 
       if (!downloadUrl) {
-        throw new Error('The download link was not returned by the server.');
+        throw new Error(
+          'The download link was not returned by the server.'
+        );
       }
 
-      // The browser downloads the .bak directly from the temporary
-      // secure S3 link. The file is saved on the user's device.
+      // Browser downloads the .bak file from the temporary secure S3 link.
       window.location.assign(downloadUrl);
     } catch (err) {
       console.error('Database backup download failed:', err);
 
-      setError(
+      toast.error(
         err instanceof Error
           ? err.message
           : 'Unable to download the backup file.'
@@ -258,21 +291,6 @@ const DatabaseBackupView: React.FC = () => {
         </button>
       </div>
 
-      {/* NOTIFICATIONS */}
-      {error && (
-        <div className="flex items-start gap-3 rounded-xl border border-rose-500/20 bg-rose-500/10 p-4 text-sm text-rose-300">
-          <AlertCircle className="mt-0.5 h-5 w-5 shrink-0" />
-          <span>{error}</span>
-        </div>
-      )}
-
-      {successMessage && (
-        <div className="flex items-start gap-3 rounded-xl border border-emerald-500/20 bg-emerald-500/10 p-4 text-sm text-emerald-300">
-          <CheckCircle2 className="mt-0.5 h-5 w-5 shrink-0" />
-          <span>{successMessage}</span>
-        </div>
-      )}
-
       {/* SUMMARY CARDS */}
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
 
@@ -281,9 +299,11 @@ const DatabaseBackupView: React.FC = () => {
             <span className="text-sm text-slate-400">Total Backups</span>
             <Database className="h-5 w-5 text-violet-400" />
           </div>
+
           <p className="mt-3 text-3xl font-bold text-white">
             {backups.length}
           </p>
+
           <p className="mt-1 text-xs text-slate-500">
             Recorded backup jobs
           </p>
@@ -294,9 +314,11 @@ const DatabaseBackupView: React.FC = () => {
             <span className="text-sm text-slate-400">Successful Backups</span>
             <CheckCircle2 className="h-5 w-5 text-emerald-400" />
           </div>
+
           <p className="mt-3 text-3xl font-bold text-white">
             {successfulCount}
           </p>
+
           <p className="mt-1 text-xs text-slate-500">
             Completed successfully
           </p>
@@ -307,9 +329,11 @@ const DatabaseBackupView: React.FC = () => {
             <span className="text-sm text-slate-400">Active Jobs</span>
             <Clock className="h-5 w-5 text-amber-400" />
           </div>
+
           <p className="mt-3 text-3xl font-bold text-white">
             {runningCount}
           </p>
+
           <p className="mt-1 text-xs text-slate-500">
             Currently processing
           </p>
@@ -319,6 +343,7 @@ const DatabaseBackupView: React.FC = () => {
       {/* CREATE BACKUP */}
       <div className="overflow-hidden rounded-2xl border border-violet-500/20 bg-gradient-to-br from-[#17102F] to-[#0D0B20]">
         <div className="flex flex-col gap-5 p-5 sm:p-7 lg:flex-row lg:items-center lg:justify-between">
+
           <div className="flex items-start gap-4">
             <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl border border-violet-400/20 bg-violet-500/10">
               <HardDrive className="h-6 w-6 text-violet-300" />
@@ -338,9 +363,11 @@ const DatabaseBackupView: React.FC = () => {
                 <span className="rounded-lg border border-white/10 bg-white/5 px-2.5 py-1 text-xs text-slate-300">
                   Database: EstusciaEMS
                 </span>
+
                 <span className="rounded-lg border border-white/10 bg-white/5 px-2.5 py-1 text-xs text-slate-300">
                   Format: .BAK
                 </span>
+
                 <span className="rounded-lg border border-white/10 bg-white/5 px-2.5 py-1 text-xs text-slate-300">
                   Access: Super Admin
                 </span>
@@ -349,7 +376,7 @@ const DatabaseBackupView: React.FC = () => {
           </div>
 
           <button
-            onClick={handleStartBackup}
+            onClick={() => setShowConfirmModal(true)}
             disabled={starting || runningCount > 0}
             className="inline-flex shrink-0 items-center justify-center gap-2 rounded-xl bg-violet-600 px-5 py-3 text-sm font-bold text-white shadow-lg shadow-violet-900/30 transition hover:bg-violet-500 disabled:cursor-not-allowed disabled:opacity-50"
           >
@@ -381,13 +408,16 @@ const DatabaseBackupView: React.FC = () => {
               <p className="break-all text-sm font-semibold text-slate-200">
                 {latestBackup.fileName}
               </p>
+
               <p className="mt-1 text-xs text-slate-500">
                 Started {formatDate(latestBackup.startedAtUtc)}
               </p>
             </div>
 
             <div className="flex items-center gap-3">
-              <span className={`rounded-full border px-3 py-1 text-xs font-bold ${getStatusStyle(latestBackup.status)}`}>
+              <span
+                className={`rounded-full border px-3 py-1 text-xs font-bold ${getStatusStyle(latestBackup.status)}`}
+              >
                 {latestBackup.status}
               </span>
 
@@ -412,6 +442,7 @@ const DatabaseBackupView: React.FC = () => {
             <div className="mt-5">
               <div className="mb-2 flex justify-between text-xs">
                 <span className="text-slate-400">Backup progress</span>
+
                 <span className="font-bold text-violet-300">
                   {latestBackup.progressPercent}%
                 </span>
@@ -438,6 +469,7 @@ const DatabaseBackupView: React.FC = () => {
         <div className="flex flex-col gap-3 border-b border-white/10 p-5 sm:flex-row sm:items-center sm:justify-between">
           <div>
             <h2 className="font-bold text-white">Backup History</h2>
+
             <p className="mt-1 text-xs text-slate-500">
               Previously generated database backup files.
             </p>
@@ -484,11 +516,15 @@ const DatabaseBackupView: React.FC = () => {
 
                 <tbody className="divide-y divide-white/5">
                   {backups.map((backup) => (
-                    <tr key={backup.id} className="transition hover:bg-white/[0.02]">
+                    <tr
+                      key={backup.id}
+                      className="transition hover:bg-white/[0.02]"
+                    >
                       <td className="max-w-xs px-5 py-4">
                         <p className="break-all text-sm font-medium text-slate-200">
                           {backup.fileName}
                         </p>
+
                         <p className="mt-1 text-xs text-slate-500">
                           Task #{backup.rdsTaskId ?? '—'}
                         </p>
@@ -503,7 +539,9 @@ const DatabaseBackupView: React.FC = () => {
                       </td>
 
                       <td className="px-5 py-4">
-                        <span className={`inline-flex rounded-full border px-2.5 py-1 text-[10px] font-bold ${getStatusStyle(backup.status)}`}>
+                        <span
+                          className={`inline-flex rounded-full border px-2.5 py-1 text-[10px] font-bold ${getStatusStyle(backup.status)}`}
+                        >
                           {backup.status}
                         </span>
 
@@ -530,7 +568,9 @@ const DatabaseBackupView: React.FC = () => {
                           </button>
                         ) : (
                           <span className="text-xs text-slate-600">
-                            {isRunning(backup.status) ? 'Processing...' : 'Unavailable'}
+                            {isRunning(backup.status)
+                              ? 'Processing...'
+                              : 'Unavailable'}
                           </span>
                         )}
                       </td>
@@ -552,19 +592,25 @@ const DatabaseBackupView: React.FC = () => {
                       <p className="break-all text-sm font-semibold text-slate-200">
                         {backup.fileName}
                       </p>
+
                       <p className="mt-1 text-xs text-slate-500">
                         {formatDate(backup.startedAtUtc)}
                       </p>
                     </div>
 
-                    <span className={`shrink-0 rounded-full border px-2 py-1 text-[10px] font-bold ${getStatusStyle(backup.status)}`}>
+                    <span
+                      className={`shrink-0 rounded-full border px-2 py-1 text-[10px] font-bold ${getStatusStyle(backup.status)}`}
+                    >
                       {backup.status}
                     </span>
                   </div>
 
                   <div className="mt-4 flex items-center justify-between border-t border-white/5 pt-3">
                     <div>
-                      <p className="text-[10px] text-slate-500">File size</p>
+                      <p className="text-[10px] text-slate-500">
+                        File size
+                      </p>
+
                       <p className="mt-1 text-xs font-semibold text-slate-300">
                         {formatSize(backup.fileSizeBytes)}
                       </p>
@@ -576,7 +622,11 @@ const DatabaseBackupView: React.FC = () => {
                         disabled={downloadingId === backup.id}
                         className="inline-flex items-center gap-2 rounded-lg bg-emerald-600 px-3 py-2 text-xs font-bold text-white disabled:opacity-50"
                       >
-                        <Download className="h-3.5 w-3.5" />
+                        {downloadingId === backup.id ? (
+                          <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                        ) : (
+                          <Download className="h-3.5 w-3.5" />
+                        )}
                         Download
                       </button>
                     )}
@@ -598,6 +648,151 @@ const DatabaseBackupView: React.FC = () => {
         Database backup operations are restricted to Super Admin accounts.
         Download links are temporary and should be used promptly after generation.
       </p>
+
+      {/* CUSTOM BACKUP CONFIRMATION MODAL */}
+      {showConfirmModal && (
+        <div
+          className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/70 p-4 backdrop-blur-sm"
+          onClick={() => !starting && setShowConfirmModal(false)}
+        >
+          <div
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="backup-confirm-title"
+            className="w-full max-w-md overflow-hidden rounded-2xl border border-white/10 bg-[#100D24] shadow-2xl shadow-black/50"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* MODAL HEADER */}
+            <div className="flex items-center justify-between border-b border-white/10 px-5 py-4">
+              <div className="flex items-center gap-3">
+                <div className="flex h-10 w-10 items-center justify-center rounded-xl border border-violet-400/20 bg-violet-500/10">
+                  <ShieldCheck className="h-5 w-5 text-violet-300" />
+                </div>
+
+                <div>
+                  <h3
+                    id="backup-confirm-title"
+                    className="font-bold text-white"
+                  >
+                    Confirm Database Backup
+                  </h3>
+
+                  <p className="mt-0.5 text-xs text-slate-500">
+                    Super Admin action
+                  </p>
+                </div>
+              </div>
+
+              <button
+                type="button"
+                onClick={() => setShowConfirmModal(false)}
+                disabled={starting}
+                className="rounded-lg p-2 text-slate-400 transition hover:bg-white/10 hover:text-white disabled:opacity-50"
+                aria-label="Close confirmation"
+              >
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+
+            {/* MODAL CONTENT */}
+            <div className="p-5">
+              <div className="mb-4 flex items-start gap-3 rounded-xl border border-amber-500/20 bg-amber-500/10 p-4">
+                <AlertTriangle className="mt-0.5 h-5 w-5 shrink-0 text-amber-400" />
+
+                <p className="text-sm leading-6 text-amber-200">
+                  You are about to create a new full database backup.
+                  This operation will start a backup job for your production
+                  database.
+                </p>
+              </div>
+
+              <div className="space-y-3 rounded-xl border border-white/10 bg-white/[0.03] p-4">
+                <div className="flex items-center justify-between gap-3">
+                  <span className="text-xs text-slate-500">
+                    Database
+                  </span>
+
+                  <span className="text-sm font-semibold text-white">
+                    EstusciaEMS
+                  </span>
+                </div>
+
+                <div className="h-px bg-white/5" />
+
+                <div className="flex items-center justify-between gap-3">
+                  <span className="text-xs text-slate-500">
+                    Backup type
+                  </span>
+
+                  <span className="text-sm font-semibold text-white">
+                    Full Backup
+                  </span>
+                </div>
+
+                <div className="h-px bg-white/5" />
+
+                <div className="flex items-center justify-between gap-3">
+                  <span className="text-xs text-slate-500">
+                    File format
+                  </span>
+
+                  <span className="text-sm font-semibold text-white">
+                    .BAK
+                  </span>
+                </div>
+
+                <div className="h-px bg-white/5" />
+
+                <div className="flex items-center justify-between gap-3">
+                  <span className="text-xs text-slate-500">
+                    Storage
+                  </span>
+
+                  <span className="text-sm font-semibold text-white">
+                    Secure AWS S3
+                  </span>
+                </div>
+              </div>
+
+              <p className="mt-4 text-xs leading-5 text-slate-500">
+                The backup will run in the background. You can monitor its
+                progress and download the .bak file once it is completed.
+              </p>
+            </div>
+
+            {/* MODAL ACTIONS */}
+            <div className="flex flex-col-reverse gap-3 border-t border-white/10 bg-white/[0.02] p-5 sm:flex-row sm:justify-end">
+              <button
+                type="button"
+                onClick={() => setShowConfirmModal(false)}
+                disabled={starting}
+                className="rounded-xl border border-white/10 bg-white/5 px-5 py-2.5 text-sm font-semibold text-slate-300 transition hover:bg-white/10 disabled:opacity-50"
+              >
+                Cancel
+              </button>
+
+              <button
+                type="button"
+                onClick={handleStartBackup}
+                disabled={starting}
+                className="inline-flex items-center justify-center gap-2 rounded-xl bg-violet-600 px-5 py-2.5 text-sm font-bold text-white shadow-lg shadow-violet-900/30 transition hover:bg-violet-500 disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                {starting ? (
+                  <>
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                    Starting Backup...
+                  </>
+                ) : (
+                  <>
+                    <Play className="h-4 w-4" />
+                    Confirm & Start Backup
+                  </>
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
