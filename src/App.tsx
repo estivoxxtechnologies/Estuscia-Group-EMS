@@ -27,6 +27,7 @@ import { BranchManagementView } from './components/BranchManagementView';
 import { TenantView } from './components/TenantView';
 import { CompanyAdminManagementView } from './components/CompanyAdminManagementView';
 import MyMonthlyAttendance from './components/MyMonthlyAttendance';
+import DatabaseBackupView from './components/DatabaseBackupView';
 
 import {
   LayoutDashboard,
@@ -213,6 +214,8 @@ const AppContent: React.FC = () => {
       case 'company_details':
         return <CompanyDetailsView />;
 
+      case 'database_backup':
+        return <DatabaseBackupView />;
 
       case 'monthly_attendance': {
         const role = currentUser?.roleName?.toLowerCase();

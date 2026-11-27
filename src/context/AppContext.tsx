@@ -86,6 +86,7 @@ export type AppTab =
   | 'company_holidays'
   | 'user_details'
   | 'add_user_details'
+  | 'database_backup'
   ;
 
 export type ViewMode = 'portal' | 'public_web';
@@ -899,6 +900,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         'tenants',
         'branch_management',
         'tenant_payment',
+        'database_backup',
         'knowledge_hub',
       ].includes(tab);
     }

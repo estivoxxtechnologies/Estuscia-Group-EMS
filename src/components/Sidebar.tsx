@@ -17,6 +17,7 @@ import {
   X,
   CalendarDays,
   UserRound,
+  Database
 } from 'lucide-react';
 
 import { useApp, AppTab } from '../context/AppContext';
@@ -61,6 +62,7 @@ export const Sidebar: React.FC = () => {
     'branch_management',
     'tenant_payment',
     'company_admin_management',
+    'database_backup',
     'knowledge_hub',
   ];
 
@@ -283,6 +285,13 @@ export const Sidebar: React.FC = () => {
         id: 'company_admin_management',
         label: 'Company Admin Management',
         icon: <Users className="w-4 h-4" />,
+        section: 'company_admin',
+        superAdminOnly: true,
+      },
+      {
+        id: 'database_backup',
+        label: 'Database Backup',
+        icon: <Database className="w-4 h-4" />,
         section: 'company_admin',
         superAdminOnly: true,
       },
